@@ -19,4 +19,14 @@ fn main() {
 
     // press enter
     gui.keyboard_command("return");
+
+
+    // maybe you would want to loop search until image is found and break the loop then
+    loop {
+        let pos = gui.find_image_on_screen_and_move_mouse(0.9, 1.0);    
+        match pos {
+            Some(_) => break,
+            None => (),
+        }
+    }
 }

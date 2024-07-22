@@ -35,7 +35,7 @@ Either run
 
 or add the crate in your Cargo.toml file like:
 
-`rustautogui = "0.1.7"`
+`rustautogui = "0.1.8"`
 
 For Linux additionally install run :
 
@@ -90,9 +90,10 @@ let found_locations: Option<Vec<(u32, u32, f64)>> =  rustautogui.find_image_on_s
 // returns locations that have correlation higher than precision, ordered from highest to lowest. 
 // Mouse moves to highest correlation point
 ```
-IMPORTANT: Difference between linux and windows when using multiple monitors. On Windows, main monitor starts from coordinates 0, 0 to monitor width and height. Any monitor that is left from it will have X values as negative. Monitor above the main one will have negative Y values. Any monitor right and under of the main monitor will have positive X and Y values, greater than monitor width and height.
+IMPORTANT: Difference between linux and windows when using multiple monitors. On Windows, search for template image can be done only on the main monitor.
 
-On linux, 0, 0 coordinates start from top left position. The leftmost monitor will have zero X coordinate, while top most monitor will have Y zero coordinate. 
+
+On linux, search can be done on all monitors and  0, 0 coordinates start from top left position. The leftmost monitor will have zero X coordinate, while top most monitor will have Y zero coordinate. 
 ```rust
 rustautogui.left_click(); // left mouse click
 rustautogui.right_click(); // right mouse click
@@ -113,10 +114,11 @@ fn main() {
 }
 ```
 This is assisting tool that pops up a window that shows mouse coordinates. This is a good utility to determine matching regions when developing. 
+It was of great help when testing and debugging this library, so I decided to leave it in for users aswell. 
 
 ## How does crate work:
 
-On windows api interacts with winapi, through usage of winapi crate, while on linux it interacts with x11 api through usage of x11 crate.
+On windows, api interacts with winapi, through usage of winapi crate, while on linux it interacts with x11 api through usage of x11 crate.
 When RustAutoGui instance is created with ::new function, the Screen, Mouse and Keyboard structs are also initialized and stored under RustAutoGui struct.
 Screen struct preallocates memory segment for screen image storage. 
 
