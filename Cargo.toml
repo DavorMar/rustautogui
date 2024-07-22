@@ -1,0 +1,31 @@
+[package]
+name = "rustautogui"
+version = "0.1.0"
+edition = "2021"
+description = "rustautogui is a GUI automation module used to control the mouse and keyboard"
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/DavorMar/rustautogui"
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[dependencies]
+image = "0.23"
+rustfft = "6.2.0"
+num-complex = "0.4.6"
+rayon = "1.10.0"
+rand = "0.8.5"
+
+eframe = "0.28.1"
+egui = "0.28.1"
+x11 = "2.21.0"
+
+
+
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winuser", "windef"] }
+
+
