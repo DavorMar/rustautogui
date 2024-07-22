@@ -1,6 +1,6 @@
 [package]
 name = "rustautogui"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 description = "rustautogui is a GUI automation module used to control the mouse and keyboard"
 license = "MIT"
