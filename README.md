@@ -74,17 +74,21 @@ rustautogui.change_prepared_settings(
 ```
 
 ```rust
-rustautogui.find_image_on_screen(precision:0.9); // returns pixel coordinates for prepared template
+let found_locations: Option<Vec<(u32, u32, f64)>> = rustautogui.find_image_on_screen(precision:0.9); // returns pixel coordinates for prepared template
 // on screen. Returns list of coordinates that have correlation higher than inserted precision parameter
-//must have prepared template before
+// must have prepared template before
+// returns locations that have correlation higher than precision, ordered from highest to lowest. 
+// Mouse moves to highest correlation point
 ```
 
 ```rust
-rustautogui.find_image_on_screen_and_move_mouse(precision:0.9);
+let found_locations: Option<Vec<(u32, u32, f64)>> =  rustautogui.find_image_on_screen_and_move_mouse(precision:0.9, moving_time:1.0);
 // finds template image on screen and automatically moves mouse
 // cursor to the middle of the image. Matches only single
-//position with highest correlation value
-//must have prepared template before
+// position with highest correlation value
+// must have prepared template before
+// returns locations that have correlation higher than precision, ordered from highest to lowest. 
+// Mouse moves to highest correlation point
 ```
 IMPORTANT: Difference between linux and windows when using multiple monitors. On Windows, main monitor starts from coordinates 0, 0 to monitor width and height. Any monitor that is left from it will have X values as negative. Monitor above the main one will have negative Y values. Any monitor right and under of the main monitor will have positive X and Y values, greater than monitor width and height.
 
