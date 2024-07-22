@@ -21,7 +21,7 @@ Main functions:
 
 Rustautogui crate will include a new variation of template matching algorithm using cross correlation, which is not implemented yet. Currently, a paper has been written on the new algorithm and when it is submitted to arxiv it will be release in this library
 
-For this reason, please follow the updates. Once 1.0 version is release, it will contain new algorithm. Currently, everything code wise is prepared for new algorithm, and code for 1.0 version exists. 
+For this reason, please follow the updates. Once 1.0 version is released, it will contain new algorithm. Currently, everything code wise is prepared for new algorithm, and code for 1.0 version exists. 
 For this reason, if choosing Segmented match mode at this moment, you will get a panic. 
 
 ## Installation
