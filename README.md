@@ -30,7 +30,7 @@ For this reason, if choosing Segmented match mode at this moment, you will get a
 
 ## Installation
 
-`rustautogui = "0.1.4"`
+`rustautogui = "0.1.5"`
 
 For Linux additionally install run :
 
