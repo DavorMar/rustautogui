@@ -17,6 +17,10 @@ Main functions:
 - detect cursor position
 
 
+Note: this library does not use OpenCV template matching, like python version does. OpenCV have fully optimised template matching, while here multithreading is used but no GPU acceleration yet. For that reason, finding image on screen may be slower than the python counterpart using OpenCV, but the speed is still satisfying. Once Segmented correlation algorithm is included, speed will be further increased. The goal would be to include also GPU acceleration over time.
+
+The reason for not including OpenCV in this library is because installation of all the bindings and dependencies for rust can be a tiresome and a long process. I did not want to shape the library with prerequisite of user spending multiple hours pre installing everything needed. For this reason, template maching has been completely self developed.  
+
 # Segmented template matching algorithm
 
 Rustautogui crate will include a new variation of template matching algorithm using cross correlation, which is not implemented yet. Currently, a paper has been written on the new algorithm and when it is submitted to arxiv it will be release in this library
@@ -26,7 +30,7 @@ For this reason, if choosing Segmented match mode at this moment, you will get a
 
 ## Installation
 
-`rustautogui = "0.1.0"`
+`rustautogui = "0.1.1"`
 
 For Linux additionally install run :
 
