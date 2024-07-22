@@ -3,7 +3,7 @@ use x11::xlib::*;
 use std::time::Instant;
 use x11::xtest::*;
 use super::Mouseclick;
-
+use std::{thread, time::Duration};
 
 
 pub struct Mouse{
@@ -149,6 +149,7 @@ impl Mouse {
         unsafe {
             XSetInputFocus(self.screen, window, RevertToParent, CurrentTime);
             XFlush(self.screen);
+            thread::sleep(Duration::from_millis(50));
         }
     }
 
