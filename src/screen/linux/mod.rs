@@ -23,18 +23,18 @@ pub struct Screen {
 impl Screen {
     pub fn new () -> Self {
         unsafe {
-            // Open the display (usually ":0")
+            // open the display (usually ":0"). This display pointer will be passed
+            // to mouse and keyboard structs aswell 
             let display: *mut _XDisplay = XOpenDisplay(ptr::null());
             if display.is_null() {
                 panic!("Unable to open X display");
             }
 
-            // Get the root window
+            // get root window
             let screen = XDefaultScreen(display);
             let root = XRootWindow(display, screen);
 
 
-            // Get the screen dimensions
             let screen_width = XDisplayWidth(display, screen);
             let screen_height = XDisplayHeight(display, screen);
             Screen{
@@ -50,12 +50,13 @@ impl Screen {
     }
 
     
-
+    /// returns screen dimensions. All monitors included
     pub fn dimension (&self) -> (i32, i32) {
         let dimensions = (self.screen_width, self.screen_height);
         dimensions
     }
 
+    /// return region dimension which is set up when template is precalculated
     pub fn region_dimension(&self) -> (u32,u32) {
         let dimensions = (self.screen_region_width, self.screen_region_height);
         dimensions
@@ -68,6 +69,8 @@ impl Screen {
         }  
     }
 
+    /// executes convert_bitmap_to_rgba, meaning it converts Vector of values to RGBA and crops the image 
+    /// as inputted region area. Not used anywhere at the moment
     pub fn grab_screen_image(&mut self,  region: (u32, u32, u32, u32)) -> ImageBuffer<Rgba<u8>, Vec<u8>>{
         let (x, y, width, height) = region;
         self.screen_region_width = width;
@@ -79,7 +82,8 @@ impl Screen {
     }
 
 
-
+    /// executes convert_bitmap_to_grayscale, meaning it converts Vector of values to grayscale and crops the image 
+    /// as inputted region area
     pub fn grab_screen_image_grayscale(&mut self,  region: &(u32, u32, u32, u32)) -> ImageBuffer<Luma<u8>, Vec<u8>>{
         let (x, y, width, height) = region;
         self.screen_region_width = *width;
@@ -90,6 +94,7 @@ impl Screen {
         cropped_image
     }
 
+    /// captures and saves screenshot of monitors
     pub fn grab_screenshot(&mut self, image_path: &str) {
         self.capture_screen();
         let image = self.convert_bitmap_to_rgba(); 
@@ -97,6 +102,8 @@ impl Screen {
     }
 
 
+
+    /// first order capture screen function. it captures screen image and stores it as vector in self.pixel_data
     fn capture_screen(&mut self) {    
         unsafe{
             let ximage = XGetImage(self.display, self.root_window, 0, 0, self.screen_width as u32, self.screen_height as u32, ALLPLANES, ZPixmap);
@@ -104,11 +111,11 @@ impl Screen {
                 panic!("Unable to get X image");
             }
 
-            // Get the image data
+            // get the image data
             let data = (*ximage).data as *mut u8;
             let data_len = ((*ximage).width * (*ximage).height * ((*ximage).bits_per_pixel / 8)) as usize;
             let slice = std::slice::from_raw_parts(data, data_len);
-             // Create an image buffer from the captured data
+            // create an image buffer from the captured data
             let mut img = ImageBuffer::<Rgba<u8>, Vec<u8>>::new((*ximage).width as u32, (*ximage).height as u32);
             let (image_width, image_height) = img.dimensions();
             let mut pixel_data: Vec<u8> = Vec::with_capacity((image_width * image_height * 4) as usize);
@@ -126,6 +133,7 @@ impl Screen {
         }
     }
 
+    /// convert vector to Luma Imagebuffer 
     fn convert_bitmap_to_grayscale(&self) -> ImageBuffer<Luma<u8>, Vec<u8>> {
         let mut grayscale_data = Vec::with_capacity((self.screen_width * self.screen_height) as usize);
         for chunk in self.pixel_data.chunks_exact(4) {
@@ -143,7 +151,7 @@ impl Screen {
                     ).expect("Couldn't convert to GrayImage")
     }
 
-
+    /// convert vector to RGBA ImageBuffer
     fn convert_bitmap_to_rgba(&self) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
         ImageBuffer::from_raw(
             self.screen_width as u32,

@@ -55,24 +55,7 @@ pub fn fft_ncc(
         image_width, 
         image_height
     );
-    
-    // let mut zero_mean_image: Vec<Vec<f32>> = vec![vec![0.0; image_width as usize]; image_height as usize];
-    // for y in 0..image_height - template_height{
-    //     for x in 0..image_width -template_width{
-    //         let image_pixel_value = image.get_pixel(x,y)[0] as f32;
-    //         let area_sum = sum_region(&image_integral, x, y, *template_width, *template_height);
-    //         let area_mean = area_sum as f32 / (template_height*template_width) as f32;
-    //         zero_mean_image[y as usize][x as usize] = image_pixel_value - area_mean;
-    //     }
-    // }
-    // for y in image_height - template_height..image_height{
-    //     for x in image_width -template_width..image_width{
-    //         let image_pixel_value = image.get_pixel(x,y)[0] as f32;
-    //         let area_sum = sum_region(&image_integral, x, y, image_width-x, image_height-y);
-    //         let area_mean = area_sum as f32 / (template_height*template_width) as f32;
-    //         zero_mean_image[y as usize][x as usize] = image_pixel_value - area_mean;
-    //     }
-    // }
+
 
     // calculating zero mean image , meaning image pixel values - image zero value
     let image_average_total = sum_image as f32 / (image_height*image_width) as f32;
@@ -206,9 +189,7 @@ pub fn prepare_template_picture (
     /// returning template in frequency domain, with calculated conjugate
     let (template_width, template_height) = template.dimensions();
     let padded_width = (*image_width).next_power_of_two();
-    // let padded_width = *template_width;
     let padded_height = (*image_height).next_power_of_two();
-    // let padded_height = *template_height;
     let padded_size = max(padded_width, padded_height);
     
 

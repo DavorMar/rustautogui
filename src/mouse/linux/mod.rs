@@ -20,7 +20,7 @@ impl Mouse {
 
     
 
-
+    /// moves mouse to x, y pixel coordinate on screen 
     pub fn move_mouse_to_pos(&self, x:i32, y:i32, moving_time:f32) {
         
         unsafe {
@@ -30,6 +30,8 @@ impl Mouse {
                 return  
             }
         }
+
+        // if moving time is included, loop is executed that moves step by step
         let start = Instant::now();
         let start_location = self.get_mouse_position();
         let distance_x = x - start_location.0;
@@ -58,6 +60,7 @@ impl Mouse {
        }
     }
 
+    /// returns x, y pixel coordinate of mouse position
     pub fn get_mouse_position(&self) -> (i32,i32) {
         unsafe {
             let mut root_return = 0;
@@ -88,7 +91,7 @@ impl Mouse {
         }
     }
 
-
+    /// click mouse, either left, right or middle
     pub fn mouse_click(&self,  button: Mouseclick) {
         let button =match button {
             Mouseclick::LEFT => 1,
@@ -103,7 +106,9 @@ impl Mouse {
                 eprintln!("XTest extension not available");
                 return;
             }
-            
+            if let Some(window) = self.get_window_under_cursor() {
+                self.set_focus_to_window(window);
+            } 
             // Press the mouse button
             XTestFakeButtonEvent(self.screen, button, 1, CurrentTime);
             XFlush(self.screen);
@@ -111,13 +116,14 @@ impl Mouse {
             // Release the mouse button
             XTestFakeButtonEvent(self.screen, button, 0, CurrentTime);
             XFlush(self.screen);
-            if let Some(window) = self.get_window_under_cursor() {
-                self.set_focus_to_window(window);
-            } 
+            
         }
         
     }
 
+
+    /// return window that is at cursor position. Used when executing left click to also 
+    /// change focused window
     fn get_window_under_cursor(&self) -> Option<Window> {
         let mut child: Window = 0;
         let mut win_x: i32 = 0;
@@ -139,12 +145,12 @@ impl Mouse {
                 if child != 0 {
                     return Some(child);
                 } 
-        }
-        None
+            }
+            None
+        }   
     }
-}
     
-    
+    /// change focused window. Used when clicking a window
     fn set_focus_to_window(&self, window: Window) {
         unsafe {
             XSetInputFocus(self.screen, window, RevertToParent, CurrentTime);

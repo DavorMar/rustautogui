@@ -3,31 +3,31 @@ use x11::xlib::*;
 use x11::xtest::*;
 use std::ffi::CString;
 
-
+/// main struct for interacting with keyboard. Keymap is generated upon intialization. 
+/// screen is stored from Screen struct, where pointer for same screen object is used across the code
 pub struct Keyboard {
     keymap: HashMap<String,String>,
     screen : *mut _XDisplay,
 }
 impl Keyboard {
+    /// create new keyboard instance. Display object is needed as argument
     pub fn new(screen: *mut _XDisplay) -> Self {
-        /*
-        Creates new keyboard instance and ties Display to it.
-         */
         let keymap = Keyboard::create_keymap();
         Self { keymap: keymap, screen:screen}
     }
 
+    /// Function that presses key down. When sending key, press key down and release key is executed
     unsafe fn press_key(&self, keycode: u32) {
         XTestFakeKeyEvent(self.screen, keycode, 1, CurrentTime);
         XFlush(self.screen);
     }
-
+    /// Function that releases key up. When sending key, press key down and release key is executed
     unsafe fn release_key(&self, keycode: u32) {
         XTestFakeKeyEvent(self.screen, keycode, 0, CurrentTime);
         XFlush(self.screen);
     }
     
-
+    /// send a key by press down and release up 
     fn send_key(&self, scan_code: u32) {
         unsafe {
             self.press_key(scan_code);
@@ -35,6 +35,8 @@ impl Keyboard {
         }
     }
 
+
+    /// execute send_key function but press Shift key before, and release it after
     fn send_shifted_key (&self, scan_code:u32) {
         unsafe {
 
@@ -51,7 +53,7 @@ impl Keyboard {
         }
     }
 
-
+    /// top level send character function that converts char to keycode and executes send key
     pub fn send_char (&self, key:&char, shifted:&bool) {
         let char_string = String::from(*key);
         let value = self.keymap.get(&char_string);
@@ -82,6 +84,7 @@ impl Keyboard {
         
     }
 
+    /// similar to send char, but can be string such as return, escape etc
     pub fn send_command(&self, key:&String) {
         let value = self.keymap.get(key);
         unsafe {
@@ -105,7 +108,10 @@ impl Keyboard {
 
         
     }
-    // https://www.cl.cam.ac.uk/~mgk25/ucs/keysymdef.h
+    /// https://www.cl.cam.ac.uk/~mgk25/ucs/keysymdef.h
+    /// mapping made so  bigger variety of strings can be used when sending string as input. 
+    /// for instance, instead of neccessity of sending "period", we can send ".". This means when sending a 
+    /// string like url test.hr we dont need to send test, then send period, then send hr 
     fn create_keymap () -> HashMap<String, String> {
         /*
         TO DO: Insert more commands

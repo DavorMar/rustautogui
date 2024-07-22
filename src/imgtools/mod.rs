@@ -7,34 +7,25 @@ and converting image to vector.
 
 use image::{io::Reader as ImageReader, DynamicImage, ImageBuffer, Luma, Rgba, GrayImage, Pixel, Primitive};
 
-
+/// Loads image from the provided path and converts to black-white format
+/// Returns image in image::ImageBuffer format
 pub fn load_image_bw(location:&str) -> ImageBuffer<Luma<u8>, Vec<u8>>  {
-    /*
-    Loads image from the provided path and converts to black-white format
-    Returns image in image::ImageBuffer format
-     */
     let img: DynamicImage = ImageReader::open(location).expect("Failed to load image, please check if path is correct").decode().expect("Failed to decode image");
     let gray_image: ImageBuffer<Luma<u8>, Vec<u8>> = img.to_luma8();
-    // gray_image.save("example_gray.png").expect("Failed to save grayscale image");
     gray_image
 }
 
+
+/// Loads image from the provided path and converts to RGBA format
+/// Returns image in image::ImageBuffer format
 pub fn load_image_rgba(location:&str) -> ImageBuffer<Rgba<u8>, Vec<u8>>  {
-    /*
-    Loads image from the provided path and converts to RGBA format
-    Returns image in image::ImageBuffer format
-     */
     let img: DynamicImage = ImageReader::open(location).expect("Failed to load image, please check if path is correct").decode().expect("Failed to decode image");
     let rgba_image: ImageBuffer<Rgba<u8>, Vec<u8>> = img.to_rgba8();
-    // gray_image.save("example_gray.png").expect("Failed to save grayscale image");
     rgba_image
 }
 
-
+/// Does conversion from ImageBuffer RGBA to ImageBuffer Black and White(Luma)
 pub fn convert_image_to_bw(image:ImageBuffer<Rgba<u8>,Vec<u8>>) -> ImageBuffer<Luma<u8>,Vec<u8>> {
-    /*
-    Does conversion from ImageBuffer RGBA to ImageBuffer Black and White(Luma)
-     */
     let mut grayscale_data: Vec<u8> = Vec::with_capacity(image.len() as usize);
     let screen_width = image.width();
     let screen_height = image.height();
@@ -54,15 +45,12 @@ pub fn convert_image_to_bw(image:ImageBuffer<Rgba<u8>,Vec<u8>>) -> ImageBuffer<L
 }
 
 
-
+/// Cuts Region of image. Inputs are top left x , y pixel coordinates on image,
+///     width and height of region and the image being cut.
+///     Returns image os same datatype
 pub fn cut_screen_region<T>(x: u32, y: u32, width: u32, height: u32, screen_image: &ImageBuffer<T, Vec<u8>>) -> ImageBuffer<T, Vec<u8>>
 where
     T: Pixel<Subpixel = u8> + 'static,
-    /*
-    Cuts Region of image. Inputs are top left x , y pixel coordinates on image,
-    width and height of region and the image being cut.
-    Returns image os same datatype
-     */
 {
     assert!(x + width <= screen_image.width());
     assert!(y + height <= screen_image.height());
@@ -83,13 +71,11 @@ where
 
 
 
-
+///Converts Imagebuffer to Vector format
 pub fn imagebuffer_to_vec<T: Copy + Primitive + 'static>(
     image: &ImageBuffer<Luma<T>, Vec<T>>,
 ) -> Vec<Vec<T>> {
-    /*
-    Converts Imagebuffer to Vector format
-     */
+    
     let (width, height) = image.dimensions();
     let zero_pixel = image.get_pixel(0, 0)[0];
     let mut vec: Vec<Vec<T>> = vec![vec![zero_pixel; width as usize]; height as usize];

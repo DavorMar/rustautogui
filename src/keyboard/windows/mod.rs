@@ -7,12 +7,12 @@ use std::collections::HashMap;
 
 
 
-
+/// main struct for interacting with keyboard. Keymap is generated upon intialization. 
 pub struct Keyboard {
     keymap : HashMap<String, u16>
 }
 impl Keyboard {
-
+    /// create new keyboard instance.
     pub fn new ()-> Keyboard {
         let keyset = Keyboard::create_keymap();
         Keyboard {keymap:keyset}
@@ -20,10 +20,10 @@ impl Keyboard {
 
     
     
-    
+    /// executes press down of a key, then press up. 
     pub fn send_key(scan_code: u16) {
         unsafe {
-            // Create an INPUT structure for key press
+            // create structure for key press
             let scan_code = MapVirtualKeyW(scan_code as u32, MAPVK_VK_TO_VSC) as u16;
             let mut input: INPUT = std::mem::zeroed();
             input.type_ = INPUT_KEYBOARD;
@@ -36,10 +36,10 @@ impl Keyboard {
                 ki.dwExtraInfo = 0;
             }
     
-            // Send the key press
+            // send keypress 
             SendInput(1, &mut input, size_of::<INPUT>() as i32);
     
-            // Create an INPUT structure for key release
+            // create structure for key release
             let mut input: INPUT = std::mem::zeroed();
             input.type_ = INPUT_KEYBOARD;
             {
@@ -51,14 +51,16 @@ impl Keyboard {
                 ki.dwExtraInfo = 0;
             }
     
-            // Send the key release
+            // release key
             SendInput(1, &mut input, size_of::<INPUT>() as i32);
         }
     }
     
+
+    /// executes press down of shift key, press down and press up for desired key, then press up of shift key
     pub fn send_shifted_key(scan_code: u16) {
         unsafe {
-            // Press Shift key
+            // press shift key
             let mut shift_input: INPUT = std::mem::zeroed();
             shift_input.type_ = INPUT_KEYBOARD;
             {
@@ -71,10 +73,10 @@ impl Keyboard {
             }
             SendInput(1, &mut shift_input, size_of::<INPUT>() as i32);
     
-            // Send the key
+            // send key
             Keyboard::send_key(scan_code);
     
-            // Release Shift key
+            // release shift
             let mut shift_input: INPUT = std::mem::zeroed();
             shift_input.type_ = INPUT_KEYBOARD;
             {
@@ -89,6 +91,8 @@ impl Keyboard {
         }
     }
     
+
+    /// function used when sending input as string
     pub fn send_char(&self, key:&char, shifted:&bool) {
         let char_string = String::from(*key);
         let value = self.keymap.get(&char_string);
@@ -98,9 +102,9 @@ impl Keyboard {
         } else {
             Keyboard::send_key(*value);
         }
-        
-  
     }
+
+    /// function used when sending commands like "return" or "escape"
     pub fn send_command(&self, key:&String) {
         let value = self.keymap.get(key);
         let value = value.expect("Unknown command");
@@ -108,7 +112,9 @@ impl Keyboard {
 
     }
 
-
+    /// mapping made so  bigger variety of strings can be used when sending string as input. 
+    /// for instance, instead of neccessity of sending "period", we can send ".". This means when sending a 
+    /// string like url test.hr we dont need to send test, then send period, then send hr 
     pub fn create_keymap() -> HashMap<String, u16> {
         let mut key_map: HashMap<String, u16> = HashMap::new(); 
         // Inserting key mappings
