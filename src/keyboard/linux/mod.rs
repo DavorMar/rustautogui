@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use x11::keysym::*;
 use x11::xlib::*;
 use x11::xtest::*;
 use std::ffi::CString;
@@ -52,6 +51,7 @@ impl Keyboard {
         }
     }
 
+
     pub fn send_char (&self, key:&char, shifted:&bool) {
         let char_string = String::from(*key);
         let value = self.keymap.get(&char_string);
@@ -62,7 +62,7 @@ impl Keyboard {
                 None => XStringToKeysym(CString::new(key.to_string()).unwrap().as_ptr())
             };
             if keysym == 0 {
-                eprintln!("No keysym found for character: {}", key);
+                
                 return;
             }
             if !keysym_to_keycode.contains_key(&keysym) {
@@ -70,7 +70,7 @@ impl Keyboard {
                 keysym_to_keycode.insert(keysym, keycode);
             }
             let keycode = keysym_to_keycode[&keysym];
-            println!("Value received is {} and converted value is {:?}",key , value );
+            
             if *shifted {
                 self.send_shifted_key(keycode);    
             } else {
@@ -91,7 +91,7 @@ impl Keyboard {
                 None => XStringToKeysym(CString::new(key.clone()).unwrap().as_ptr())
             };
             if keysym == 0 {
-                eprintln!("No keysym found for character: {}", key);
+                
                 return;
             }
             if !keysym_to_keycode.contains_key(&keysym) {

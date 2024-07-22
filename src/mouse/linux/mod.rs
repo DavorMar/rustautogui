@@ -4,6 +4,8 @@ use std::time::Instant;
 use x11::xtest::*;
 use super::Mouseclick;
 
+
+
 pub struct Mouse{
     screen: *mut _XDisplay,
     root_window: u64,
@@ -42,7 +44,6 @@ impl Mouse {
             }
             let new_x =  start_location.0 as f32 + (time_passed_percentage  * distance_x as f32);     
             let new_y =  start_location.1 as f32 + (time_passed_percentage * distance_y as f32) ;
-            println!("{time_passed_percentage}");
             unsafe {
                  if time_passed_percentage >= 1.0{
                         XWarpPointer(self.screen, 0, self.root_window, 0, 0, 0, 0, x, y);
@@ -94,7 +95,7 @@ impl Mouse {
             Mouseclick::MIDDLE => 2,
             Mouseclick::RIGHT => 3,
         };
-        // Check if the XTest extension is available
+       
         let mut event_base = 0;
         let mut error_base = 0;
         unsafe {
@@ -102,7 +103,7 @@ impl Mouse {
                 eprintln!("XTest extension not available");
                 return;
             }
-        
+            
             // Press the mouse button
             XTestFakeButtonEvent(self.screen, button, 1, CurrentTime);
             XFlush(self.screen);
@@ -110,7 +111,47 @@ impl Mouse {
             // Release the mouse button
             XTestFakeButtonEvent(self.screen, button, 0, CurrentTime);
             XFlush(self.screen);
+            if let Some(window) = self.get_window_under_cursor() {
+                self.set_focus_to_window(window);
+            } 
         }
         
     }
+
+    fn get_window_under_cursor(&self) -> Option<Window> {
+        let mut child: Window = 0;
+        let mut win_x: i32 = 0;
+        let mut win_y: i32 = 0;
+
+        unsafe {
+            let (pos_x, pos_y) = self.get_mouse_position();
+            if XTranslateCoordinates(
+                self.screen,
+                XDefaultRootWindow(self.screen),
+                XDefaultRootWindow(self.screen),
+                pos_x,
+                pos_y,
+                &mut win_x,
+                &mut win_y,
+                &mut child,
+            ) != 0
+            {
+                if child != 0 {
+                    return Some(child);
+                } 
+        }
+        None
+    }
+}
+    
+    
+    fn set_focus_to_window(&self, window: Window) {
+        unsafe {
+            XSetInputFocus(self.screen, window, RevertToParent, CurrentTime);
+            XFlush(self.screen);
+        }
+    }
+
+
+
 }
