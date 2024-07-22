@@ -61,7 +61,7 @@ impl Screen {
         dimensions
     }
 
-    pub fn delete(self) {
+    pub fn destroy(self) {
         unsafe 
         {
             XCloseDisplay(self.display);

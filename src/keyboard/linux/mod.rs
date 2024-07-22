@@ -41,11 +41,11 @@ impl Keyboard {
 
             let mut keysym_to_keycode2 = HashMap::new();
             let keysym = XStringToKeysym(CString::new("Shift_L".to_string()).unwrap().as_ptr());
-            if !keysym_to_keycode.contains_key(&keysym) {
+            if !keysym_to_keycode2.contains_key(&keysym) {
                 let keycode = XKeysymToKeycode(self.screen, keysym) as u32;
-                keysym_to_keycode.insert(keysym, keycode);
+                keysym_to_keycode2.insert(keysym, keycode);
             }
-            let keycode = keysym_to_keycode[&keysym];
+            let keycode = keysym_to_keycode2[&keysym];
             self.press_key(keycode); //press shift
             self.send_key(scan_code);
             self.release_key(keycode); // release shift
