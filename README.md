@@ -30,7 +30,12 @@ For this reason, if choosing Segmented match mode at this moment, you will get a
 
 ## Installation
 
-`rustautogui = "0.1.5"`
+Either run 
+`cargo add rustautogui`
+
+or add the crate in your Cargo.toml file like:
+
+`rustautogui = "0.1.6"`
 
 For Linux additionally install run :
 
