@@ -45,7 +45,7 @@ impl Mouse {
                }
                let new_x =  start_location.0 as f32 + (time_passed_percentage  * distance_x as f32);     
                let new_y =  start_location.1 as f32 + (time_passed_percentage * distance_y as f32) ;
-               println!("{time_passed_percentage}");
+               
                unsafe {
                     if time_passed_percentage >= 1.0{
                          SetCursorPos(x as i32, y as i32);

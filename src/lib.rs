@@ -223,7 +223,7 @@ impl RustAutoGui {
     }
 
 
-    pub fn find_image_on_screen_and_move_mouse(&mut self, precision: f32) -> Option<Vec<(u32, u32, f64)>> {
+    pub fn find_image_on_screen_and_move_mouse(&mut self, precision: f32, moving_time:f32) -> Option<Vec<(u32, u32, f64)>> {
         /// finds coordinates of the image on the screen and moves mouse to it. Returns None if no image found
         ///  Best used in loops
         let found_locations: Option<Vec<(u32, u32, f64)>> = self.find_image_on_screen(precision);
@@ -234,7 +234,7 @@ impl RustAutoGui {
         let top_location = locations[0];
         let x = top_location.0 as i32 + (self.template_width /2) as i32;
         let y = top_location.1 as i32 + (self.template_height/2) as i32;
-        self.move_mouse_to_pos(x + self.region.0 as i32,y+self.region.1 as i32, 0.0);
+        self.move_mouse_to_pos(x + self.region.0 as i32,y+self.region.1 as i32, moving_time);
         
         return found_locations;
     }
