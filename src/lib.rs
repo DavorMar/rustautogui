@@ -254,22 +254,22 @@ impl RustAutoGui {
         self.screen.grab_screenshot(path);
     }
 
-//     /// executes find_image_on_screen and moves mouse to the middle of the image. 
-//     pub fn find_image_on_screen_and_move_mouse(&mut self, precision: f32, moving_time:f32) -> Option<Vec<(u32, u32, f64)>> {
-//         /// finds coordinates of the image on the screen and moves mouse to it. Returns None if no image found
-//         ///  Best used in loops
-//         let found_locations: Option<Vec<(u32, u32, f64)>> = self.find_image_on_screen(precision);
-//         let locations = match found_locations.clone() {
-//             Some(locations) => {locations},
-//             None => return None
-//         };
-//         let top_location = locations[0];
-//         let x = top_location.0 as i32 + (self.template_width /2) as i32;
-//         let y = top_location.1 as i32 + (self.template_height/2) as i32;
-//         self.move_mouse_to_pos(x + self.region.0 as i32,y+self.region.1 as i32, moving_time);
+    /// executes find_image_on_screen and moves mouse to the middle of the image. 
+    pub fn find_image_on_screen_and_move_mouse(&mut self, precision: f32, moving_time:f32) -> Option<Vec<(u32, u32, f64)>> {
+        /// finds coordinates of the image on the screen and moves mouse to it. Returns None if no image found
+        ///  Best used in loops
+        let found_locations: Option<Vec<(u32, u32, f64)>> = self.find_image_on_screen(precision);
+        let locations = match found_locations.clone() {
+            Some(locations) => {locations},
+            None => return None
+        };
+        let top_location = locations[0];
+        let x = top_location.0 as i32 + (self.template_width /2) as i32;
+        let y = top_location.1 as i32 + (self.template_height/2) as i32;
+        self.move_mouse_to_pos(x + self.region.0 as i32,y+self.region.1 as i32, moving_time);
         
-//         return found_locations;
-//     }
+        return found_locations;
+    }
 
     /// moves mouse to x, y pixel coordinate
     #[cfg(any(target_os = "windows", target_os = "macos"))]
@@ -279,48 +279,48 @@ impl RustAutoGui {
         println!("{x}, {y}");
     }
 
-//     /// moves mouse to x, y pixel coordinate
-//     #[cfg(target_os = "linux")]
-//     pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time:f32) {
-//         self.mouse.move_mouse_to_pos(x , y, moving_time);
-//     }
+    /// moves mouse to x, y pixel coordinate
+    #[cfg(target_os = "linux")]
+    pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time:f32) {
+        self.mouse.move_mouse_to_pos(x , y, moving_time);
+    }
+ 
 
+    /// executes left mouse click 
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    pub fn left_click(&self) {
+        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::LEFT);
+    }
 
-//     /// executes left mouse click 
-//     #[cfg(target_os = "windows")]
-//     pub fn left_click(&self) {
-//         mouse::windows::Mouse::mouse_click(mouse::Mouseclick::LEFT);
-//     }
+    /// executes right mouse click 
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    pub fn right_click(&self) {
+        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::RIGHT);
+    }
 
-//     /// executes right mouse click 
-//     #[cfg(target_os = "windows")]
-//     pub fn right_click(&self) {
-//         mouse::windows::Mouse::mouse_click(mouse::Mouseclick::RIGHT);
-//     }
+    /// executes middle mouse click
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    pub fn middle_click(&self) {
+        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::MIDDLE);
+    }
 
-//     /// executes middle mouse click
-//     #[cfg(target_os = "windows")]
-//     pub fn middle_click(&self) {
-//         mouse::windows::Mouse::mouse_click(mouse::Mouseclick::MIDDLE);
-//     }
+    /// executes left mouse click 
+    #[cfg(target_os = "linux")]
+    pub fn left_click(&self) {
+        self.mouse.mouse_click(mouse::Mouseclick::LEFT);
+    }
 
-//     /// executes left mouse click 
-//     #[cfg(target_os = "linux")]
-//     pub fn left_click(&self) {
-//         self.mouse.mouse_click(mouse::Mouseclick::LEFT);
-//     }
+    /// executes right mouse click
+    #[cfg(target_os = "linux")]
+    pub fn right_click(&self) {
+        self.mouse.mouse_click(mouse::Mouseclick::RIGHT);
+    }
 
-//     /// executes right mouse click
-//     #[cfg(target_os = "linux")]
-//     pub fn right_click(&self) {
-//         self.mouse.mouse_click(mouse::Mouseclick::RIGHT);
-//     }
-
-//     /// executes middle mouse click
-//     #[cfg(target_os = "linux")]
-//     pub fn middle_click(&self) {
-//         self.mouse.mouse_click(mouse::Mouseclick::MIDDLE);
-//     }
+    /// executes middle mouse click
+    #[cfg(target_os = "linux")]
+    pub fn middle_click(&self) {
+        self.mouse.mouse_click(mouse::Mouseclick::MIDDLE);
+    }
     
     
 //     /// accepts string and mimics keyboard key presses for each character in string

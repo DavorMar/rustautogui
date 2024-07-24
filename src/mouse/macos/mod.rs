@@ -68,7 +68,36 @@ impl Mouse{
         let event = CGEvent::new(CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap()).unwrap();
         let point = event.location();
         (point.x as i32, point.y as i32)
+    }
 
+    pub fn mouse_click(button:Mouseclick) {
+        let (cg_button, down, up) = match button {
+            Mouseclick::LEFT => (CGMouseButton::Left, CGEventType::LeftMouseDown, CGEventType::LeftMouseUp),
+            Mouseclick::RIGHT => (CGMouseButton::Right, CGEventType::RightMouseDown, CGEventType::RightMouseUp),
+            Mouseclick::MIDDLE => (CGMouseButton::Center, CGEventType::OtherMouseDown, CGEventType::OtherMouseUp),
+        };
+    
+        let mouse_pos = Mouse::get_mouse_position();
+    
+        // Mouse down
+        let event_down = CGEvent::new_mouse_event(
+            CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap(),
+            down,
+            CGPoint::new(mouse_pos.0 as f64, mouse_pos.1 as f64),
+            cg_button,
+        ).unwrap();
+        event_down.post(CGEventTapLocation::HID);
+        sleep(Duration::from_millis(20));
+
+        // Mouse up
+        let event_up = CGEvent::new_mouse_event(
+            CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap(),
+            up,
+            CGPoint::new(mouse_pos.0 as f64, mouse_pos.1 as f64),
+            cg_button,
+        ).unwrap();
+        event_up.post(CGEventTapLocation::HID);
+        sleep(Duration::from_millis(20));
     }
      
 
