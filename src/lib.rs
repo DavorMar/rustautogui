@@ -23,13 +23,13 @@ pub mod normalized_x_corr;
 #[cfg(target_os = "macos")]
 pub use crate::{
     // keyboard::macos::Keyboard,
-    // mouse::macos::Mouse,
+    mouse::macos::Mouse,
     screen::macos::Screen
 };
 
 
 // pub mod keyboard;
-// pub mod mouse;
+pub mod mouse;
 pub mod screen;
 
 
@@ -271,11 +271,13 @@ impl RustAutoGui {
 //         return found_locations;
 //     }
 
-//     /// moves mouse to x, y pixel coordinate
-//     #[cfg(target_os = "windows")]
-//     pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time: f32) {
-//         Mouse::move_mouse_to_pos(x, y, moving_time);
-//     }
+    /// moves mouse to x, y pixel coordinate
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time: f32) {
+        Mouse::move_mouse_to_pos(x, y, moving_time);
+        let (x,y) = Mouse::get_mouse_position();
+        println!("{x}, {y}");
+    }
 
 //     /// moves mouse to x, y pixel coordinate
 //     #[cfg(target_os = "linux")]
