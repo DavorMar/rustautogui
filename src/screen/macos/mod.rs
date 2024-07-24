@@ -13,6 +13,8 @@ pub struct Screen {
     pub screen_region_height: u32,
     pub display: CGDisplay,
     pub pixel_data: Vec<u8>,
+    scaling_factor_x: f64, // difference between logical and phyisical resolution
+    scaling_factor_y: f64
 }
 
 impl Screen {
@@ -20,16 +22,27 @@ impl Screen {
         unsafe {
             let main_display_id = display::CGMainDisplayID();
             let main_display = CGDisplay::new(main_display_id);
-            let screen_width = main_display.pixels_wide();
-            let screen_height = main_display.pixels_high();
+            // because of retina display,  and scaling factors, image captured can be double the size
+            // for that detection of retina is needed to divide all the pixel positions
+            // by the factor. As far as i understood it should actually always be 2 but leaving it like this
+            // shouldnt produce errors and covers any different case
+            let image = main_display.image().expect("Failed to grab screen image");
+            let image_height = image.height() as i32;
+            let image_width = image.width() as i32;
+            let screen_width = main_display.pixels_wide() as i32;
+            let screen_height = main_display.pixels_high() as i32;
+            let scaling_factor_x = image_width as f64 / screen_width as f64;
+            let scaling_factor_y = image_height as f64 / screen_height as f64;
+            println!("{scaling_factor_x},{scaling_factor_y}");
             Self {
-                screen_height:screen_height as i32,
-                screen_width: screen_width as i32,
+                screen_height:screen_height,
+                screen_width: screen_width,
                 screen_region_height: 0,
                 screen_region_width:0,
                 pixel_data:vec![0u8; (screen_width * screen_height * 4) as usize],
                 display: main_display,
-    
+                scaling_factor_x:scaling_factor_x,
+                scaling_factor_y:scaling_factor_y,
             }
         }
         
@@ -83,8 +96,9 @@ impl Screen {
     /// first order capture screen function. it captures screen image and stores it as vector in self.pixel_data
     fn capture_screen(&mut self) {    
         let image = self.display.image().expect("Failed to grab screen image");
+
         let pixel_data: Vec<u8> = image
-            .data()
+            .data() 
             .bytes()
             .chunks(4)
             .flat_map(|chunk| {
@@ -120,8 +134,8 @@ impl Screen {
     /// convert vector to RGBA ImageBuffer
     fn convert_bitmap_to_rgba(&self) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
         ImageBuffer::from_raw(
-            self.screen_width as u32,
-            self.screen_height as u32,
+            (self.scaling_factor_x * self.screen_width as f64) as u32,
+            (self.scaling_factor_y * self.screen_height as f64) as u32,
             self.pixel_data.clone(),
         ).expect("Couldn't convert to ImageBuffer")
     }
