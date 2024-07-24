@@ -79,7 +79,7 @@ impl Mouse{
     
         let mouse_pos = Mouse::get_mouse_position();
     
-        // Mouse down
+        
         let event_down = CGEvent::new_mouse_event(
             CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap(),
             down,
@@ -89,7 +89,7 @@ impl Mouse{
         event_down.post(CGEventTapLocation::HID);
         sleep(Duration::from_millis(20));
 
-        // Mouse up
+        
         let event_up = CGEvent::new_mouse_event(
             CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap(),
             up,
