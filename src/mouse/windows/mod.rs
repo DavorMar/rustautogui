@@ -6,7 +6,6 @@ use winapi::um::winuser::{SetCursorPos, SendInput, INPUT, INPUT_MOUSE,
 };
 use std::time::Instant;
 use std::mem::{zeroed, size_of};
-use x11::xlib::_XDisplay;
 use crate::mouse::Mouseclick;
 
 
