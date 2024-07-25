@@ -33,7 +33,6 @@ impl Screen {
             let screen_height = main_display.pixels_high() as i32;
             let scaling_factor_x = image_width as f64 / screen_width as f64;
             let scaling_factor_y = image_height as f64 / screen_height as f64;
-            println!("{scaling_factor_x},{scaling_factor_y}");
             Self {
                 screen_height:screen_height,
                 screen_width: screen_width,

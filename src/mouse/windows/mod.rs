@@ -15,7 +15,7 @@ pub struct Mouse {
 }
 impl Mouse {
      #[allow(unused_variables)]
-     pub fn new(display:Option<*mut _XDisplay>, root:Option<u32>) -> Mouse {
+     pub fn new() -> Mouse {
           Mouse{}
      }
 

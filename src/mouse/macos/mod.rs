@@ -2,7 +2,6 @@ use std::{
     thread::sleep,
     time::{Duration, Instant}
 };
-extern crate core_graphics;
 
 use core_graphics::event::{
     CGEvent, CGEventType, CGEventTapLocation, CGMouseButton, 
@@ -51,6 +50,7 @@ impl Mouse{
         }
     }
 
+    // separate private function called by move to pos
     fn move_mouse(x: i32, y: i32) {
         let event = CGEvent::new_mouse_event(
             CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap(),
@@ -70,13 +70,15 @@ impl Mouse{
         (point.x as i32, point.y as i32)
     }
 
+    /// execute left, right or middle mouse click
     pub fn mouse_click(button:Mouseclick) {
         let (cg_button, down, up) = match button {
             Mouseclick::LEFT => (CGMouseButton::Left, CGEventType::LeftMouseDown, CGEventType::LeftMouseUp),
             Mouseclick::RIGHT => (CGMouseButton::Right, CGEventType::RightMouseDown, CGEventType::RightMouseUp),
             Mouseclick::MIDDLE => (CGMouseButton::Center, CGEventType::OtherMouseDown, CGEventType::OtherMouseUp),
         };
-    
+        
+        // needed as input for where to click
         let mouse_pos = Mouse::get_mouse_position();
     
         

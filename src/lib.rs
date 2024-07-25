@@ -5,30 +5,30 @@ pub mod imgtools;
 pub mod normalized_x_corr;
 
 
-// #[cfg(target_os = "windows")]
-// pub use crate::{
-//     keyboard::windows::Keyboard,
-//     mouse::windows::Mouse,
-//     screen::windows::Screen
-// };
+#[cfg(target_os = "windows")]
+pub use crate::{
+    keyboard::windows::Keyboard,
+    mouse::windows::Mouse,
+    screen::windows::Screen
+};
 
 
-// #[cfg(target_os = "linux")]
-// pub use crate::{
-//     keyboard::linux::Keyboard,
-//     mouse::linux::Mouse,
-//     screen::linux::Screen
-// };
+#[cfg(target_os = "linux")]
+pub use crate::{
+    keyboard::linux::Keyboard,
+    mouse::linux::Mouse,
+    screen::linux::Screen
+};
 
 #[cfg(target_os = "macos")]
 pub use crate::{
-    // keyboard::macos::Keyboard,
+    keyboard::macos::Keyboard,
     mouse::macos::Mouse,
     screen::macos::Screen
 };
 
 
-// pub mod keyboard;
+pub mod keyboard;
 pub mod mouse;
 pub mod screen;
 
@@ -64,8 +64,8 @@ pub struct RustAutoGui {
     debug:bool,
     template_height:u32,
     template_width:u32,
-    // keyboard:Keyboard,
-    // mouse:Mouse,
+    keyboard:Keyboard,
+    mouse:Mouse,
     screen:Screen,
     match_mode: Option<MatchMode>,
     max_segments: Option<u32>,
@@ -79,16 +79,16 @@ impl RustAutoGui {
         // initiation of screen, keyboard and mouse
         // on windows there is no need to share display pointer accross other structs
         let screen = Screen::new();
-        // let keyboard = Keyboard::new();
-        // let mouse_struct: Mouse = Mouse::new(None, None);
+        let keyboard = Keyboard::new();
+        let mouse_struct: Mouse = Mouse::new();
         Self{
             template:None, 
             prepared_data:PreparedData::None,
             debug:debug,
             template_width:0,
             template_height:0,
-            // keyboard:keyboard,
-            // mouse:mouse_struct,
+            keyboard:keyboard,
+            mouse:mouse_struct,
             screen:screen,
             match_mode:None,
             max_segments: None,
@@ -323,19 +323,19 @@ impl RustAutoGui {
     }
     
     
-//     /// accepts string and mimics keyboard key presses for each character in string
-//     pub fn keyboard_input(&self,input:&str, shifted:&bool) {
-//         let input_string = String::from(input);
-//         for letter in input_string.chars() {
-//             self.keyboard.send_char(&letter, shifted);
-//         }
-//     }
+    /// accepts string and mimics keyboard key presses for each character in string
+    pub fn keyboard_input(&self,input:&str, shifted:&bool) {
+        let input_string = String::from(input);
+        for letter in input_string.chars() {
+            self.keyboard.send_char(&letter, shifted);
+        }
+    }
 
-//     /// executes keyboard command like "return" or "escape"
-//     pub fn keyboard_command(&self, input:&str) {
-//         let input_string = String::from(input);
-//         self.keyboard.send_command(&input_string);
-//     }
+    /// executes keyboard command like "return" or "escape"
+    pub fn keyboard_command(&self, input:&str) {
+        let input_string = String::from(input);
+        self.keyboard.send_command(&input_string);
+    }
     
 }
 
