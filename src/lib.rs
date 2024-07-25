@@ -308,6 +308,21 @@ impl RustAutoGui {
         mouse::platform::Mouse::mouse_click(mouse::Mouseclick::MIDDLE);
     }
 
+    /// executes middle mouse click
+    #[cfg(target_os = "macos")]
+    pub fn double_click(&self) {
+        mouse::platform::Mouse::double_click();
+        
+    }
+
+    /// executes double left mouse click
+    #[cfg(target_os = "windows")]
+    pub fn double_click(&self) {
+        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::LEFT);
+        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::LEFT);
+    }
+
+
     /// executes left mouse click 
     #[cfg(target_os = "linux")]
     pub fn left_click(&self) {
@@ -326,7 +341,13 @@ impl RustAutoGui {
         self.mouse.mouse_click(mouse::Mouseclick::MIDDLE);
     }
     
-    
+    /// executes double left mouse click
+    #[cfg(target_os = "linux")]
+    pub fn double_click(&self) {
+        self.mouse.mouse_click(mouse::Mouseclick::LEFT);
+        self.mouse.mouse_click(mouse::Mouseclick::LEFT);
+    }
+
     /// accepts string and mimics keyboard key presses for each character in string
     pub fn keyboard_input(&self,input:&str, shifted:&bool) {
         let input_string = String::from(input);
@@ -340,6 +361,9 @@ impl RustAutoGui {
         let input_string = String::from(input);
         self.keyboard.send_command(&input_string);
     }
+
+
+
     
 }
 

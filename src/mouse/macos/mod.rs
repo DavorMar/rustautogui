@@ -82,26 +82,69 @@ impl Mouse{
         let mouse_pos = Mouse::get_mouse_position();
     
         
-        let event_down = CGEvent::new_mouse_event(
+        let click_down = CGEvent::new_mouse_event(
             CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap(),
             down,
             CGPoint::new(mouse_pos.0 as f64, mouse_pos.1 as f64),
             cg_button,
         ).unwrap();
-        event_down.post(CGEventTapLocation::HID);
+        click_down.post(CGEventTapLocation::HID);
         sleep(Duration::from_millis(20));
 
         
-        let event_up = CGEvent::new_mouse_event(
+        let click_up = CGEvent::new_mouse_event(
             CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap(),
             up,
             CGPoint::new(mouse_pos.0 as f64, mouse_pos.1 as f64),
             cg_button,
         ).unwrap();
-        event_up.post(CGEventTapLocation::HID);
+        click_up.post(CGEventTapLocation::HID);
         sleep(Duration::from_millis(20));
     }
      
+    pub fn double_click() {
+        let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap();
+        let pos = Mouse::get_mouse_position();
+
+        let mouse_down = CGEvent::new_mouse_event(
+            source.clone(),
+            CGEventType::LeftMouseDown,
+            CGPoint::new(pos.0 as f64, pos.1 as f64),
+            CGMouseButton::Left,
+        ).unwrap();
+        mouse_down.set_integer_value_field(1, 2); // double click
+        mouse_down.post(CGEventTapLocation::HID);
+        sleep(Duration::from_millis(20));
+        let mouse_up = CGEvent::new_mouse_event(
+            source.clone(),
+            CGEventType::LeftMouseUp,
+            CGPoint::new(pos.0 as f64, pos.1 as f64),
+            CGMouseButton::Left,
+        ).unwrap();
+        mouse_up.set_integer_value_field(1, 2); // double click
+        mouse_up.post(CGEventTapLocation::HID);
+
+        sleep(Duration::from_millis(50)); // Small delay between clicks
+
+        let mouse_down_2 = CGEvent::new_mouse_event(
+            source.clone(),
+            CGEventType::LeftMouseDown,
+            CGPoint::new(pos.0 as f64, pos.1 as f64),
+            CGMouseButton::Left,
+        ).unwrap();
+        mouse_down_2.set_integer_value_field(1, 2); // double click
+        mouse_down_2.post(CGEventTapLocation::HID);
+        sleep(Duration::from_millis(20));
+        let mouse_up_2 = CGEvent::new_mouse_event(
+            source,
+            CGEventType::LeftMouseUp,
+            CGPoint::new(pos.0 as f64, pos.1 as f64),
+            CGMouseButton::Left,
+        ).unwrap();
+        mouse_up_2.set_integer_value_field(1, 2); // double click
+        mouse_up_2.post(CGEventTapLocation::HID);
+        sleep(Duration::from_millis(20));
+    }
 
 
 }
