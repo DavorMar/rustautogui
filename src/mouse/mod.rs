@@ -14,6 +14,10 @@ pub use windows as platform;
 #[cfg(target_os = "macos")]
 pub use macos as platform;
 
+#[cfg(target_os = "linux")]
+pub use linux as platform;
+
+
 pub enum Mouseclick {
     LEFT,
     RIGHT,

@@ -21,7 +21,8 @@ rand = "0.8.5"
 eframe = "0.28.1"
 egui = "0.28.1"
 x11 = "2.21.0"
-# [target.'cfg(macos)'.dependencies]
+
+[target.'cfg(macos)'.dependencies]
 core-graphics = "0.23.2"
 
 
