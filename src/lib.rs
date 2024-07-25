@@ -20,6 +20,13 @@ pub use crate::{
     screen::linux::Screen
 };
 
+#[cfg(target_os = "macos")]
+pub use crate::{
+    keyboard::macos::Keyboard,
+    mouse::macos::Mouse,
+    screen::macos::Screen
+};
+
 
 pub mod keyboard;
 pub mod mouse;
@@ -67,13 +74,13 @@ pub struct RustAutoGui {
 impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
     /// all the other struct fields are initiated as 0 or None
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     pub fn new(debug:bool) -> Self{
         // initiation of screen, keyboard and mouse
         // on windows there is no need to share display pointer accross other structs
         let screen = Screen::new();
         let keyboard = Keyboard::new();
-        let mouse_struct: Mouse = Mouse::new(None, None);
+        let mouse_struct: Mouse = Mouse::new();
         Self{
             template:None, 
             prepared_data:PreparedData::None,
@@ -218,7 +225,11 @@ impl RustAutoGui {
         /// searches for image on screen and returns found locations in vector format
         let image =self.screen.grab_screen_image_grayscale(&self.region);
         if self.debug {
-            image.save("debug/screen_capture.png").unwrap();
+            let error_catch = image.save("debug/screen_capture.png");
+            match error_catch {
+                Ok(_) => (),
+                Err(_) => println!("Create a 'debug' folder in your root folder to save images"),
+            }
         };
 
         let found_locations = match &self.prepared_data {
@@ -265,9 +276,11 @@ impl RustAutoGui {
     }
 
     /// moves mouse to x, y pixel coordinate
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time: f32) {
         Mouse::move_mouse_to_pos(x, y, moving_time);
+        let (x,y) = Mouse::get_mouse_position();
+        println!("{x}, {y}");
     }
 
     /// moves mouse to x, y pixel coordinate
@@ -275,25 +288,40 @@ impl RustAutoGui {
     pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time:f32) {
         self.mouse.move_mouse_to_pos(x , y, moving_time);
     }
-
+ 
 
     /// executes left mouse click 
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     pub fn left_click(&self) {
-        mouse::windows::Mouse::mouse_click(mouse::Mouseclick::LEFT);
+        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::LEFT);
     }
 
     /// executes right mouse click 
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     pub fn right_click(&self) {
-        mouse::windows::Mouse::mouse_click(mouse::Mouseclick::RIGHT);
+        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::RIGHT);
     }
 
     /// executes middle mouse click
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     pub fn middle_click(&self) {
-        mouse::windows::Mouse::mouse_click(mouse::Mouseclick::MIDDLE);
+        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::MIDDLE);
     }
+
+    /// executes double mouse click
+    #[cfg(target_os = "macos")]
+    pub fn double_click(&self) {
+        mouse::platform::Mouse::double_click();
+        
+    }
+
+    /// executes double left mouse click
+    #[cfg(target_os = "windows")]
+    pub fn double_click(&self) {
+        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::LEFT);
+        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::LEFT);
+    }
+
 
     /// executes left mouse click 
     #[cfg(target_os = "linux")]
@@ -313,7 +341,13 @@ impl RustAutoGui {
         self.mouse.mouse_click(mouse::Mouseclick::MIDDLE);
     }
     
-    
+    /// executes double left mouse click
+    #[cfg(target_os = "linux")]
+    pub fn double_click(&self) {
+        self.mouse.mouse_click(mouse::Mouseclick::LEFT);
+        self.mouse.mouse_click(mouse::Mouseclick::LEFT);
+    }
+
     /// accepts string and mimics keyboard key presses for each character in string
     pub fn keyboard_input(&self,input:&str, shifted:&bool) {
         let input_string = String::from(input);
@@ -327,10 +361,13 @@ impl RustAutoGui {
         let input_string = String::from(input);
         self.keyboard.send_command(&input_string);
     }
+
+
+
     
 }
 
-
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 impl Drop for RustAutoGui {
     fn drop(&mut self) {
         self.screen.destroy();

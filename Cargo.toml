@@ -1,6 +1,6 @@
 [package]
 name = "rustautogui"
-version = "0.1.8"
+version = "0.2.0"
 edition = "2021"
 description = "rustautogui is a GUI automation module used to control the mouse and keyboard"
 license = "MIT"
@@ -22,7 +22,8 @@ eframe = "0.28.1"
 egui = "0.28.1"
 x11 = "2.21.0"
 
-
+[target.'cfg(target_os = "macos")'.dependencies]
+core-graphics = "0.23.2"
 
 
 [target.'cfg(windows)'.dependencies]

@@ -96,6 +96,10 @@ impl Keyboard {
     pub fn send_char(&self, key:&char, shifted:&bool) {
         let char_string = String::from(*key);
         let value = self.keymap.get(&char_string);
+        match value {
+            Some(_)=> (),
+            None => return,
+        }
         let value = value.unwrap();
         if *shifted {
             Keyboard::send_shifted_key(*value);    

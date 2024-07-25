@@ -3,21 +3,21 @@
 Rustautogui crate, made after Al Sweigarts library Pyautogui for python. 
 
 Rustautogui allows you to control the mouse and keyboard to automate interactions with other applications. 
-Currently the crate works on Windows and Linux. 
+The crate works on Windows and Linux, and since version 0.2.0 on macOS.
 
 Main functions:
 
 - capture screen
 - find image on screen
 - move mouse to pixel coordinate
-- click mouse button
+- click mouse buttons
 - input keyboard string
 - input keyboard command
 - find image on screen and move mouse to it
 - detect cursor position
 
 
-Note: this library does not use OpenCV template matching, like python version does. OpenCV have fully optimised template matching, while here multithreading is used but no GPU acceleration yet. For that reason, finding image on screen may be slower than the python counterpart using OpenCV, but the speed is still satisfying. Once Segmented correlation algorithm is included, speed will be further increased. The goal would be to include also GPU acceleration over time.
+Note: this library does not use OpenCV template matching, like python version does. OpenCV has fully optimised template matching, while here multithreading is used but no GPU acceleration yet. For that reason, finding image on screen may be slower than the python counterpart using OpenCV, but the speed is still satisfying. Once Segmented correlation algorithm is included, speed will be further increased. The goal would be to include also GPU acceleration over time.
 
 The reason for not including OpenCV in this library is because installation of all the bindings and dependencies for rust can be a tiresome and a long process. I did not want to shape the library with prerequisite of user spending multiple hours pre installing everything needed. For this reason, template maching has been completely self developed.  
 
@@ -35,13 +35,15 @@ Either run
 
 or add the crate in your Cargo.toml file like:
 
-`rustautogui = "0.1.8"`
+`rustautogui = "0.2.0"`
 
 For Linux additionally install run :
 
 `sudo apt-get update`
 
 `sudo apt-get install libx11-dev libxtst-dev`
+
+For macOS: dont forget to give necessary permissions
 
 
 ## Usage:
@@ -53,8 +55,8 @@ let mut rustautogui = RustAutoGui::new(debug:false); // create rustautogui insta
 
 rustautogui.load_and_prepare_template(
                                template_path: "template.png",
-                               region: Some(0,0,1000,1000),
-                               rustautogui::MatchMode::FFT,
+                               region: Some((0,0,1000,1000)),
+                               match_mode:rustautogui::MatchMode::FFT,
                                max_segments:&None
                            ); // load a template image for screen matching
 ```
@@ -97,6 +99,7 @@ On linux, search can be done on all monitors and  0, 0 coordinates start from to
 ```rust
 rustautogui.left_click(); // left mouse click
 rustautogui.right_click(); // right mouse click
+rustautogui.double_click(); // double left click
 rustautogui.keyboard_input(input: "test", shifted:&false); // input string, or better say, do the sequence of key presses
 rustautogui.keyboard_command(input:"return"); //press a keyboard button 
 rustautogui.change_debug_state(true); // change debugging
@@ -118,7 +121,7 @@ It was of great help when testing and debugging this library, so I decided to le
 
 ## How does crate work:
 
-On windows, api interacts with winapi, through usage of winapi crate, while on linux it interacts with x11 api through usage of x11 crate.
+On windows, api interacts with winapi, through usage of winapi crate, on linux it interacts with x11 api through usage of x11 crate while on macOS it interacts through usage of core-graphics crate.
 When RustAutoGui instance is created with ::new function, the Screen, Mouse and Keyboard structs are also initialized and stored under RustAutoGui struct.
 Screen struct preallocates memory segment for screen image storage. 
 

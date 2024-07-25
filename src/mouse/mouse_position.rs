@@ -3,14 +3,14 @@ use eframe::egui::{CentralPanel, Context, Pos2};
 use eframe::{App, NativeOptions};
 
 #[cfg(target_os = "linux")]
-use crate::mouse::linux::Mouse;
+use crate::mouse::platform::Mouse;
 #[cfg(target_os = "linux")]
 use x11::xlib::*;
 #[cfg(target_os = "linux")]
 use std::ptr;
 
-#[cfg(target_os = "windows")]
-use crate::mouse::windows::Mouse;
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+use crate::mouse::platform::Mouse;
 
 /* 
 
@@ -45,7 +45,7 @@ fn get_mouse_position() -> Pos2 {
 }
 
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 fn get_mouse_position() -> Pos2 {
     let (x,y) = Mouse::get_mouse_position();
     Pos2 { x: x as f32, y: y as f32 }

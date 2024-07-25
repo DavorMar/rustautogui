@@ -6,7 +6,6 @@ use winapi::um::winuser::{SetCursorPos, SendInput, INPUT, INPUT_MOUSE,
 };
 use std::time::Instant;
 use std::mem::{zeroed, size_of};
-use x11::xlib::_XDisplay;
 use crate::mouse::Mouseclick;
 
 
@@ -15,7 +14,7 @@ pub struct Mouse {
 }
 impl Mouse {
      #[allow(unused_variables)]
-     pub fn new(display:Option<*mut _XDisplay>, root:Option<u32>) -> Mouse {
+     pub fn new() -> Mouse {
           Mouse{}
      }
 
