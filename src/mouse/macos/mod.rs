@@ -77,7 +77,7 @@ impl Mouse{
             Mouseclick::RIGHT => (CGMouseButton::Right, CGEventType::RightMouseDown, CGEventType::RightMouseUp),
             Mouseclick::MIDDLE => (CGMouseButton::Center, CGEventType::OtherMouseDown, CGEventType::OtherMouseUp),
         };
-        
+
         // needed as input for where to click
         let mouse_pos = Mouse::get_mouse_position();
     
@@ -103,6 +103,7 @@ impl Mouse{
     }
      
     pub fn double_click() {
+        
         let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap();
         let pos = Mouse::get_mouse_position();
 
@@ -112,16 +113,16 @@ impl Mouse{
             CGPoint::new(pos.0 as f64, pos.1 as f64),
             CGMouseButton::Left,
         ).unwrap();
-        mouse_down.set_integer_value_field(1, 2); // double click
+        mouse_down.set_integer_value_field(1, 1); // first click
         mouse_down.post(CGEventTapLocation::HID);
-        sleep(Duration::from_millis(20));
+        sleep(Duration::from_millis(10));
         let mouse_up = CGEvent::new_mouse_event(
             source.clone(),
             CGEventType::LeftMouseUp,
             CGPoint::new(pos.0 as f64, pos.1 as f64),
             CGMouseButton::Left,
         ).unwrap();
-        mouse_up.set_integer_value_field(1, 2); // double click
+        mouse_up.set_integer_value_field(1, 1); // first click
         mouse_up.post(CGEventTapLocation::HID);
 
         sleep(Duration::from_millis(50)); // Small delay between clicks
@@ -134,7 +135,7 @@ impl Mouse{
         ).unwrap();
         mouse_down_2.set_integer_value_field(1, 2); // double click
         mouse_down_2.post(CGEventTapLocation::HID);
-        sleep(Duration::from_millis(20));
+        sleep(Duration::from_millis(10));
         let mouse_up_2 = CGEvent::new_mouse_event(
             source,
             CGEventType::LeftMouseUp,
@@ -143,7 +144,7 @@ impl Mouse{
         ).unwrap();
         mouse_up_2.set_integer_value_field(1, 2); // double click
         mouse_up_2.post(CGEventTapLocation::HID);
-        sleep(Duration::from_millis(20));
+        sleep(Duration::from_millis(10));
     }
 
 

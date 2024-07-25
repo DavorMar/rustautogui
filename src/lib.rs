@@ -308,7 +308,7 @@ impl RustAutoGui {
         mouse::platform::Mouse::mouse_click(mouse::Mouseclick::MIDDLE);
     }
 
-    /// executes middle mouse click
+    /// executes double mouse click
     #[cfg(target_os = "macos")]
     pub fn double_click(&self) {
         mouse::platform::Mouse::double_click();
