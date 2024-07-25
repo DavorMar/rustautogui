@@ -225,7 +225,11 @@ impl RustAutoGui {
         /// searches for image on screen and returns found locations in vector format
         let image =self.screen.grab_screen_image_grayscale(&self.region);
         if self.debug {
-            image.save("debug/screen_capture.png").unwrap();
+            let error_catch = image.save("debug/screen_capture.png");
+            match error_catch {
+                Ok(_) => (),
+                Err(_) => println!("Create a 'debug' folder in your root folder to save images"),
+            }
         };
 
         let found_locations = match &self.prepared_data {

@@ -72,7 +72,7 @@ impl Keyboard {
         self.send_key(*value.expect("Wrong input key"));
     }
 
-
+    
     fn create_keymap() -> HashMap<String, u16> {
         let mut keymap = HashMap::new();
         keymap.insert(String::from("return"), KeyCode::RETURN);
