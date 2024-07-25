@@ -1,11 +1,10 @@
 use core_graphics::event::{
-    CGEvent, CGEventType, CGEventTapLocation, CGKeyCode, KeyCode
+    CGEvent, CGEventTapLocation, CGKeyCode, KeyCode
 };
 use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 
 use std::collections::HashMap;
 
-use std::hash::Hash;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -17,7 +16,7 @@ pub struct Keyboard {
 }
 impl Keyboard {
     pub fn new() -> Self {
-        let mut keymap = Keyboard::create_keymap();
+        let keymap = Keyboard::create_keymap();
        
         Self { keymap:keymap}
     }
