@@ -72,6 +72,34 @@ impl Keyboard {
         self.send_key(*value.expect("Wrong input key"));
     }
 
+
+    pub fn send_multi_key(&self, key_1:&String, key_2:&String, key_3:Option<String>) {
+        let value1 = self.keymap.get(key_1).expect("Invalid first key argument");
+        let value2 = self.keymap.get(key_2).expect("Invalid second key argument");
+        
+        let mut third_key = false;
+        let value3 = match key_3 {
+            Some(value) => {
+                third_key = true;
+                let value3 = self.keymap.get(&value).expect("Invalid third key argument");
+                value3
+            },
+            None => {
+                &0
+            }   
+        };
+        unsafe {
+            self.key_down(*value1);
+            self.key_down(*value2);
+            if third_key {
+                self.key_down(*value3);
+                self.key_up(*value3);
+            }
+            self.key_up(*value2);
+            self.key_up(*value1);
+        }
+
+    }
     
     fn create_keymap() -> HashMap<String, u16> {
         let mut keymap = HashMap::new();

@@ -104,10 +104,38 @@ impl Keyboard {
             let keycode = keysym_to_keycode[&keysym];
             self.send_key(keycode);
         }
-
-
-        
     }
+
+    pub fn send_multi_key(&self, key_1:&String, key_2:&String, key_3:Option<String>) {
+        let value1 = self.keymap.get(key_1).expect("Invalid first key argument");
+        let value2 = self.keymap.get(key_2).expect("Invalid second key argument");
+        
+        let mut third_key = false;
+        let value3 = match key_3 {
+            Some(value) => {
+                third_key = true;
+                let value3 = self.keymap.get(&value).expect("Invalid third key argument");
+                value3
+            },
+            None => {
+                &0
+            }   
+        };
+        unsafe {
+            self.key_down(*value1);
+            self.key_down(*value2);
+            if third_key {
+                self.key_down(*value3);
+                self.key_up(*value3);
+            }
+            self.key_up(*value2);
+            self.key_up(*value1);
+        }
+
+    }
+
+
+
     /// https://www.cl.cam.ac.uk/~mgk25/ucs/keysymdef.h
     /// mapping made so  bigger variety of strings can be used when sending string as input. 
     /// for instance, instead of neccessity of sending "period", we can send ".". This means when sending a 
