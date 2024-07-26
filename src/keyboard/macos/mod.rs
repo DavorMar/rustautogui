@@ -88,16 +88,16 @@ impl Keyboard {
                 &0
             }   
         };
-        unsafe {
-            self.key_down(*value1);
-            self.key_down(*value2);
-            if third_key {
-                self.key_down(*value3);
-                self.key_up(*value3);
-            }
-            self.key_up(*value2);
-            self.key_up(*value1);
+        
+        self.press_key(*value1);
+        self.press_key(*value2);
+        if third_key {
+            self.press_key(*value3);
+            self.release_key(*value3);
         }
+        self.release_key(*value2);
+        self.release_key(*value1);
+        
 
     }
     
