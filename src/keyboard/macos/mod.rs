@@ -90,13 +90,19 @@ impl Keyboard {
         };
         
         self.press_key(*value1);
+        sleep(Duration::from_millis(50));
         self.press_key(*value2);
+        sleep(Duration::from_millis(50));
         if third_key {
             self.press_key(*value3);
+            sleep(Duration::from_millis(50));
             self.release_key(*value3);
+            sleep(Duration::from_millis(50));
         }
         self.release_key(*value2);
+        sleep(Duration::from_millis(50));
         self.release_key(*value1);
+        sleep(Duration::from_millis(50));
         
 
     }
