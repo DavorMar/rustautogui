@@ -362,6 +362,16 @@ impl RustAutoGui {
         self.keyboard.send_command(&input_string);
     }
 
+    pub fn keyboard_multi_key(&self, input1:&str, input2:&str, input3:Option<&str>) {
+        let input3 = match input3 {
+            Some(x) => {
+                Some(String::from(x))
+            },
+            None => None
+        };
+        self.keyboard.send_multi_key(&String::from(input1), &String::from(input2), input3);
+        
+    }
 
 
     
