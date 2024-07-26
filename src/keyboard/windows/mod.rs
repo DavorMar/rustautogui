@@ -221,7 +221,8 @@ impl Keyboard {
         key_map.insert(String::from("+"), 0x6b); // VK_ADD
         key_map.insert(String::from("separator"), 0x6c); // VK_SEPARATOR
         key_map.insert(String::from("-"), 0x6d); // VK_SUBTRACT
-        key_map.insert(String::from("."), 0x6e); // VK_DECIMAL
+        key_map.insert(String::from("."), 0xBE); // VK_OEM_PERIOD
+        key_map.insert(String::from(","), 0xBC); // VK_OEM_COMMA
         key_map.insert(String::from("/"), 0x6f); // VK_DIVIDE
         key_map.insert(String::from("f1"), 0x70); // VK_F1
         key_map.insert(String::from("f2"), 0x71); // VK_F2
