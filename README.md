@@ -13,6 +13,7 @@ Main functions:
 - click mouse buttons
 - input keyboard string
 - input keyboard command
+- keyboard multiple key press
 - find image on screen and move mouse to it
 - detect cursor position
 
@@ -35,7 +36,7 @@ Either run
 
 or add the crate in your Cargo.toml file like:
 
-`rustautogui = "0.2.0"`
+`rustautogui = "0.2.1"`
 
 For Linux additionally install run :
 
@@ -102,6 +103,7 @@ rustautogui.right_click(); // right mouse click
 rustautogui.double_click(); // double left click
 rustautogui.keyboard_input(input: "test", shifted:&false); // input string, or better say, do the sequence of key presses
 rustautogui.keyboard_command(input:"return"); //press a keyboard button 
+gui.keyboard_multi_key(input1: "shift", input2:"control", input3: Some("t")) // Executed multiple key press at same time. third argument is optional
 rustautogui.change_debug_state(true); // change debugging
 ```
 Debug mode prints out number of segments in segmented picture, times taken for algorithm run and it saves segmented images.
