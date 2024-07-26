@@ -53,26 +53,33 @@ impl Keyboard {
         }
     }
 
+    unsafe fn get_keycode(&self, key: &String) -> u32 {
+        let value = self.keymap.get(key);
+        let mut keysym_to_keycode = HashMap::new();
+        let keysym = match value {
+            Some(x) => XStringToKeysym(CString::new(x.clone()).unwrap().as_ptr()),
+            None => XStringToKeysym(CString::new(key.clone()).unwrap().as_ptr())
+        };
+        if keysym == 0 {
+            
+            return 0;
+        }
+        if !keysym_to_keycode.contains_key(&keysym) {
+            let keycode = XKeysymToKeycode(self.screen, keysym) as u32;
+            keysym_to_keycode.insert(keysym, keycode);
+        }
+        let keycode = keysym_to_keycode[&keysym];
+        keycode
+    }
+
     /// top level send character function that converts char to keycode and executes send key
     pub fn send_char (&self, key:&char, shifted:&bool) {
-        let char_string = String::from(*key);
-        let value = self.keymap.get(&char_string);
         unsafe {
-            let mut keysym_to_keycode = HashMap::new();
-            let keysym = match value {
-                Some(x) => XStringToKeysym(CString::new(x.clone()).unwrap().as_ptr()),
-                None => XStringToKeysym(CString::new(key.to_string()).unwrap().as_ptr())
-            };
-            if keysym == 0 {
-                
-                return;
+            let char_string: String = String::from(*key);
+            let keycode = self.get_keycode(&char_string);
+            if keycode == 0 {
+                return
             }
-            if !keysym_to_keycode.contains_key(&keysym) {
-                let keycode = XKeysymToKeycode(self.screen, keysym) as u32;
-                keysym_to_keycode.insert(keysym, keycode);
-            }
-            let keycode = keysym_to_keycode[&keysym];
-            
             if *shifted {
                 self.send_shifted_key(keycode);    
             } else {
@@ -86,50 +93,43 @@ impl Keyboard {
 
     /// similar to send char, but can be string such as return, escape etc
     pub fn send_command(&self, key:&String) {
-        let value = self.keymap.get(key);
+        
         unsafe {
-            let mut keysym_to_keycode = HashMap::new();
-            let keysym = match value {
-                Some(x) => XStringToKeysym(CString::new(x.clone()).unwrap().as_ptr()),
-                None => XStringToKeysym(CString::new(key.clone()).unwrap().as_ptr())
-            };
-            if keysym == 0 {
-                
-                return;
-            }
-            if !keysym_to_keycode.contains_key(&keysym) {
-                let keycode = XKeysymToKeycode(self.screen, keysym) as u32;
-                keysym_to_keycode.insert(keysym, keycode);
-            }
-            let keycode = keysym_to_keycode[&keysym];
+            let keycode = self.get_keycode(key);
             self.send_key(keycode);
         }
     }
 
     pub fn send_multi_key(&self, key_1:&String, key_2:&String, key_3:Option<String>) {
-        let value1 = self.keymap.get(key_1).expect("Invalid first key argument");
-        let value2 = self.keymap.get(key_2).expect("Invalid second key argument");
-        
-        let mut third_key = false;
-        let value3 = match key_3 {
-            Some(value) => {
-                third_key = true;
-                let value3 = self.keymap.get(&value).expect("Invalid third key argument");
-                value3
-            },
-            None => {
-                &0
-            }   
-        };
+
         unsafe {
-            self.key_down(*value1);
-            self.key_down(*value2);
+            let value1 = self.keymap.get(key_1).expect("Invalid first key argument");
+            let value1 = self.get_keycode(value1);
+
+            let value2 = self.keymap.get(key_2).expect("Invalid second key argument");
+            let value2 = self.get_keycode(value2);
+
+            let mut third_key = false;
+            let value3 = match key_3 {
+                Some(value) => {
+                    third_key = true;
+                    let value3 = self.keymap.get(&value).expect("Invalid third key argument");
+                    let value3 = self.get_keycode(value3);
+                    value3
+                },
+                None => {
+                    0
+                }   
+            };
+        
+            self.press_key(value1);
+            self.press_key(value2);
             if third_key {
-                self.key_down(*value3);
-                self.key_up(*value3);
+                self.press_key(value3);
+                self.release_key(value3);
             }
-            self.key_up(*value2);
-            self.key_up(*value1);
+            self.release_key(value2);
+            self.release_key(value1);
         }
 
     }
@@ -141,11 +141,7 @@ impl Keyboard {
     /// for instance, instead of neccessity of sending "period", we can send ".". This means when sending a 
     /// string like url test.hr we dont need to send test, then send period, then send hr 
     fn create_keymap () -> HashMap<String, String> {
-        /*
-        TO DO: Insert more commands
-         */
         let mut keysym_map: HashMap<String, String> = HashMap::new();
-    
         keysym_map.insert(String::from(String::from(" ")), String::from("space"));
         keysym_map.insert(String::from("!"), String::from("exclam"));
         keysym_map.insert(String::from("\""), String::from("quotedbl"));
