@@ -103,7 +103,7 @@ rustautogui.right_click(); // right mouse click
 rustautogui.double_click(); // double left click
 rustautogui.keyboard_input(input: "test", shifted:&false); // input string, or better say, do the sequence of key presses
 rustautogui.keyboard_command(input:"return"); //press a keyboard button 
-gui.keyboard_multi_key(input1: "shift", input2:"control", input3: Some("t")) // Executed multiple key press at same time. third argument is optional
+rustautogui.keyboard_multi_key(input1: "shift", input2:"control", input3: Some("t")) // Executed multiple key press at same time. third argument is optional
 rustautogui.change_debug_state(true); // change debugging
 ```
 Debug mode prints out number of segments in segmented picture, times taken for algorithm run and it saves segmented images.
