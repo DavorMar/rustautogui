@@ -1,10 +1,12 @@
 extern crate winapi;
 
-use winapi::um::winuser::{SendInput, INPUT, INPUT_KEYBOARD, KEYEVENTF_KEYUP,VK_SHIFT, KEYEVENTF_SCANCODE};
+use egui::Key;
+use winapi::um::winuser::{SendInput, INPUT, INPUT_KEYBOARD, KEYEVENTF_KEYUP,VK_SHIFT, KEYEVENTF_SCANCODE, VK_MENU, VK_CONTROL};
 use winapi::um::winuser::{MapVirtualKeyW, MAPVK_VK_TO_VSC};
 use std::mem::size_of;
 use std::collections::HashMap;
-
+use std::time::Duration;
+use std::thread::sleep;
 
 
 /// main struct for interacting with keyboard. Keymap is generated upon intialization. 
@@ -18,41 +20,57 @@ impl Keyboard {
         Keyboard {keymap:keyset}
     }
 
-    
+    unsafe fn key_down(scan_code: u16) {
+        let mut input: INPUT = std::mem::zeroed();
+        input.type_ = INPUT_KEYBOARD;
+        {
+            let ki = input.u.ki_mut();
+            if scan_code == VK_SHIFT as u16 || scan_code == VK_CONTROL as u16 || scan_code == VK_MENU as u16 {
+                ki.wVk = scan_code; // Use virtual key code for Shift, Control, and Alt
+                ki.wScan = 0;
+                ki.dwFlags = 0; // No KEYEVENTF_SCANCODE flag for virtual key
+            } else {
+                let scan_code = MapVirtualKeyW(scan_code as u32, MAPVK_VK_TO_VSC) as u16;
+                ki.wVk = 0;
+                ki.wScan = scan_code;
+                ki.dwFlags = KEYEVENTF_SCANCODE;
+            }
+            ki.time = 0;
+            ki.dwExtraInfo = 0;
+        }
+
+        // Send key press
+        SendInput(1, &mut input, size_of::<INPUT>() as i32);
+    }
+
+    unsafe fn key_up(scan_code: u16) {
+        let mut input: INPUT = std::mem::zeroed();
+        input.type_ = INPUT_KEYBOARD;
+        {
+            let ki = input.u.ki_mut();
+            if scan_code == VK_SHIFT as u16 || scan_code == VK_CONTROL as u16 || scan_code == VK_MENU as u16 {
+                ki.wVk = scan_code; // Use virtual key code for Shift, Control, and Alt
+                ki.wScan = 0;
+                ki.dwFlags = KEYEVENTF_KEYUP; // No KEYEVENTF_SCANCODE flag for virtual key
+            } else {
+                let scan_code = MapVirtualKeyW(scan_code as u32, MAPVK_VK_TO_VSC) as u16;
+                ki.wVk = 0;
+                ki.wScan = scan_code;
+                ki.dwFlags = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
+            }
+            ki.time = 0;
+            ki.dwExtraInfo = 0;
+        }
+
+        // Release key
+        SendInput(1, &mut input, size_of::<INPUT>() as i32);
+    }
     
     /// executes press down of a key, then press up. 
     pub fn send_key(scan_code: u16) {
         unsafe {
-            // create structure for key press
-            let scan_code = MapVirtualKeyW(scan_code as u32, MAPVK_VK_TO_VSC) as u16;
-            let mut input: INPUT = std::mem::zeroed();
-            input.type_ = INPUT_KEYBOARD;
-            {
-                let ki = input.u.ki_mut();
-                ki.wVk = 0;
-                ki.wScan = scan_code;
-                ki.dwFlags = KEYEVENTF_SCANCODE;
-                ki.time = 0;
-                ki.dwExtraInfo = 0;
-            }
-    
-            // send keypress 
-            SendInput(1, &mut input, size_of::<INPUT>() as i32);
-    
-            // create structure for key release
-            let mut input: INPUT = std::mem::zeroed();
-            input.type_ = INPUT_KEYBOARD;
-            {
-                let ki = input.u.ki_mut();
-                ki.wVk = 0;
-                ki.wScan = scan_code;
-                ki.dwFlags = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
-                ki.time = 0;
-                ki.dwExtraInfo = 0;
-            }
-    
-            // release key
-            SendInput(1, &mut input, size_of::<INPUT>() as i32);
+            Keyboard::key_down(scan_code);
+            Keyboard::key_up(scan_code);
         }
     }
     
@@ -60,34 +78,14 @@ impl Keyboard {
     /// executes press down of shift key, press down and press up for desired key, then press up of shift key
     pub fn send_shifted_key(scan_code: u16) {
         unsafe {
-            // press shift key
-            let mut shift_input: INPUT = std::mem::zeroed();
-            shift_input.type_ = INPUT_KEYBOARD;
-            {
-                let ki = shift_input.u.ki_mut();
-                ki.wVk = VK_SHIFT as u16;
-                ki.wScan = 0;
-                ki.dwFlags = 0;
-                ki.time = 0;
-                ki.dwExtraInfo = 0;
-            }
-            SendInput(1, &mut shift_input, size_of::<INPUT>() as i32);
-    
+            Keyboard::key_down(0x10);
+            sleep(Duration::from_micros(50));
             // send key
             Keyboard::send_key(scan_code);
-    
+            sleep(Duration::from_micros(50));
             // release shift
-            let mut shift_input: INPUT = std::mem::zeroed();
-            shift_input.type_ = INPUT_KEYBOARD;
-            {
-                let ki = shift_input.u.ki_mut();
-                ki.wVk = VK_SHIFT as u16;
-                ki.wScan = 0;
-                ki.dwFlags = KEYEVENTF_KEYUP;
-                ki.time = 0;
-                ki.dwExtraInfo = 0;
-            }
-            SendInput(1, &mut shift_input, size_of::<INPUT>() as i32);
+            Keyboard::key_up(0x10);
+            sleep(Duration::from_micros(50));
         }
     }
     
@@ -113,6 +111,38 @@ impl Keyboard {
         let value = self.keymap.get(key);
         let value = value.expect("Unknown command");
         Keyboard::send_key(*value);
+
+    }
+
+
+    pub fn send_multi_key(&self, key_1:&String, key_2:&String, key_3:Option<String>) {
+        let value1 = self.keymap.get(key_1).expect("Invalid first key argument");
+        let value2 = self.keymap.get(key_2).expect("Invalid second key argument");
+        
+        let mut third_key = false;
+        let value3 = match key_3 {
+            Some(value) => {
+                third_key = true;
+                let value3 = self.keymap.get(&value).expect("Invalid third key argument");
+                value3
+            },
+            None => {
+                &0
+            }   
+        };
+        unsafe {
+            Keyboard::key_down(*value1);
+            Keyboard::key_down(*value2);
+            if third_key {
+                Keyboard::key_down(*value3);
+                Keyboard::key_up(*value3);
+            }
+            Keyboard::key_up(*value2);
+            Keyboard::key_up(*value1);
+        }
+        
+        
+
 
     }
 
@@ -243,10 +273,6 @@ impl Keyboard {
         key_map.insert(String::from("launchmediaselect"), 0xb5); // VK_LAUNCH_MEDIA_SELECT
         key_map.insert(String::from("launchapp1"), 0xb6); // VK_LAUNCH_APP1
         key_map.insert(String::from("launchapp2"), 0xb7); // VK_LAUNCH_APP2
-        key_map.insert(String::from("."), 0xBE); // .
-        key_map.insert(String::from("-"), 0xBD); // -
-        key_map.insert(String::from(","), 0xBC); // ,
-        key_map.insert(String::from("+"), 0xBB); // +
         key_map.insert(String::from("a"), 0x41); // A
         key_map.insert(String::from("b"), 0x42); // B
         key_map.insert(String::from("c"), 0x43); // C
