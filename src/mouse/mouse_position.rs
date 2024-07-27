@@ -25,28 +25,44 @@ fn main() {
 }
     thats all
 */
+
+struct DisplayWrapper {
+    display: *mut x11::xlib::Display,
+}
+//created so display gets dropped when code finishes 
+impl DisplayWrapper {
+    fn new() -> Self {
+        unsafe {
+            let display = XOpenDisplay(ptr::null());
+            if display.is_null() {
+                panic!("Unable to open X display");
+            }
+            DisplayWrapper { display }
+        }
+    }
+}
+
+impl Drop for DisplayWrapper {
+    fn drop(&mut self) {
+        unsafe {
+            XCloseDisplay(self.display);
+        }
+    }
+}
 #[cfg(target_os = "linux")]
 pub fn print_mouse_position() {
-    unsafe {
-        let display: *mut _XDisplay = XOpenDisplay(ptr::null());
-        if display.is_null() {
-            panic!("Unable to open X display");
-        }
+    let display_wrapper = DisplayWrapper::new();
 
-        // Get the root window
-        let screen = XDefaultScreen(display);
-        let root = XRootWindow(display, screen);
-        let mouse = Mouse::new(Some(display), Some(root));
+    unsafe {
+        let screen = XDefaultScreen(display_wrapper.display);
+        let root = XRootWindow(display_wrapper.display, screen);
+        let mouse = Mouse::new(Some(display_wrapper.display), Some(root));
         loop {
-            let (x,y) = mouse.get_mouse_position();
-            XCloseDisplay(display);
+            let (x, y) = mouse.get_mouse_position();
             println!("{x}, {y}");
             sleep(Duration::from_millis(20));
         }
-        
-        
-        
-    }
+    } 
 }
 
 
