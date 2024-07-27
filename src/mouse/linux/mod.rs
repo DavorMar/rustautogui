@@ -2,7 +2,7 @@
 use x11::xlib::*;
 use std::time::Instant;
 use x11::xtest::*;
-use super::MouseClick;
+use super::{MouseClick, MouseScroll};
 use std::{thread, time::Duration};
 
 
