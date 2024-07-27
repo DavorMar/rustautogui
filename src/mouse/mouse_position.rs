@@ -25,11 +25,12 @@ fn main() {
 }
     thats all
 */
-
+#[cfg(target_os = "linux")]
 struct DisplayWrapper {
     display: *mut x11::xlib::Display,
 }
 //created so display gets dropped when code finishes 
+#[cfg(target_os = "linux")]
 impl DisplayWrapper {
     fn new() -> Self {
         unsafe {
@@ -41,7 +42,7 @@ impl DisplayWrapper {
         }
     }
 }
-
+#[cfg(target_os = "linux")]
 impl Drop for DisplayWrapper {
     fn drop(&mut self) {
         unsafe {
