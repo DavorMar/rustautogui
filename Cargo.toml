@@ -6,7 +6,8 @@ description = "rustautogui is a GUI automation module used to control the mouse 
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/DavorMar/rustautogui"
-
+keywords = ["automation", "autogui", "gui", "mouse", "keyboard"]
+categories = ["gui", "development-tools"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
