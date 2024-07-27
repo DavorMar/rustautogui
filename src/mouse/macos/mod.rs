@@ -9,7 +9,7 @@ use core_graphics::event::{
 
 use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 use core_graphics::geometry::CGPoint;
-use crate::mouse::Mouseclick;
+use crate::mouse::MouseClick;
 
 
 
@@ -71,11 +71,11 @@ impl Mouse{
     }
 
     /// execute left, right or middle mouse click
-    pub fn mouse_click(button:Mouseclick) {
+    pub fn mouse_click(button:MouseClick) {
         let (cg_button, down, up) = match button {
-            Mouseclick::LEFT => (CGMouseButton::Left, CGEventType::LeftMouseDown, CGEventType::LeftMouseUp),
-            Mouseclick::RIGHT => (CGMouseButton::Right, CGEventType::RightMouseDown, CGEventType::RightMouseUp),
-            Mouseclick::MIDDLE => (CGMouseButton::Center, CGEventType::OtherMouseDown, CGEventType::OtherMouseUp),
+            MouseClick::LEFT => (CGMouseButton::Left, CGEventType::LeftMouseDown, CGEventType::LeftMouseUp),
+            MouseClick::RIGHT => (CGMouseButton::Right, CGEventType::RightMouseDown, CGEventType::RightMouseUp),
+            MouseClick::MIDDLE => (CGMouseButton::Center, CGEventType::OtherMouseDown, CGEventType::OtherMouseUp),
         };
 
         // needed as input for where to click

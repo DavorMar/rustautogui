@@ -293,19 +293,19 @@ impl RustAutoGui {
     /// executes left mouse click 
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     pub fn left_click(&self) {
-        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::LEFT);
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
     }
 
     /// executes right mouse click 
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     pub fn right_click(&self) {
-        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::RIGHT);
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::RIGHT);
     }
 
     /// executes middle mouse click
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     pub fn middle_click(&self) {
-        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::MIDDLE);
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::MIDDLE);
     }
 
     /// executes double mouse click
@@ -318,8 +318,8 @@ impl RustAutoGui {
     /// executes double left mouse click
     #[cfg(target_os = "windows")]
     pub fn double_click(&self) {
-        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::LEFT);
-        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::LEFT);
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
     }
 
 
@@ -344,8 +344,8 @@ impl RustAutoGui {
     /// executes double left mouse click
     #[cfg(target_os = "linux")]
     pub fn double_click(&self) {
-        self.mouse.mouse_click(mouse::Mouseclick::LEFT);
-        self.mouse.mouse_click(mouse::Mouseclick::LEFT);
+        self.mouse.mouse_click(mouse::MouseClick::LEFT);
+        self.mouse.mouse_click(mouse::MouseClick::LEFT);
     }
 
     /// accepts string and mimics keyboard key presses for each character in string
@@ -373,7 +373,12 @@ impl RustAutoGui {
         
     }
 
-
+    pub fn scroll_up(&self) {
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::UP);
+    }
+    pub fn scroll_down(&self) {
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN);
+    }
     
 }
 

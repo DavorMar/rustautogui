@@ -2,11 +2,11 @@ use winapi::shared::windef::POINT;
 use winapi::um::winuser::{SetCursorPos, SendInput, INPUT, INPUT_MOUSE,
      MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
      MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
-     MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP,
+     MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP,MOUSEEVENTF_WHEEL
 };
 use std::time::Instant;
 use std::mem::{zeroed, size_of};
-use crate::mouse::Mouseclick;
+use crate::mouse::{MouseClick, MouseScroll};
 
 
 pub struct Mouse {
@@ -72,11 +72,11 @@ impl Mouse {
      }
 
      /// click mouse, either left, right or middle "Mouseclick::LEFT/RIGHT/MIDDLE enumerator"
-     pub fn mouse_click(button:Mouseclick){
+     pub fn mouse_click(button:MouseClick){
           let (down, up) = match button { 
-               Mouseclick::LEFT => {(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP) },
-               Mouseclick::RIGHT => {(MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP)},
-               Mouseclick::MIDDLE => {(MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP)}
+               MouseClick::LEFT => {(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP) },
+               MouseClick::RIGHT => {(MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP)},
+               MouseClick::MIDDLE => {(MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP)}
                
      
           };
@@ -92,6 +92,25 @@ impl Mouse {
                // send the input events
                SendInput(2, inputs.as_mut_ptr(), size_of::<INPUT>() as i32);
                }
+     }
+
+     pub fn scroll(direction: MouseScroll) {
+          let amount: i32 = match direction {
+               MouseScroll::UP => 120,
+               MouseScroll::DOWN => -120,
+          };
+          unsafe {
+               let mut scroll_input: INPUT = zeroed();
+              
+               scroll_input.type_ = INPUT_MOUSE;
+               scroll_input.u.mi_mut().dwFlags = MOUSEEVENTF_WHEEL;
+               scroll_input.u.mi_mut().mouseData = amount as u32;
+               SendInput(1, &mut scroll_input, size_of::<INPUT>() as i32);
+
+          }
+          
+          
+
      }
 }
      

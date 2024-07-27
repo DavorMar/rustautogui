@@ -18,10 +18,15 @@ pub use macos as platform;
 pub use linux as platform;
 
 
-pub enum Mouseclick {
+pub enum MouseClick {
     LEFT,
     RIGHT,
     MIDDLE
+}
+
+pub enum MouseScroll {
+    UP,
+    DOWN,
 }
 
 pub mod mouse_position;
