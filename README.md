@@ -119,7 +119,7 @@ rustautogui.save_screenshot("test.png"); //saves screen screenshot
 ```rust
 use rustautogui::mouse;
 fn main() {
-   mouse::mouse_position::show_mouse_position_window();
+   mouse::mouse_position::print_mouse_position();
 }
 ```
 This is assisting tool that pops up a window that shows mouse coordinates. This is a good utility to determine matching regions when developing. 

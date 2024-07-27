@@ -10,6 +10,9 @@ use std::ptr;
 #[cfg(any(target_os = "windows", target_os = "macos"))]
 use crate::mouse::platform::Mouse;
 
+use std::time::Duration;
+use std::thread::sleep;
+
 /* 
 
 small helper function to open a window that shows mouse position 
@@ -37,7 +40,8 @@ pub fn print_mouse_position() {
         loop {
             let (x,y) = mouse.get_mouse_position();
             XCloseDisplay(display);
-            println!("{x}, {y}")
+            println!("{x}, {y}");
+            sleep(Duration::from_millis(20));
         }
         
         
@@ -53,6 +57,7 @@ pub fn print_mouse_position() {
 pub fn print_mouse_position() {
     loop {
         let (x,y) = Mouse::get_mouse_position();
-        println!("{x}, {y}")
+        println!("{x}, {y}");
+        sleep(Duration::from_millis(20));
     };
 }
