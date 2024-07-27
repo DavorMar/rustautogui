@@ -1,6 +1,4 @@
 extern crate winapi;
-
-use egui::Key;
 use winapi::um::winuser::{SendInput, INPUT, INPUT_KEYBOARD, KEYEVENTF_KEYUP,VK_SHIFT, KEYEVENTF_SCANCODE, VK_MENU, VK_CONTROL};
 use winapi::um::winuser::{MapVirtualKeyW, MAPVK_VK_TO_VSC};
 use std::mem::size_of;
