@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.2.3] - 2024-07.27
+## [0.3.0] - 2024-07.27
 ### Removed
 -removed egui and eframe dependencies. Unnecessary and used just to create one window to show mouse position. Simply printing it now.
 

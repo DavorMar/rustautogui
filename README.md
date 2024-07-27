@@ -36,7 +36,7 @@ Either run
 
 or add the crate in your Cargo.toml file like:
 
-`rustautogui = "0.2.3"`
+`rustautogui = "0.3.0"`
 
 For Linux additionally install run :
 
@@ -122,8 +122,8 @@ fn main() {
    mouse::mouse_position::print_mouse_position();
 }
 ```
-This is assisting tool that pops up a window that shows mouse coordinates. This is a good utility to determine matching regions when developing. 
-It was of great help when testing and debugging this library, so I decided to leave it in for users aswell. 
+Before 0.3.0 this function popped up window, now it just prints. This was changed to reduce dependencies.
+This is a helper function to determine coordinates on screen, helpful when determining region or mouse move target. 
 
 ## How does crate work:
 
