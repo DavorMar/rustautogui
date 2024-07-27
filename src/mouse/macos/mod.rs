@@ -4,12 +4,12 @@ use std::{
 };
 
 use core_graphics::event::{
-    CGEvent, CGEventType, CGEventTapLocation, CGMouseButton, 
+    CGEvent, CGEventType, CGEventTapLocation, CGMouseButton, ScrollEventUnit
 };
 
 use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 use core_graphics::geometry::CGPoint;
-use crate::mouse::MouseClick;
+use crate::mouse::{MouseClick,MouseScroll};
 
 
 
@@ -105,15 +105,19 @@ impl Mouse{
     pub fn scroll (direction:MouseScroll) {
         let delta = match direction {
             MouseScroll::UP => 10,
-            MouseScroll::down => -10,
+            MouseScroll::DOWN => -10,
         };
-        let scroll_event = CGEvent::new_scroll_event(
-            event_source,
+        let scroll = CGEvent::new_scroll_event(
+            CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap(),
             ScrollEventUnit::PIXEL,
-            1, // number of axes
-            delta, //value for scroll up or down
-        ).unwrap();
-        scroll_event.post(CGEventTapLocation::HID);
+            1,
+            delta,
+            0,
+            0
+        );
+        
+        scroll.expect("Error scrolling").post(CGEventTapLocation::HID);
+
     }
 
 
