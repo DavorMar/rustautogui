@@ -101,7 +101,24 @@ impl Mouse{
         click_up.post(CGEventTapLocation::HID);
         sleep(Duration::from_millis(20));
     }
-     
+
+    pub fn scroll (direction:MouseScroll) {
+        let delta = match direction {
+            MouseScroll::UP => 10,
+            MouseScroll::down => -10,
+        };
+        let scroll_event = CGEvent::new_scroll_event(
+            event_source,
+            ScrollEventUnit::PIXEL,
+            1, // number of axes
+            delta, //value for scroll up or down
+        ).unwrap();
+        scroll_event.post(CGEventTapLocation::HID);
+    }
+
+
+
+
     pub fn double_click() {
         
         let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap();
@@ -147,5 +164,6 @@ impl Mouse{
         sleep(Duration::from_millis(10));
     }
 
+    
 
 }
