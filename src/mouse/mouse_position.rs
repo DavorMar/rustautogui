@@ -1,6 +1,4 @@
 
-use eframe::egui::{CentralPanel, Context, Pos2};
-use eframe::{App, NativeOptions};
 
 #[cfg(target_os = "linux")]
 use crate::mouse::platform::Mouse;
@@ -11,6 +9,9 @@ use std::ptr;
 
 #[cfg(any(target_os = "windows", target_os = "macos"))]
 use crate::mouse::platform::Mouse;
+
+use std::time::Duration;
+use std::thread::sleep;
 
 /* 
 
@@ -25,52 +26,55 @@ fn main() {
     thats all
 */
 #[cfg(target_os = "linux")]
-fn get_mouse_position() -> Pos2 {
-    unsafe {
-        let display: *mut _XDisplay = XOpenDisplay(ptr::null());
-        if display.is_null() {
-            panic!("Unable to open X display");
-        }
-
-        // Get the root window
-        let screen = XDefaultScreen(display);
-        let root = XRootWindow(display, screen);
-        let mouse = Mouse::new(Some(display), Some(root));
-        let (x,y) = mouse.get_mouse_position();
-        XCloseDisplay(display);
-        Pos2 { x: x as f32, y: y as f32 }
-        
-    }
-       
+struct DisplayWrapper {
+    display: *mut x11::xlib::Display,
 }
+//created so display gets dropped when code finishes 
+#[cfg(target_os = "linux")]
+impl DisplayWrapper {
+    fn new() -> Self {
+        unsafe {
+            let display = XOpenDisplay(ptr::null());
+            if display.is_null() {
+                panic!("Unable to open X display");
+            }
+            DisplayWrapper { display }
+        }
+    }
+}
+#[cfg(target_os = "linux")]
+impl Drop for DisplayWrapper {
+    fn drop(&mut self) {
+        unsafe {
+            XCloseDisplay(self.display);
+        }
+    }
+}
+#[cfg(target_os = "linux")]
+pub fn print_mouse_position() {
+    let display_wrapper = DisplayWrapper::new();
+
+    unsafe {
+        let screen = XDefaultScreen(display_wrapper.display);
+        let root = XRootWindow(display_wrapper.display, screen);
+        let mouse = Mouse::new(Some(display_wrapper.display), Some(root));
+        loop {
+            let (x, y) = mouse.get_mouse_position();
+            println!("{x}, {y}");
+            sleep(Duration::from_millis(20));
+        }
+    } 
+}
+
+
+
 
 
 #[cfg(any(target_os = "windows", target_os = "macos"))]
-fn get_mouse_position() -> Pos2 {
-    let (x,y) = Mouse::get_mouse_position();
-    Pos2 { x: x as f32, y: y as f32 }
+pub fn print_mouse_position() {
+    loop {
+        let (x,y) = Mouse::get_mouse_position();
+        println!("{x}, {y}");
+        sleep(Duration::from_millis(20));
+    };
 }
-
-pub fn show_mouse_position_window() -> Result<(), eframe::Error> {
-    eframe::run_native(
-        "Mouse Position",
-        NativeOptions::default(),
-        Box::new(|_cc| Ok(Box::new(MyApp))),
-    )
-}
-
-struct MyApp;
-
-impl App for MyApp {
-    fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        let mouse_pos = get_mouse_position();
-        
-        CentralPanel::default().show(ctx, |ui| {
-            ui.label(format!("Mouse Position: ({:.0}, {:.0})", mouse_pos.x, mouse_pos.y));
-        });
-
-        // Request a repaint for continuous update
-        ctx.request_repaint();
-    }
-}
-

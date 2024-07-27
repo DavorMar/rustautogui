@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2024-07.27
+### Removed
+-removed egui and eframe dependencies. Unnecessary and used just to create one window to show mouse position. Simply printing it now.
+
 ## [0.2.2] - 2024-07.27
 ### Added
 -scroll up and scroll down functions
