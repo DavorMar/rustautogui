@@ -293,19 +293,19 @@ impl RustAutoGui {
     /// executes left mouse click 
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     pub fn left_click(&self) {
-        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::LEFT);
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
     }
 
     /// executes right mouse click 
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     pub fn right_click(&self) {
-        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::RIGHT);
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::RIGHT);
     }
 
     /// executes middle mouse click
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     pub fn middle_click(&self) {
-        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::MIDDLE);
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::MIDDLE);
     }
 
     /// executes double mouse click
@@ -318,36 +318,53 @@ impl RustAutoGui {
     /// executes double left mouse click
     #[cfg(target_os = "windows")]
     pub fn double_click(&self) {
-        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::LEFT);
-        mouse::platform::Mouse::mouse_click(mouse::Mouseclick::LEFT);
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
     }
 
 
     /// executes left mouse click 
     #[cfg(target_os = "linux")]
     pub fn left_click(&self) {
-        self.mouse.mouse_click(mouse::Mouseclick::LEFT);
+        self.mouse.mouse_click(mouse::MouseClick::LEFT);
     }
 
     /// executes right mouse click
     #[cfg(target_os = "linux")]
     pub fn right_click(&self) {
-        self.mouse.mouse_click(mouse::Mouseclick::RIGHT);
+        self.mouse.mouse_click(mouse::MouseClick::RIGHT);
     }
 
     /// executes middle mouse click
     #[cfg(target_os = "linux")]
     pub fn middle_click(&self) {
-        self.mouse.mouse_click(mouse::Mouseclick::MIDDLE);
+        self.mouse.mouse_click(mouse::MouseClick::MIDDLE);
     }
     
     /// executes double left mouse click
     #[cfg(target_os = "linux")]
     pub fn double_click(&self) {
-        self.mouse.mouse_click(mouse::Mouseclick::LEFT);
-        self.mouse.mouse_click(mouse::Mouseclick::LEFT);
+        self.mouse.mouse_click(mouse::MouseClick::LEFT);
+        self.mouse.mouse_click(mouse::MouseClick::LEFT);
     }
 
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    pub fn scroll_up(&self) {
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::UP);
+    }
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    pub fn scroll_down(&self) {
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN);
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn scroll_up(&self) {
+        self.mouse.scroll(mouse::MouseScroll::UP);
+    }
+    #[cfg(target_os = "linux")]
+    pub fn scroll_down(&self) {
+        self.mouse.scroll(mouse::MouseScroll::DOWN);
+    }
     /// accepts string and mimics keyboard key presses for each character in string
     pub fn keyboard_input(&self,input:&str, shifted:&bool) {
         let input_string = String::from(input);
@@ -374,6 +391,8 @@ impl RustAutoGui {
     }
 
 
+
+    
     
 }
 

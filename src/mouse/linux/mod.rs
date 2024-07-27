@@ -2,7 +2,7 @@
 use x11::xlib::*;
 use std::time::Instant;
 use x11::xtest::*;
-use super::Mouseclick;
+use super::{MouseClick, MouseScroll};
 use std::{thread, time::Duration};
 
 
@@ -92,11 +92,11 @@ impl Mouse {
     }
 
     /// click mouse, either left, right or middle
-    pub fn mouse_click(&self,  button: Mouseclick) {
+    pub fn mouse_click(&self,  button: MouseClick) {
         let button =match button {
-            Mouseclick::LEFT => 1,
-            Mouseclick::MIDDLE => 2,
-            Mouseclick::RIGHT => 3,
+            MouseClick::LEFT => 1,
+            MouseClick::MIDDLE => 2,
+            MouseClick::RIGHT => 3,
         };
        
         let mut event_base = 0;
@@ -121,6 +121,33 @@ impl Mouse {
         
     }
 
+
+    pub fn scroll(&self, direction: MouseScroll) {
+        let button = match direction {
+            MouseScroll::UP => 4,
+            MouseScroll::DOWN => 5,
+        };
+        let mut event_base = 0;
+        let mut error_base = 0;
+        unsafe {
+            if XTestQueryExtension(self.screen, &mut event_base, &mut error_base, &mut event_base, &mut error_base) == 0 {
+                eprintln!("XTest extension not available");
+                return;
+            }
+            // if let Some(window) = self.get_window_under_cursor() {
+            //     self.set_focus_to_window(window);
+            // } 
+            // Press the mouse button
+            XTestFakeButtonEvent(self.screen, button, 1, CurrentTime);
+            XFlush(self.screen);
+        
+            // Release the mouse button
+            XTestFakeButtonEvent(self.screen, button, 0, CurrentTime);
+            XFlush(self.screen);
+            
+        }
+
+    }
 
     /// return window that is at cursor position. Used when executing left click to also 
     /// change focused window

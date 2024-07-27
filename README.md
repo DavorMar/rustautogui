@@ -36,7 +36,7 @@ Either run
 
 or add the crate in your Cargo.toml file like:
 
-`rustautogui = "0.2.1"`
+`rustautogui = "0.2.2"`
 
 For Linux additionally install run :
 
@@ -93,7 +93,7 @@ let found_locations: Option<Vec<(u32, u32, f64)>> =  rustautogui.find_image_on_s
 // returns locations that have correlation higher than precision, ordered from highest to lowest. 
 // Mouse moves to highest correlation point
 ```
-IMPORTANT: Difference between linux and windows when using multiple monitors. On Windows, search for template image can be done only on the main monitor.
+IMPORTANT: Difference between linux and windows/macOS when using multiple monitors. On Windows and macOS, search for template image can be done only on the main monitor.
 
 
 On linux, search can be done on all monitors and  0, 0 coordinates start from top left position. The leftmost monitor will have zero X coordinate, while top most monitor will have Y zero coordinate. 
@@ -105,7 +105,11 @@ rustautogui.keyboard_input(input: "test", shifted:&false); // input string, or b
 rustautogui.keyboard_command(input:"return"); //press a keyboard button 
 rustautogui.keyboard_multi_key(input1: "shift", input2:"control", input3: Some("t")) // Executed multiple key press at same time. third argument is optional
 rustautogui.change_debug_state(true); // change debugging
+rustautogui.scroll_up();
+rustautogui.scroll_down();
 ```
+For all the keyboard commands check Keyboard_commands.txt, a roughly written list of possible inputs
+
 Debug mode prints out number of segments in segmented picture, times taken for algorithm run and it saves segmented images.
 
 ```rust

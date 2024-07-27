@@ -4,12 +4,12 @@ use std::{
 };
 
 use core_graphics::event::{
-    CGEvent, CGEventType, CGEventTapLocation, CGMouseButton, 
+    CGEvent, CGEventType, CGEventTapLocation, CGMouseButton, ScrollEventUnit
 };
 
 use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 use core_graphics::geometry::CGPoint;
-use crate::mouse::Mouseclick;
+use crate::mouse::{MouseClick,MouseScroll};
 
 
 
@@ -71,11 +71,11 @@ impl Mouse{
     }
 
     /// execute left, right or middle mouse click
-    pub fn mouse_click(button:Mouseclick) {
+    pub fn mouse_click(button:MouseClick) {
         let (cg_button, down, up) = match button {
-            Mouseclick::LEFT => (CGMouseButton::Left, CGEventType::LeftMouseDown, CGEventType::LeftMouseUp),
-            Mouseclick::RIGHT => (CGMouseButton::Right, CGEventType::RightMouseDown, CGEventType::RightMouseUp),
-            Mouseclick::MIDDLE => (CGMouseButton::Center, CGEventType::OtherMouseDown, CGEventType::OtherMouseUp),
+            MouseClick::LEFT => (CGMouseButton::Left, CGEventType::LeftMouseDown, CGEventType::LeftMouseUp),
+            MouseClick::RIGHT => (CGMouseButton::Right, CGEventType::RightMouseDown, CGEventType::RightMouseUp),
+            MouseClick::MIDDLE => (CGMouseButton::Center, CGEventType::OtherMouseDown, CGEventType::OtherMouseUp),
         };
 
         // needed as input for where to click
@@ -101,7 +101,28 @@ impl Mouse{
         click_up.post(CGEventTapLocation::HID);
         sleep(Duration::from_millis(20));
     }
-     
+
+    pub fn scroll (direction:MouseScroll) {
+        let delta = match direction {
+            MouseScroll::UP => 10,
+            MouseScroll::DOWN => -10,
+        };
+        let scroll = CGEvent::new_scroll_event(
+            CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap(),
+            ScrollEventUnit::PIXEL,
+            1,
+            delta,
+            0,
+            0
+        );
+        
+        scroll.expect("Error scrolling").post(CGEventTapLocation::HID);
+
+    }
+
+
+
+
     pub fn double_click() {
         
         let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap();
@@ -147,5 +168,6 @@ impl Mouse{
         sleep(Duration::from_millis(10));
     }
 
+    
 
 }
