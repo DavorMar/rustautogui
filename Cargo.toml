@@ -17,9 +17,6 @@ rustfft = "6.2.0"
 num-complex = "0.4.6"
 rayon = "1.10.0"
 rand = "0.8.5"
-
-eframe = "0.28.1"
-egui = "0.28.1"
 x11 = "2.21.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
