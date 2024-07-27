@@ -71,7 +71,7 @@ impl Mouse {
           
      }
 
-     /// click mouse, either left, right or middle "Mouseclick::LEFT/RIGHT/MIDDLE enumerator"
+     /// click mouse, either left, right or middle "MouseClick::LEFT/RIGHT/MIDDLE enumerator"
      pub fn mouse_click(button:MouseClick){
           let (down, up) = match button { 
                MouseClick::LEFT => {(MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP) },
