@@ -4,8 +4,6 @@ use crate::normalized_x_corr::
     sum_region};
 
 
-extern crate rayon;
-
 use rayon::prelude::*;
 use crate::imgtools;
 

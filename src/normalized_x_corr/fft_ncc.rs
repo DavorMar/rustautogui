@@ -5,20 +5,13 @@
  */
 
 
-extern crate rayon;
-extern crate rustfft;
-
-
-use crate::normalized_x_corr::{
-    compute_integral_image, compute_squared_integral_image, sum_region,
-};
-
-
 use crate::imgtools;
 use image::{ImageBuffer, Luma};
 use rayon::prelude::*;
 use rustfft::{FftPlanner, num_complex::Complex, Fft};
 use core::cmp::max;
+
+use super::{compute_integral_images, sum_region};
 
 
 
@@ -43,9 +36,7 @@ pub fn fft_ncc(
     let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(&image);
     
     // compute needed integral images for denominator calculation
-    let image_integral = compute_integral_image(&image_vec);
-    let squared_image_integral = compute_squared_integral_image(&image_vec);
-
+    let (image_integral, squared_image_integral) = compute_integral_images(&image_vec);
 
     //// calculating zero mean image
     let sum_image: u64 = sum_region(

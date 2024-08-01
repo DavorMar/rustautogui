@@ -95,6 +95,47 @@ fn compute_squared_integral_image(
 }
 
 
+/// Compute both normal and squared integral image
+fn compute_integral_images(image: &Vec<Vec<u8>>) -> (Vec<Vec<u64>>, Vec<Vec<u64>>) {
+    let height = image.len() as u32;
+    let width = if height > 0 { image[0].len() as u32 } else { 0 };
+    let mut integral_image = vec![vec![0u64; width as usize]; height as usize];
+    let mut squared_integral_image = vec![vec![0u64; width as usize]; height as usize];
+    for y in 0..height {
+        for x in 0..width {
+            let pixel_value = image[y as usize][x as usize] as u64;
+            let pixel_value_squared = (image[y as usize][x as usize] as u64).pow(2); 
+            let (integral_value, squared_integral_value) = if x == 0 && y == 0 {
+                (pixel_value,
+                pixel_value_squared)
+            } else if x == 0 {
+                (pixel_value + integral_image[(y - 1) as usize][x as usize],
+                pixel_value_squared + squared_integral_image[(y - 1) as usize][x as usize])
+            } else if y == 0 {
+                (pixel_value + integral_image[y as usize][(x - 1) as usize],
+                pixel_value_squared + squared_integral_image[y as usize][(x - 1) as usize])
+            } else {
+                (pixel_value 
+                + integral_image[(y - 1) as usize][x as usize]
+                + integral_image[y as usize][(x - 1) as usize]
+                - integral_image[(y - 1) as usize][(x - 1) as usize],
+
+                pixel_value_squared
+                + squared_integral_image[(y - 1) as usize][x as usize]
+                + squared_integral_image[y as usize][(x - 1) as usize]
+                - squared_integral_image[(y - 1) as usize][(x - 1) as usize])
+            };
+            integral_image[y as usize][x as usize] = integral_value;
+            squared_integral_image[y as usize][x as usize] = squared_integral_value;
+        }
+    }
+
+    (integral_image, squared_integral_image)
+}
+
+
+
+
 fn sum_region(integral_image: &Vec<Vec<u64>>, x: u32, y: u32, width: u32, height: u32) -> u64 {
     /*
     Used to calculate sum region of an integral image. Bottom right pixel will have summed up value of everything above and left.
