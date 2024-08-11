@@ -1,7 +1,7 @@
 use core_graphics::display::CGDisplay;
 use core_graphics::display;
 
-use image::{ GrayImage, ImageBuffer, Luma, Rgba};
+use image::{ imageops::{resize, FilterType::Nearest}, GrayImage, ImageBuffer, Luma, Rgba};
 use crate::imgtools;
 
 
@@ -123,11 +123,12 @@ impl Screen {
             let gray_value = ((r * 30 + g * 59 + b * 11) / 100) as u8;
             grayscale_data.push(gray_value);
         }
-        GrayImage::from_raw(
-                    self.screen_width as u32,
-                    self.screen_height as u32,
-                    grayscale_data
-                    ).expect("Couldn't convert to GrayImage")
+        let mut image = GrayImage::from_raw(
+                (self.scaling_factor_x * self.screen_width as f64) as u32,
+                (self.scaling_factor_y * self.screen_height as f64) as u32,
+                grayscale_data
+            ).expect("Couldn't convert to GrayImage");
+        resize(&mut image, self.screen_width as u32, self.screen_height as u32, Nearest)
     }
 
     /// convert vector to RGBA ImageBuffer

@@ -1,5 +1,5 @@
 #![allow(unused_doc_comments)]
-use image::{ImageBuffer, Luma};
+use image::{imageops::{resize, FilterType::Nearest}, ImageBuffer, Luma};
 use rustfft::num_complex::Complex;
 pub mod imgtools;
 pub mod normalized_x_corr;
@@ -128,7 +128,11 @@ impl RustAutoGui {
     /// 
     /// creates vector of data stored under PreparedData enumerator, and stored inside struct field self.prepared_data
     pub fn load_and_prepare_template(&mut self, template_path: &str, region:Option<(u32,u32,u32,u32)>, match_mode:MatchMode, max_segments: &Option<u32>) {
-        let template = imgtools::load_image_bw(template_path);
+        let mut template = imgtools::load_image_bw(template_path);
+        #[cfg(target_os = "macos")]
+        {
+            template = resize(&template, template.width()/2, template.height()/2, Nearest);
+        }
         let (template_width, template_height) = template.dimensions();
         self.template_width = template_width;
         self.template_height = template_height;
