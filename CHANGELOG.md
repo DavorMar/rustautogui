@@ -2,8 +2,8 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.3.2] - 2024-08.01
-### Added
+## [0.3.2] - 2024-09.03
+### Fixed
 - fix MACOS capture screen on retina
 
 
