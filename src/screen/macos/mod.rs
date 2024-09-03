@@ -13,8 +13,8 @@ pub struct Screen {
     pub screen_region_height: u32,
     pub display: CGDisplay,
     pub pixel_data: Vec<u8>,
-    scaling_factor_x: f64, // difference between logical and phyisical resolution
-    scaling_factor_y: f64
+    pub scaling_factor_x: f64, // difference between logical and phyisical resolution
+    pub scaling_factor_y: f64
 }
 
 impl Screen {

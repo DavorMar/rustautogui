@@ -131,7 +131,7 @@ impl RustAutoGui {
         let mut template = imgtools::load_image_bw(template_path);
         #[cfg(target_os = "macos")]
         {
-            template = resize(&template, template.width()/2, template.height()/2, Nearest);
+            template = resize(&template, template.width()/ self.screen.scaling_factor_x as u32, template.height()/ self.screen.scaling_factor_y as u32, Nearest);
         }
         let (template_width, template_height) = template.dimensions();
         self.template_width = template_width;
