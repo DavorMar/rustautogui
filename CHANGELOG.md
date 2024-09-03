@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.2] - 2024-08.01
+### Added
+- fix MACOS capture screen on retina
+
+
 ## [0.3.1] - 2024-08.01
 ### Added
 -small optimization to template prepare 
