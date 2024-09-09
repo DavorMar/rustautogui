@@ -86,8 +86,15 @@ impl Keyboard {
             sleep(Duration::from_micros(50));
         }
     }
-    
 
+    pub fn send_string(&self, string: &String) {
+        string.chars().for_each(|c| {
+            c.to_lowercase().for_each(|sub_c| {
+                self.send_char(&sub_c, &c.is_uppercase())
+            });
+        });
+    }
+    
     /// function used when sending input as string
     pub fn send_char(&self, key:&char, shifted:&bool) {
         let char_string = String::from(*key);
