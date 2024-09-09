@@ -375,6 +375,11 @@ impl RustAutoGui {
         for letter in input_string.chars() {
             self.keyboard.send_char(&letter, shifted);
         }
+    }   
+    
+     /// sends a whole string, automatically checks whether a character needs to be "shifted" or not
+    pub fn keyboard_string(&self, string: &String) {
+        self.keyboard.send_string(string);
     }
 
     /// executes keyboard command like "return" or "escape"
