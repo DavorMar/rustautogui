@@ -72,6 +72,14 @@ impl Keyboard {
         keycode
     }
 
+    pub fn send_string(&self, string: &String) {
+        string.chars().for_each(|c| {
+            c.to_lowercase().for_each(|sub_c| {
+                self.send_char(&sub_c, &c.is_uppercase())
+            });
+        });
+    }
+    
     /// top level send character function that converts char to keycode and executes send key
     pub fn send_char (&self, key:&char, shifted:&bool) {
         unsafe {
