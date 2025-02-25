@@ -94,8 +94,16 @@ pub fn fast_ncc_template_match(
         .collect();
 
     // returned list of found points
-
+    
     found_points.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap());
+    if *debug {
+        let found_point_len = found_points.len();
+        if found_point_len > 0 {
+            println!("first found position corr :({})",found_points[0].2);
+        }
+        
+    }
+
     found_points
 
 

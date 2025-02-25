@@ -264,8 +264,21 @@ impl RustAutoGui {
                 panic!("No template data chosen");
             },
         };
+        
+        
+        
         if found_locations.len() > 0 {
+            if self.debug {
+                let corrected_found_location:(u32,u32,f64);
+                let x = found_locations[0].0 as u32 + (self.template_width /2) as u32 + self.region.0 as u32;
+                let y = found_locations[0].1 as u32 + (self.template_height/2) as u32 + self.region.1 as u32;
+                let corr = found_locations[0].2;
+                corrected_found_location = (x,y,corr);
+                
+                println!("Location found at x: {}, y {}, corr {} ",corrected_found_location.0, corrected_found_location.1, corrected_found_location.2)
+            }
             return Some(found_locations);
+            
         } else {
             return None;
         };
@@ -298,8 +311,11 @@ impl RustAutoGui {
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time: f32) {
         Mouse::move_mouse_to_pos(x, y, moving_time);
-        let (x,y) = Mouse::get_mouse_position();
-        println!("{x}, {y}");
+        if self.debug {
+            let (x,y) = Mouse::get_mouse_position();
+            println!("Mouse moved to position {x}, {y}");    
+        }
+        
     }
 
     /// moves mouse to x, y pixel coordinate
