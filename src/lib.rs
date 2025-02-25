@@ -158,7 +158,9 @@ impl RustAutoGui {
                 prepared_data
             },
             MatchMode::Segmented => {
-                panic!("Segmented correlation has not been implemented yet");
+                let prepared_data = PreparedData::Segmented(normalized_x_corr::fast_segment_x_corr::prepare_template_picture(&template, max_segments, &self.debug));
+                self.match_mode = Some(MatchMode::Segmented);
+                prepared_data
             }
         };
         self.prepared_data = template_data;
@@ -207,7 +209,19 @@ impl RustAutoGui {
             
             },
             MatchMode::Segmented => {
-                panic!("Segmented correlation has not been implemented yet")
+                // no need to recalculate if max segments havent changed or if match mode has not changed
+                if self.match_mode == Some(MatchMode::Segmented) && self.max_segments == *max_segments {
+                    if self.debug {
+                        println!("Keeping same template data");
+                    }
+                } else {
+                    if self.debug {
+                        println!("Recalculating template data");
+                    }
+                    let prepared_data = PreparedData::Segmented(normalized_x_corr::fast_segment_x_corr::prepare_template_picture(&template, &None, &self.debug));
+                    self.prepared_data = prepared_data;
+                    self.match_mode = Some(MatchMode::Segmented);
+                }
             }
         };
         self.region = region;
@@ -243,7 +257,8 @@ impl RustAutoGui {
                 found_locations
             },
             PreparedData::Segmented(data) => {
-                panic!("Segmented correlation is not implemented yet");
+                let found_locations = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, &precision, data, &self.debug, "");
+                found_locations
             },
             PreparedData::None => {
                 panic!("No template data chosen");
