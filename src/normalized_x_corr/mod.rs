@@ -3,7 +3,7 @@ extern crate rayon;
 
 pub mod fft_ncc;
 pub mod slow_ncc;
-
+pub mod fast_segment_x_corr;
 
 fn compute_integral_image(
     image: &Vec<Vec<u8>>,
