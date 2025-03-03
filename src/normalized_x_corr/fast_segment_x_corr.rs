@@ -123,7 +123,7 @@ fn save_template_segmented_images(template_segments:&Vec<(u32, u32, u32, u32, f3
     let mut rng = rand::thread_rng();
     let debug_path = Path::new("debug");
     if !debug_path.exists() {
-        fs::create_dir_all(debug_path).expect("Failed to create 'debug' directory");
+        fs::create_dir_all(debug_path).expect("Failed to create 'debug' directory. Please create it manualy in the root folder");
     }
     for (x, y, segment_width, segment_height, segment_mean) in template_segments {
         let mut rng_mult: f32 = rng.gen();

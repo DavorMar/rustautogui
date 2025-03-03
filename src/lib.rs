@@ -3,7 +3,8 @@ use image::{imageops::{resize, FilterType::Nearest}, ImageBuffer, Luma};
 use rustfft::num_complex::Complex;
 pub mod imgtools;
 pub mod normalized_x_corr;
-
+use std::fs;
+use std::path::Path;
 
 #[cfg(target_os = "windows")]
 pub use crate::{
@@ -242,6 +243,11 @@ impl RustAutoGui {
     pub fn find_image_on_screen(&mut self, precision: f32) -> Option<Vec<(u32, u32, f64)>>{
         /// searches for image on screen and returns found locations in vector format
         let image =self.screen.grab_screen_image_grayscale(&self.region);
+        let debug_path = Path::new("debug");
+        if !debug_path.exists() {
+            fs::create_dir_all(debug_path).expect("Failed to create 'debug' directory. Please create it manualy in the root folder");
+            println!("Created a debug folder in your root for saving segmented template images")
+        }
         if self.debug {
             let error_catch = image.save("debug/screen_capture.png");
             match error_catch {
