@@ -69,7 +69,7 @@ The default value is set to 10000, which is a pretty high number. If you want to
 
 If you're looking to maximize speed, your template and region of search should be as small as possible. For instance, if youre looking for image of a button, maybe you dont need a whole button image but just a segment of it. There are various pyautogui tutorials that can explain this. 
 For this reason, if already using smaller image to speed up the algorithm, go with segmented match mode which will provide greater speed. 
-
+ 
 ```rust
 rustautogui.change_prepared_settings(
                                 region:Some((0,0,1000,1000)),

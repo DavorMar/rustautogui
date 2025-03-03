@@ -1,6 +1,9 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [1.0.0] - 2025-02.25
+### Added
+- Segmented correlation template matching mode included
 
 ## [0.3.2] - 2024-09.03
 ### Fixed
