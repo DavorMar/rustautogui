@@ -24,10 +24,9 @@ The reason for not including OpenCV in this library is because installation of a
 
 # Segmented template matching algorithm
 
-Rustautogui crate will include a new variation of template matching algorithm using cross correlation, which is not implemented yet. Currently, a paper has been written on the new algorithm and when it is submitted to arxiv it will be release in this library
+Since version 1.0.0, Rustautogui crate includes another variation of template matching algorithm using Segmented Normalized Cross-Correlation. 
+More information: https://arxiv.org/pdf/2502.01286
 
-For this reason, please follow the updates. Once 1.0 version is released, it will contain new algorithm. Currently, everything code wise is prepared for new algorithm, and code for 1.0 version exists. 
-For this reason, if choosing Segmented match mode at this moment, you will get a panic. 
 
 ## Installation
 
@@ -36,7 +35,7 @@ Either run
 
 or add the crate in your Cargo.toml file like:
 
-`rustautogui = "0.3.2"`
+`rustautogui = "1.0.0"`
 
 For Linux additionally install run :
 
@@ -57,17 +56,20 @@ let mut rustautogui = RustAutoGui::new(debug:false); // create rustautogui insta
 rustautogui.load_and_prepare_template(
                                template_path: "template.png",
                                region: Some((0,0,1000,1000)),
-                               match_mode:rustautogui::MatchMode::FFT,
-                               max_segments:&None
+                               match_mode:rustautogui::MatchMode::Segmented,
+                               max_segments:&Some(3000)
                            ); // load a template image for screen matching
 ```
 Arguments are template path, Option<(x,y,width,height)> region parameter. Option is used because it can be None meaning it wil search over whole screen. Matchmode can be MatchMode::Segmented(once implemented) or MatchMode::FFT.
 FFT is used in fourier transformation and it may be better if size of template is pretty large. If using smaller template, Segmented matchmode will be preffered and much faster. 
-max_segments arguments is only used in Segmented matchmode and its not important for FFT match mode, so at this moment its better to be set as &None
+max_segments arguments is only used in Segmented matchmode and its not important for FFT match mode, when you want to set it as &None.
+If using Segmented match mode, max_segments can influence speed and precision. If using large and complex pictures(with high pixel variation), max segments determines maximum number of segments
+to divide picture into, sacrificing precision while increasing speed. The higher the number of segments, lower the speed but higher precision.
+The default value is set to 10000, which is a pretty high number. If you want to increase the speed, reduce the max segments by some value and follow the correlation value with debug mode. 
 
 If you're looking to maximize speed, your template and region of search should be as small as possible. For instance, if youre looking for image of a button, maybe you dont need a whole button image but just a segment of it. There are various pyautogui tutorials that can explain this. 
 For this reason, if already using smaller image to speed up the algorithm, go with segmented match mode which will provide greater speed. 
-
+ 
 ```rust
 rustautogui.change_prepared_settings(
                                 region:Some((0,0,1000,1000)),

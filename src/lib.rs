@@ -3,7 +3,8 @@ use image::{imageops::{resize, FilterType::Nearest}, ImageBuffer, Luma};
 use rustfft::num_complex::Complex;
 pub mod imgtools;
 pub mod normalized_x_corr;
-
+use std::fs;
+use std::path::Path;
 
 #[cfg(target_os = "windows")]
 pub use crate::{
@@ -158,7 +159,9 @@ impl RustAutoGui {
                 prepared_data
             },
             MatchMode::Segmented => {
-                panic!("Segmented correlation has not been implemented yet");
+                let prepared_data = PreparedData::Segmented(normalized_x_corr::fast_segment_x_corr::prepare_template_picture(&template, max_segments, &self.debug));
+                self.match_mode = Some(MatchMode::Segmented);
+                prepared_data
             }
         };
         self.prepared_data = template_data;
@@ -207,7 +210,19 @@ impl RustAutoGui {
             
             },
             MatchMode::Segmented => {
-                panic!("Segmented correlation has not been implemented yet")
+                // no need to recalculate if max segments havent changed or if match mode has not changed
+                if self.match_mode == Some(MatchMode::Segmented) && self.max_segments == *max_segments {
+                    if self.debug {
+                        println!("Keeping same template data");
+                    }
+                } else {
+                    if self.debug {
+                        println!("Recalculating template data");
+                    }
+                    let prepared_data = PreparedData::Segmented(normalized_x_corr::fast_segment_x_corr::prepare_template_picture(&template, &None, &self.debug));
+                    self.prepared_data = prepared_data;
+                    self.match_mode = Some(MatchMode::Segmented);
+                }
             }
         };
         self.region = region;
@@ -228,6 +243,11 @@ impl RustAutoGui {
     pub fn find_image_on_screen(&mut self, precision: f32) -> Option<Vec<(u32, u32, f64)>>{
         /// searches for image on screen and returns found locations in vector format
         let image =self.screen.grab_screen_image_grayscale(&self.region);
+        let debug_path = Path::new("debug");
+        if !debug_path.exists() {
+            fs::create_dir_all(debug_path).expect("Failed to create 'debug' directory. Please create it manualy in the root folder");
+            println!("Created a debug folder in your root for saving segmented template images")
+        }
         if self.debug {
             let error_catch = image.save("debug/screen_capture.png");
             match error_catch {
@@ -243,14 +263,28 @@ impl RustAutoGui {
                 found_locations
             },
             PreparedData::Segmented(data) => {
-                panic!("Segmented correlation is not implemented yet");
+                let found_locations = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, &precision, data, &self.debug, "");
+                found_locations
             },
             PreparedData::None => {
                 panic!("No template data chosen");
             },
         };
+        
+        
+        
         if found_locations.len() > 0 {
+            if self.debug {
+                let corrected_found_location:(u32,u32,f64);
+                let x = found_locations[0].0 as u32 + (self.template_width /2) as u32 + self.region.0 as u32;
+                let y = found_locations[0].1 as u32 + (self.template_height/2) as u32 + self.region.1 as u32;
+                let corr = found_locations[0].2;
+                corrected_found_location = (x,y,corr);
+                
+                println!("Location found at x: {}, y {}, corr {} ",corrected_found_location.0, corrected_found_location.1, corrected_found_location.2)
+            }
             return Some(found_locations);
+            
         } else {
             return None;
         };
@@ -283,8 +317,11 @@ impl RustAutoGui {
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time: f32) {
         Mouse::move_mouse_to_pos(x, y, moving_time);
-        let (x,y) = Mouse::get_mouse_position();
-        println!("{x}, {y}");
+        if self.debug {
+            let (x,y) = Mouse::get_mouse_position();
+            println!("Mouse moved to position {x}, {y}");    
+        }
+        
     }
 
     /// moves mouse to x, y pixel coordinate
