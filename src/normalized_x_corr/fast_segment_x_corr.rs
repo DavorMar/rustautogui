@@ -21,6 +21,9 @@ use rustfft::num_traits::Pow;
 use std::collections::HashSet;
 #[allow(unused_imports)]
 use std::time::Instant;
+use std::fs;
+use std::path::Path;
+
 
 pub fn fast_ncc_template_match(
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
@@ -118,7 +121,10 @@ fn save_template_segmented_images(template_segments:&Vec<(u32, u32, u32, u32, f3
     let mut blurred_template: ImageBuffer<Luma<u8>, Vec<u8>> =
             ImageBuffer::new(*template_width, *template_height);
     let mut rng = rand::thread_rng();
-
+    let debug_path = Path::new("debug");
+    if !debug_path.exists() {
+        fs::create_dir_all(debug_path).expect("Failed to create 'debug' directory");
+    }
     for (x, y, segment_width, segment_height, segment_mean) in template_segments {
         let mut rng_mult: f32 = rng.gen();
         if segment_mean < &127.5 {
