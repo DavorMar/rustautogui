@@ -1,6 +1,10 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [1.0.1] - 2025-03.07
+### Fixed
+- fixed wrong creation of debug folder even when not in debug mode
+
 ## [1.0.0] - 2025-02.25
 ### Added
 - Segmented correlation template matching mode included
