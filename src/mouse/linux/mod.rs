@@ -61,7 +61,7 @@ impl Mouse {
     }
 
     /// returns x, y pixel coordinate of mouse position
-    pub fn get_mouse_position(&self) -> (i32,i32) {
+    pub fn get_mouse_position(&self) -> Result<(i32,i32)> {
         unsafe {
             let mut root_return = 0;
             let mut child_return = 0;
@@ -84,10 +84,10 @@ impl Mouse {
             );
 
             if status == 0 {
-                panic!("Unable to query pointer position");
+                return Err("Unable to query pointer position");
             }
 
-            (root_x, root_y)
+            Ok((root_x, root_y))
         }
     }
 

@@ -67,9 +67,14 @@ impl Keyboard {
         }
     }
 
-    pub fn send_command(&self, key:&String) {
+    pub fn send_command(&self, key:&String) -> Result<(), &'static str>{
         let value = self.keymap.get(key);
-        self.send_key(*value.expect("Wrong input key"));
+        let value = match *value {
+            Some(x) => x,
+            None => return Err("Wrong keyboard command")
+        };
+        self.send_key(value);
+        Ok(())
     }
 
 

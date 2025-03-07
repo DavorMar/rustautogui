@@ -5,7 +5,7 @@ extern crate rayon;
 
 use std::ptr::null_mut;
 use std::mem::size_of;
-use image::{ GrayImage, ImageBuffer, Luma, Rgba};
+use image::{ GrayImage, ImageBuffer, ImageError, Luma, Rgba};
 use winapi::um::winuser::{ReleaseDC, GetDC};
 use winapi::um::wingdi::{CreateCompatibleDC, CreateCompatibleBitmap, SelectObject, BitBlt, GetDIBits, DeleteDC, DeleteObject, SRCCOPY, BI_RGB, BITMAPINFO, BITMAPINFOHEADER, RGBQUAD};
 use winapi::um::wingdi::DIB_RGB_COLORS;
@@ -71,32 +71,54 @@ impl Screen {
         }  
     }
 
-    pub fn grab_screen_image(&mut self,  region: (u32, u32, u32, u32)) -> ImageBuffer<Rgba<u8>, Vec<u8>>{
+    pub fn grab_screen_image(&mut self,  region: (u32, u32, u32, u32)) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>,&'static str>{
         let (x, y, width, height) = region;
         self.screen_region_width = width;
         self.screen_region_height = height;
         self.capture_screen();
-        let image = self.convert_bitmap_to_rgba();
+        let image = self.convert_bitmap_to_rgba()?;
+        
         let cropped_image: ImageBuffer<Rgba<u8>, Vec<u8>> = imgtools::cut_screen_region(x, y, width, height, &image);
-        cropped_image
+        Ok(cropped_image)
     }
 
-    pub fn grab_screen_image_grayscale(&mut self,  region: &(u32, u32, u32, u32)) -> ImageBuffer<Luma<u8>, Vec<u8>>{
+    pub fn grab_screen_image_grayscale(&mut self,  region: &(u32, u32, u32, u32)) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>,&'static str>{
         let (x, y, width, height) = region;
         self.screen_region_width = *width;
         self.screen_region_height = *height;
         self.capture_screen();
-        let image: ImageBuffer<Luma<u8>, Vec<u8>> = self.convert_bitmap_to_grayscale();
+        let image: Result<ImageBuffer<Luma<u8>, Vec<u8>>, &str>  = self.convert_bitmap_to_grayscale();
+        let image: ImageBuffer<Luma<u8>, Vec<u8>> = match image {
+            Ok(x) => x,
+            Err(y) => return Err(y),
+        };
         let cropped_image: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::cut_screen_region(*x, *y, *width, *height, &image);
-        cropped_image
+        Ok(cropped_image)
     }
 
 
 
-    pub fn grab_screenshot(&mut self, image_path: &str) {
+    pub fn grab_screenshot(&mut self, image_path: &str) -> Result<(), String> {
         self.capture_screen();
         let image = self.convert_bitmap_to_rgba(); 
-        image.save(image_path).unwrap();
+        match image {
+            Ok(img) => {
+                let error_catch = img.save(image_path);
+                match error_catch {
+                    Ok(_) => (),
+                    Err(x) => {
+                        let error_msg = x.to_string();
+                        return Err(error_msg)
+                    },
+                }
+
+
+            },
+            Err(y) => return Err(y.to_string())
+
+        }
+        return Ok(())
+        
     }
 
     fn capture_screen(&mut self) {    
@@ -146,7 +168,7 @@ impl Screen {
         }
     }
 
-    fn convert_bitmap_to_grayscale(&self) -> ImageBuffer<Luma<u8>, Vec<u8>> {
+    fn convert_bitmap_to_grayscale(&self) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>,&'static str> {
         let mut grayscale_data = Vec::with_capacity((self.screen_width * self.screen_height) as usize);
         for chunk in self.pixel_data.chunks_exact(4) {
             let r = chunk[2] as u32;
@@ -156,20 +178,29 @@ impl Screen {
             let gray_value = ((r * 30 + g * 59 + b * 11) / 100) as u8;
             grayscale_data.push(gray_value);
         }
-        GrayImage::from_raw(
+        let gray_image = GrayImage::from_raw(
                     self.screen_width as u32,
                     self.screen_height as u32,
                     grayscale_data
-                    ).expect("Couldn't convert to GrayImage")
+                    );
+        let gray_image = match gray_image {
+            Some(x) => x,
+            None => return Err("could not convert image to grayscale")
+        };
+        Ok(gray_image)
     }
 
 
-    fn convert_bitmap_to_rgba(&self) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
-        ImageBuffer::from_raw(
+    fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>,&'static str> {
+        let image_buffer = ImageBuffer::from_raw(
             self.screen_width as u32,
             self.screen_height as u32,
             self.pixel_data.clone(),
-        ).expect("Couldn't convert to ImageBuffer")
+        );
+        match image_buffer {
+            Some(x) => return Ok(x),
+            None=> return Err("failed to convert to RGBA"),
+        }
     }
 }
 

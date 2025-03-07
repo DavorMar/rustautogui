@@ -123,7 +123,15 @@ fn save_template_segmented_images(template_segments:&Vec<(u32, u32, u32, u32, f3
     let mut rng = rand::thread_rng();
     let debug_path = Path::new("debug");
     if !debug_path.exists() {
-        fs::create_dir_all(debug_path).expect("Failed to create 'debug' directory. Please create it manualy in the root folder");
+        let error_catch = fs::create_dir_all(debug_path);
+        match error_catch {
+            Ok(_) => (),
+            Err(_) =>{
+                 println!("Failed to create debug folder. Please create it manually in the root folder");
+                 return ()
+            },
+
+        }
     }
     for (x, y, segment_width, segment_height, segment_mean) in template_segments {
         let mut rng_mult: f32 = rng.gen();
@@ -151,9 +159,12 @@ fn save_template_segmented_images(template_segments:&Vec<(u32, u32, u32, u32, f3
         // If there's no '/', just prepend "random_"
         filename2 = filename2 + "random_" + file_name;
     }
-    blurred_template
-        .save(filename2)
-        .expect("failed to save img");
+    let error_catch = blurred_template.save(filename2);
+    match error_catch {
+        Ok(_) => (),
+        Err(_) => println!("Failed to save image"),
+    }
+        
 
     let mut blurred_template2: ImageBuffer<Luma<u8>, Vec<u8>> =
         ImageBuffer::new(*template_width, *template_height);
@@ -165,9 +176,12 @@ fn save_template_segmented_images(template_segments:&Vec<(u32, u32, u32, u32, f3
             }
         }
     }
-    blurred_template2
-        .save(file_name)
-        .expect("failed to save img");
+    let error_catch = blurred_template2.save(file_name);
+        
+    match error_catch {
+        Ok(_) => (),
+        Err(_) => (),
+    }
 }
 
 
@@ -283,7 +297,7 @@ fn fast_correlation_calculation(
         }
 
         let denominator =
-        (image_sum_squared_deviations * *slow_segments_sum_squared_deviations as f64);
+        image_sum_squared_deviations * *slow_segments_sum_squared_deviations as f64;
 
 
         

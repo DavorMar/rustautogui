@@ -27,7 +27,7 @@ impl Screen {
             // to mouse and keyboard structs aswell 
             let display: *mut _XDisplay = XOpenDisplay(ptr::null());
             if display.is_null() {
-                panic!("Unable to open X display");
+                panic!("Error grabbing display. Unable to open X display. Possible x11 issue, check if it is activated and that you're not running wayland");
             }
 
             // get root window
@@ -108,7 +108,7 @@ impl Screen {
         unsafe{
             let ximage = XGetImage(self.display, self.root_window, 0, 0, self.screen_width as u32, self.screen_height as u32, ALLPLANES, ZPixmap);
             if ximage.is_null() {
-                panic!("Unable to get X image");
+                panic!("Error grabbing display image. Unable to get X image. Possible x11 error, check if you're running on x11 and not wayland. ");
             }
 
             // get the image data

@@ -1,4 +1,4 @@
-#![allow(unused_doc_comments)]
+#![allow(unused_doc_comments, unused_imports)]
 use image::{imageops::{resize, FilterType::Nearest}, ImageBuffer, Luma};
 use rustfft::num_complex::Complex;
 pub mod imgtools;
@@ -128,8 +128,12 @@ impl RustAutoGui {
     /// Loading and preparing template is a necessary process before calling find_image_on_screen function
     /// 
     /// creates vector of data stored under PreparedData enumerator, and stored inside struct field self.prepared_data
-    pub fn load_and_prepare_template(&mut self, template_path: &str, region:Option<(u32,u32,u32,u32)>, match_mode:MatchMode, max_segments: &Option<u32>) {
-        let mut template = imgtools::load_image_bw(template_path);
+    pub fn load_and_prepare_template(&mut self, template_path: &str, region:Option<(u32,u32,u32,u32)>, match_mode:MatchMode, max_segments: &Option<u32>) -> Result<(),&'static str > {
+        let template = imgtools::load_image_bw(template_path);
+        let template = match template {
+            Ok(x) => x,
+            Err(x) => return Err(x)
+        };
         #[cfg(target_os = "macos")]
         {
             template = resize(&template, template.width()/ self.screen.scaling_factor_x as u32, template.height()/ self.screen.scaling_factor_y as u32, Nearest);
@@ -165,6 +169,7 @@ impl RustAutoGui {
             }
         };
         self.prepared_data = template_data;
+        return Ok(())
 
     }
     
@@ -177,7 +182,10 @@ impl RustAutoGui {
         let template = self.template.clone();
         let template = match template {
             Some(image) => image,
-            None => panic!("No template loaded! Please use load_and_prepare_template method"),
+            None => {
+                println!("No template loaded! Please use load_and_prepare_template method before changing prepared settings");
+                return
+            } ,
         };
 
         // unpack region , or set default if none
@@ -240,14 +248,23 @@ impl RustAutoGui {
     /// On windows only main monitor search is supported, while on linux, all monitors work
     /// more details in README
     #[allow(unused_variables)]
-    pub fn find_image_on_screen(&mut self, precision: f32) -> Option<Vec<(u32, u32, f64)>>{
+    pub fn find_image_on_screen(&mut self, precision: f32) -> Result<Vec<(u32, u32, f64)>,&'static str>{
         /// searches for image on screen and returns found locations in vector format
         let image =self.screen.grab_screen_image_grayscale(&self.region);
-        
+        let image = match image {
+            Ok(x) => x,
+            Err(y) => return Err(y)
+
+        };
         if self.debug {
             let debug_path = Path::new("debug");
             if !debug_path.exists() {
-                fs::create_dir_all(debug_path).expect("Failed to create 'debug' directory. Please create it manualy in the root folder");
+                let error_catch = fs::create_dir_all(debug_path);
+                match error_catch {
+                    Ok(_) => (),
+                    Err(_)=> println!("Failed to create debug folder"),
+                }
+
                 println!("Created a debug folder in your root for saving segmented template images")
             }
             let error_catch = image.save("debug/screen_capture.png");
@@ -268,8 +285,9 @@ impl RustAutoGui {
                 found_locations
             },
             PreparedData::None => {
-                panic!("No template data chosen");
+                return Err("No template chosen and no template data prepared. Please run load_and_prepare_template before searching image on screen ")
             },
+
         };
         
         
@@ -284,27 +302,29 @@ impl RustAutoGui {
                 
                 println!("Location found at x: {}, y {}, corr {} ",corrected_found_location.0, corrected_found_location.1, corrected_found_location.2)
             }
-            return Some(found_locations);
+            return Ok(found_locations);
             
         } else {
-            return None;
+            let empty_vec:Vec<(u32,u32,f64)> = vec![];
+            return Ok(empty_vec);
         };
     }
 
 
     /// saves screenshot and saves it at provided path
-    pub fn save_screenshot(&mut self, path:&str) {
-        self.screen.grab_screenshot(path);
+    pub fn save_screenshot(&mut self, path:&str) -> Result<(), String>{
+        self.screen.grab_screenshot(path)?;
+        Ok(())
     }
 
     /// executes find_image_on_screen and moves mouse to the middle of the image. 
-    pub fn find_image_on_screen_and_move_mouse(&mut self, precision: f32, moving_time:f32) -> Option<Vec<(u32, u32, f64)>> {
+    pub fn find_image_on_screen_and_move_mouse(&mut self, precision: f32, moving_time:f32) -> Result<Vec<(u32, u32, f64)>,&'static str> {
         /// finds coordinates of the image on the screen and moves mouse to it. Returns None if no image found
         ///  Best used in loops
-        let found_locations: Option<Vec<(u32, u32, f64)>> = self.find_image_on_screen(precision);
+        let found_locations = self.find_image_on_screen(precision);
         let locations = match found_locations.clone() {
-            Some(locations) => {locations},
-            None => return None
+            Ok(locations) => {locations},
+            Err(_) => return found_locations
         };
         let top_location = locations[0];
         let x = top_location.0 as i32 + (self.template_width /2) as i32;
@@ -411,25 +431,32 @@ impl RustAutoGui {
     pub fn keyboard_input(&self,input:&str, shifted:&bool) {
         let input_string = String::from(input);
         for letter in input_string.chars() {
-            self.keyboard.send_char(&letter, shifted);
+            let error_catch = self.keyboard.send_char(&letter, shifted);
+            match error_catch {
+                Ok(_) => (),
+                Err(x) => {
+                    println!("{}",x);
+                }
+            }
         }
     }
 
     /// executes keyboard command like "return" or "escape"
-    pub fn keyboard_command(&self, input:&str) {
+    pub fn keyboard_command(&self, input:&str) -> Result<(), &'static str>{
         let input_string = String::from(input);
-        self.keyboard.send_command(&input_string);
+        let error_catch = self.keyboard.send_command(&input_string);
+        return error_catch
     }
 
-    pub fn keyboard_multi_key(&self, input1:&str, input2:&str, input3:Option<&str>) {
+    pub fn keyboard_multi_key(&self, input1:&str, input2:&str, input3:Option<&str>) -> Result<(), &'static str> {
         let input3 = match input3 {
             Some(x) => {
                 Some(String::from(x))
             },
             None => None
         };
-        self.keyboard.send_multi_key(&String::from(input1), &String::from(input2), input3);
-        
+        let error_catch = self.keyboard.send_multi_key(&String::from(input1), &String::from(input2), input3);
+        return error_catch
     }
 
 

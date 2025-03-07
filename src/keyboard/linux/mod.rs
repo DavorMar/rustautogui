@@ -103,17 +103,38 @@ impl Keyboard {
     pub fn send_multi_key(&self, key_1:&String, key_2:&String, key_3:Option<String>) {
 
         unsafe {
-            let value1 = self.keymap.get(key_1).expect("Invalid first key argument");
+            let value1 = self.keymap.get(key_1);
+            let value1 = match value1 {
+                Some(x) => x,
+                None => {
+                    println!("invalid 1st key argument for keyboard");
+                    return
+                }
+            };
             let value1 = self.get_keycode(value1);
 
-            let value2 = self.keymap.get(key_2).expect("Invalid second key argument");
+            let value2 = self.keymap.get(key_2);
+            let value2 = match value2 {
+                Some(x) => x,
+                None => {
+                    println!("invalid 2nd key argument for keyboard");
+                    return
+                }
+            };
             let value2 = self.get_keycode(value2);
 
             let mut third_key = false;
             let value3 = match key_3 {
                 Some(value) => {
                     third_key = true;
-                    let value3 = self.keymap.get(&value).expect("Invalid third key argument");
+                    let value3 = self.keymap.get(&value);
+                    let value3 = match value3 {
+                        Some(x) => x,
+                        None => {
+                            println!("invalid 3nd key argument for keyboard");
+                            return
+                        }
+                    };
                     let value3 = self.get_keycode(value3);
                     value3
                 },
