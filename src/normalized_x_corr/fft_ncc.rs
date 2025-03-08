@@ -49,7 +49,7 @@ pub fn fft_ncc(
 
 
     // calculating zero mean image , meaning image pixel values - image zero value
-    let image_average_total = sum_image as f32 / (image_height*image_width) as f32;
+    let image_average_total = sum_image as f32 / (image_height*image_width) as f32;//@audit check image_height*image_width != 0
     let mut zero_mean_image: Vec<Vec<f32>> = vec![vec![0.0; image_width as usize]; image_height as usize];
     for y in 0..image_height{
         for x in 0..image_width {
@@ -84,8 +84,8 @@ pub fn fft_ncc(
     ifft.process(&mut fft_result);
 
     // flatten for multithreading
-    let coords: Vec<(u32, u32)> = (0..=(image_height - template_height))
-        .flat_map(|y| (0..=(image_width - template_width)).map(move |x| (x, y)))
+    let coords: Vec<(u32, u32)> = (0..=(image_height - template_height))//@audit could underflow if image_height = 0
+        .flat_map(|y| (0..=(image_width - template_width)).map(move |x| (x, y)))//@audit could underflow if image_width = 0
         .collect();
     // multithreading pixel by pixel template sliding, where correlations are filtered by precision
     // sending all needed data to calculate nominator and denominator at each of pixel positions
@@ -149,7 +149,7 @@ fn fft_correlation_calculation(
         *template_height,
     );
     let image_sum_squared_deviations = sum_squared_image as f64
-        - (sum_image as f64).powi(2) / (template_height * template_width) as f64;
+        - (sum_image as f64).powi(2) / (template_height * template_width) as f64;//@audit check template_height*template_width!=0
     let denominator = (image_sum_squared_deviations * *template_sum_squared_deviations as f64).sqrt();
 
     /////////////// NOMINATOR CALCULATION
@@ -157,7 +157,7 @@ fn fft_correlation_calculation(
 
     // fft result is calculated invert of whole image and template that were padded and zero valued
     // each pixel position shows value for that template position
-    let numerator_value = fft_result[(y*padded_size) as usize + *x as usize].re / (padded_size * padded_size) as f32;
+    let numerator_value = fft_result[(y*padded_size) as usize + *x as usize].re / (padded_size * padded_size) as f32;//@audit guess the padded_size is always non zero but could be checked
     let mut corr = numerator_value as f64 / denominator;
 
     if corr > 2.0 {
@@ -194,7 +194,7 @@ pub fn prepare_template_picture (
             sum_template += template_value;
         }
     }
-    let mean_template_value = sum_template / (template_height * template_width) as f32;
+    let mean_template_value = sum_template / (template_height * template_width) as f32;//@audit check template_height*template_width!=0
     // create zero mean template
     let mut zero_mean_template: Vec<Vec<f32>> = vec![vec![0.0; template_width as usize]; template_height as usize];
     let mut template_sum_squared_deviations: f32 = 0.0;
