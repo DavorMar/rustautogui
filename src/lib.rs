@@ -263,7 +263,10 @@ impl RustAutoGui {
                 let error_catch = fs::create_dir_all(debug_path);
                 match error_catch {
                     Ok(_) => (),
-                    Err(_)=> println!("Failed to create debug folder"),
+                    Err(x)=> {
+                        println!("Failed to create debug folder");
+                        println!("{}",x.to_string());
+                    },
                 }
 
                 println!("Created a debug folder in your root for saving segmented template images")
@@ -271,7 +274,7 @@ impl RustAutoGui {
             let error_catch = image.save("debug/screen_capture.png");
             match error_catch {
                 Ok(_) => (),
-                Err(_) => println!("Create a 'debug' folder in your root folder to save images"),
+                Err(x) => println!("{}", x.to_string()),
             }
         };
 
@@ -323,26 +326,29 @@ impl RustAutoGui {
         /// finds coordinates of the image on the screen and moves mouse to it. Returns None if no image found
         ///  Best used in loops
         let found_locations = self.find_image_on_screen(precision);
-        let locations = match found_locations.clone() {
-            Ok(locations) => {locations},
+        match found_locations.clone() {
+            Ok(locations) => {
+                let top_location = locations[0];
+                let x = top_location.0 as i32 + (self.template_width /2) as i32;
+                let y = top_location.1 as i32 + (self.template_height/2) as i32;
+                self.move_mouse_to_pos(x + self.region.0 as i32,y+self.region.1 as i32, moving_time)?;
+                return found_locations
+            },
             Err(_) => return found_locations
         };
-        let top_location = locations[0];
-        let x = top_location.0 as i32 + (self.template_width /2) as i32;
-        let y = top_location.1 as i32 + (self.template_height/2) as i32;
-        self.move_mouse_to_pos(x + self.region.0 as i32,y+self.region.1 as i32, moving_time)?;
+           
         
-        return found_locations;
     }
 
     /// moves mouse to x, y pixel coordinate
     #[cfg(target_os = "windows")]
-    pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time: f32) {
+    pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time: f32) -> Result<(), &'static str>{
         Mouse::move_mouse_to_pos(x, y, moving_time);
         if self.debug {
             let (x,y) = Mouse::get_mouse_position();
             println!("Mouse moved to position {x}, {y}");    
         }
+        Ok(())
         
     }
 
@@ -499,6 +505,7 @@ impl RustAutoGui {
     /// executes keyboard command like "return" or "escape"
     pub fn keyboard_command(&self, input:&str) -> Result<(), &'static str>{
         let input_string = String::from(input);
+        // return automatically the result of send_command function
         self.keyboard.send_command(&input_string)
     }
 
@@ -509,8 +516,9 @@ impl RustAutoGui {
             },
             None => None
         };
-        self.keyboard.send_multi_key(&String::from(input1), &String::from(input2), input3)?;
-        Ok(())
+        // send automatically result of function 
+        self.keyboard.send_multi_key(&String::from(input1), &String::from(input2), input3)
+        
     }
 
 
