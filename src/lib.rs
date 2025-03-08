@@ -106,7 +106,7 @@ impl RustAutoGui {
         // under each struct wouldnt be preferable
         let screen = Screen::new();
         let keyboard = Keyboard::new(screen.display);
-        let mouse_struct: Mouse = Mouse::new(Some(screen.display), Some(screen.root_window));
+        let mouse_struct: Mouse = Mouse::new(screen.display, screen.root_window);
         Self{
             template:None, 
             prepared_data:PreparedData::None,
@@ -329,7 +329,7 @@ impl RustAutoGui {
         let top_location = locations[0];
         let x = top_location.0 as i32 + (self.template_width /2) as i32;
         let y = top_location.1 as i32 + (self.template_height/2) as i32;
-        self.move_mouse_to_pos(x + self.region.0 as i32,y+self.region.1 as i32, moving_time);
+        self.move_mouse_to_pos(x + self.region.0 as i32,y+self.region.1 as i32, moving_time)?;
         
         return found_locations;
     }
@@ -347,8 +347,9 @@ impl RustAutoGui {
 
     /// moves mouse to x, y pixel coordinate
     #[cfg(target_os = "linux")]
-    pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time:f32) {
-        self.mouse.move_mouse_to_pos(x , y, moving_time);
+    pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time:f32) -> Result<(), &'static str> {
+        self.mouse.move_mouse_to_pos(x , y, moving_time)?;
+        Ok(())
     }
  
 
@@ -387,27 +388,31 @@ impl RustAutoGui {
 
     /// executes left mouse click 
     #[cfg(target_os = "linux")]
-    pub fn left_click(&self) {
-        self.mouse.mouse_click(mouse::MouseClick::LEFT);
+    pub fn left_click(&self) -> Result<(), &'static str>{
+        self.mouse.mouse_click(mouse::MouseClick::LEFT)?;
+        Ok(())
     }
 
     /// executes right mouse click
     #[cfg(target_os = "linux")]
-    pub fn right_click(&self) {
-        self.mouse.mouse_click(mouse::MouseClick::RIGHT);
+    pub fn right_click(&self) ->Result<(), &'static str> {
+        self.mouse.mouse_click(mouse::MouseClick::RIGHT)?;
+        Ok(())
     }
 
     /// executes middle mouse click
     #[cfg(target_os = "linux")]
-    pub fn middle_click(&self) {
-        self.mouse.mouse_click(mouse::MouseClick::MIDDLE);
+    pub fn middle_click(&self) -> Result<(), &'static str> {
+        self.mouse.mouse_click(mouse::MouseClick::MIDDLE)?;
+        Ok(())
     }
     
     /// executes double left mouse click
     #[cfg(target_os = "linux")]
-    pub fn double_click(&self) {
-        self.mouse.mouse_click(mouse::MouseClick::LEFT);
-        self.mouse.mouse_click(mouse::MouseClick::LEFT);
+    pub fn double_click(&self) ->Result<(), &'static str> {
+        self.mouse.mouse_click(mouse::MouseClick::LEFT)?;
+        self.mouse.mouse_click(mouse::MouseClick::LEFT)?;
+        Ok(())
     }
 
     #[cfg(any(target_os = "windows", target_os = "macos"))]

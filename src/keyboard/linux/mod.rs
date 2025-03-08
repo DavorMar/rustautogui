@@ -37,11 +37,18 @@ impl Keyboard {
 
 
     /// execute send_key function but press Shift key before, and release it after
-    fn send_shifted_key (&self, scan_code:u32) {
+    fn send_shifted_key (&self, scan_code:u32) -> Result<(), &'static str> {
         unsafe {
 
             let mut keysym_to_keycode2 = HashMap::new();
-            let keysym = XStringToKeysym(CString::new("Shift_L".to_string()).unwrap().as_ptr());
+            let key_cstring = CString::new("Shift_L".to_string());
+            let key_cstring = match key_cstring {
+                Ok(x) => x,
+                Err(_) => return Err("failed grabbing shift key")
+            };
+            let key_cstring = key_cstring.as_ptr(); 
+            
+            let keysym = XStringToKeysym(key_cstring);
             if !keysym_to_keycode2.contains_key(&keysym) {
                 let keycode = XKeysymToKeycode(self.screen, keysym) as u32;
                 keysym_to_keycode2.insert(keysym, keycode);
@@ -51,77 +58,94 @@ impl Keyboard {
             self.send_key(scan_code);
             self.release_key(keycode); // release shift
         }
+        Ok(())
     }
 
-    unsafe fn get_keycode(&self, key: &String) -> u32 {
+    unsafe fn get_keycode(&self, key: &String) -> Result<u32, &'static str> {
         let value = self.keymap.get(key);
         let mut keysym_to_keycode = HashMap::new();
         let keysym = match value {
-            Some(x) => XStringToKeysym(CString::new(x.clone()).unwrap().as_ptr()),
-            None => XStringToKeysym(CString::new(key.clone()).unwrap().as_ptr())
+            Some(x) => {
+                let key_cstring = CString::new(x.clone());
+                let key_cstring = match key_cstring {
+                    Ok(x) => x,
+                    Err(_) => return Err("failed to grab key value")
+                };
+                let key_cstring = key_cstring.as_ptr();
+                XStringToKeysym(key_cstring)
+            },
+            None => {
+                let key_cstring = CString::new(key.clone());
+                let key_cstring = match key_cstring {
+                    Ok(x) => x,
+                    Err(_) => return Err("failed to grab key value")
+                };
+                let key_cstring = key_cstring.as_ptr();
+                XStringToKeysym(key_cstring)
+                
+            }
         };
         if keysym == 0 {
             
-            return 0;
+            return Err("failed to grab keystring");
         }
         if !keysym_to_keycode.contains_key(&keysym) {
             let keycode = XKeysymToKeycode(self.screen, keysym) as u32;
             keysym_to_keycode.insert(keysym, keycode);
         }
         let keycode = keysym_to_keycode[&keysym];
-        keycode
+        Ok(keycode)
     }
 
     /// top level send character function that converts char to keycode and executes send key
-    pub fn send_char (&self, key:&char, shifted:&bool) {
+    pub fn send_char (&self, key:&char, shifted:&bool) -> Result<(), &'static str>{
         unsafe {
             let char_string: String = String::from(*key);
-            let keycode = self.get_keycode(&char_string);
+            let keycode = self.get_keycode(&char_string)?;
             if keycode == 0 {
-                return
+                return Err("couldnt input a key")
             }
             if *shifted {
-                self.send_shifted_key(keycode);    
+                self.send_shifted_key(keycode)?;    
             } else {
                 self.send_key(keycode);
             }
         }
-        
+        return Ok(())
 
         
     }
 
     /// similar to send char, but can be string such as return, escape etc
-    pub fn send_command(&self, key:&String) {
+    pub fn send_command(&self, key:&String) -> Result<(), &'static str >{
         
         unsafe {
-            let keycode = self.get_keycode(key);
+            let keycode = self.get_keycode(key)?;
             self.send_key(keycode);
         }
+        return Ok(())
     }
 
-    pub fn send_multi_key(&self, key_1:&String, key_2:&String, key_3:Option<String>) {
+    pub fn send_multi_key(&self, key_1:&String, key_2:&String, key_3:Option<String>) -> Result<(), &'static str > {
 
         unsafe {
             let value1 = self.keymap.get(key_1);
             let value1 = match value1 {
                 Some(x) => x,
                 None => {
-                    println!("invalid 1st key argument for keyboard");
-                    return
+                    return Err("wrong 1st keyboard input")
                 }
             };
-            let value1 = self.get_keycode(value1);
+            let value1 = self.get_keycode(value1)?;
 
             let value2 = self.keymap.get(key_2);
             let value2 = match value2 {
                 Some(x) => x,
                 None => {
-                    println!("invalid 2nd key argument for keyboard");
-                    return
+                    return Err("wrong 2st keyboard input")
                 }
             };
-            let value2 = self.get_keycode(value2);
+            let value2 = self.get_keycode(value2)?;
 
             let mut third_key = false;
             let value3 = match key_3 {
@@ -131,11 +155,10 @@ impl Keyboard {
                     let value3 = match value3 {
                         Some(x) => x,
                         None => {
-                            println!("invalid 3nd key argument for keyboard");
-                            return
+                            return Err("wrong 1st keyboard input")
                         }
                     };
-                    let value3 = self.get_keycode(value3);
+                    let value3 = self.get_keycode(value3)?;
                     value3
                 },
                 None => {
@@ -152,6 +175,7 @@ impl Keyboard {
             self.release_key(value2);
             self.release_key(value1);
         }
+        Ok(())
 
     }
 
