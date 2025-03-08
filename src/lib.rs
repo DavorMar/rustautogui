@@ -251,30 +251,24 @@ impl RustAutoGui {
     #[allow(unused_variables)]
     pub fn find_image_on_screen(&mut self, precision: f32) -> Result<Vec<(u32, u32, f64)>,&'static str>{
         /// searches for image on screen and returns found locations in vector format
-        let image =self.screen.grab_screen_image_grayscale(&self.region);
-        let image = match image {
-            Ok(x) => x,
-            Err(y) => return Err(y)
-
-        };
+        let image =self.screen.grab_screen_image_grayscale(&self.region)?;
+       
         if self.debug {
             let debug_path = Path::new("debug");
             if !debug_path.exists() {
-                let error_catch = fs::create_dir_all(debug_path);
-                match error_catch {
-                    Ok(_) => (),
-                    Err(x)=> {
+                match fs::create_dir_all(debug_path) {
+                    Ok(_) => { 
+                        println!("Created a debug folder in your root for saving segmented template images");   
+                        match image.save("debug/screen_capture.png") {
+                            Ok(_) => (),
+                            Err(x) => println!("{}", x.to_string()),
+                        };             
+                    },
+                    Err(x) => {
                         println!("Failed to create debug folder");
                         println!("{}",x.to_string());
                     },
-                }
-
-                println!("Created a debug folder in your root for saving segmented template images")
-            }
-            let error_catch = image.save("debug/screen_capture.png");
-            match error_catch {
-                Ok(_) => (),
-                Err(x) => println!("{}", x.to_string()),
+                };
             }
         };
 
