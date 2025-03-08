@@ -130,6 +130,7 @@ impl RustAutoGui {
     /// creates vector of data stored under PreparedData enumerator, and stored inside struct field self.prepared_data
     pub fn load_and_prepare_template(&mut self, template_path: &str, region:Option<(u32,u32,u32,u32)>, match_mode:MatchMode, max_segments: &Option<u32>) -> Result<(),&'static str > {
         let template = imgtools::load_image_bw(template_path);
+        #[allow(unused_mut)] // allowed because its needed in macos code below
         let mut template = match template {
             Ok(x) => x,
             Err(x) => return Err(x)
