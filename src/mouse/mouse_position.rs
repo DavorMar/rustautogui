@@ -71,10 +71,19 @@ pub fn print_mouse_position() -> Result<(),&'static str> {
 
 
 
-#[cfg(any(target_os = "windows", target_os = "macos"))]
+#[cfg(target_os = "windows")]
 pub fn print_mouse_position() {
     loop {
         let (x,y) = Mouse::get_mouse_position();
+        println!("{x}, {y}");
+        sleep(Duration::from_millis(20));
+    };
+}
+
+#[cfg(target_os = "macos")]
+pub fn print_mouse_position() -> Result<(), &'static str>{
+    loop {
+        let (x,y) = Mouse::get_mouse_position().unwrap();
         println!("{x}, {y}");
         sleep(Duration::from_millis(20));
     };

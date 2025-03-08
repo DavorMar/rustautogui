@@ -76,13 +76,13 @@ impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
     /// all the other struct fields are initiated as 0 or None
     #[cfg(any(target_os = "windows", target_os = "macos"))]
-    pub fn new(debug:bool) -> Self{
+    pub fn new(debug:bool) -> Result<Self, &'static str> { 
         // initiation of screen, keyboard and mouse
         // on windows there is no need to share display pointer accross other structs
-        let screen = Screen::new();
+        let screen = Screen::new()?;
         let keyboard = Keyboard::new();
         let mouse_struct: Mouse = Mouse::new();
-        Self{
+        Ok(Self{
             template:None, 
             prepared_data:PreparedData::None,
             debug:debug,
@@ -94,7 +94,7 @@ impl RustAutoGui {
             match_mode:None,
             max_segments: None,
             region:(0,0,0,0)
-        }
+        })
     }
 
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
@@ -130,7 +130,7 @@ impl RustAutoGui {
     /// creates vector of data stored under PreparedData enumerator, and stored inside struct field self.prepared_data
     pub fn load_and_prepare_template(&mut self, template_path: &str, region:Option<(u32,u32,u32,u32)>, match_mode:MatchMode, max_segments: &Option<u32>) -> Result<(),&'static str > {
         let template = imgtools::load_image_bw(template_path);
-        let template = match template {
+        let mut template = match template {
             Ok(x) => x,
             Err(x) => return Err(x)
         };
@@ -281,7 +281,7 @@ impl RustAutoGui {
                 found_locations
             },
             PreparedData::Segmented(data) => {
-                let found_locations = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, &precision, data, &self.debug, "");
+                let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, &precision, data, &self.debug, "");
                 found_locations
             },
             PreparedData::None => {
@@ -335,7 +335,7 @@ impl RustAutoGui {
     }
 
     /// moves mouse to x, y pixel coordinate
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    #[cfg(target_os = "windows")]
     pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time: f32) {
         Mouse::move_mouse_to_pos(x, y, moving_time);
         if self.debug {
@@ -343,6 +343,17 @@ impl RustAutoGui {
             println!("Mouse moved to position {x}, {y}");    
         }
         
+    }
+
+    /// moves mouse to x, y pixel coordinate
+    #[cfg(target_os="macos")]
+    pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time: f32) -> Result<(), &'static str > {
+        Mouse::move_mouse_to_pos(x, y, moving_time)?;
+        if self.debug {
+            let (x,y) = Mouse::get_mouse_position()?;
+            println!("Mouse moved to position {x}, {y}");    
+        }
+        Ok(())
     }
 
     /// moves mouse to x, y pixel coordinate
@@ -354,35 +365,60 @@ impl RustAutoGui {
  
 
     /// executes left mouse click 
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
-    pub fn left_click(&self) {
+    #[cfg(target_os = "windows" )]
+    pub fn left_click(&self) -> Result<(),()>{
         mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
+        Ok(())
+    }
+
+    /// executes left mouse click 
+    #[cfg(target_os = "macos")]
+    pub fn left_click(&self) -> Result<(),&'static str>{
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT)?;
+        Ok(())
     }
 
     /// executes right mouse click 
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
-    pub fn right_click(&self) {
+    #[cfg(target_os = "windows")]
+    pub fn right_click(&self) -> Result<(), ()>{
         mouse::platform::Mouse::mouse_click(mouse::MouseClick::RIGHT);
+        Ok(())
+    }
+
+    /// executes right mouse click 
+    #[cfg(target_os = "macos")]
+    pub fn right_click(&self) -> Result<(), &'static str>{
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::RIGHT)?;
+        Ok(())
+    }
+        
+    /// executes middle mouse click
+    #[cfg(target_os = "windows")]
+    pub fn middle_click(&self) -> Result<(),()>{
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::MIDDLE);
+        Ok(())
     }
 
     /// executes middle mouse click
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
-    pub fn middle_click(&self) {
-        mouse::platform::Mouse::mouse_click(mouse::MouseClick::MIDDLE);
+    #[cfg(target_os = "macos")]
+    pub fn middle_click(&self) -> Result<(),&'static str>{
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::MIDDLE)?;
+        Ok(())
     }
-
+    
     /// executes double mouse click
     #[cfg(target_os = "macos")]
-    pub fn double_click(&self) {
-        mouse::platform::Mouse::double_click();
-        
+    pub fn double_click(&self) ->Result<(), &'static str>{
+        mouse::platform::Mouse::double_click()?;
+        Ok(())
     }
 
     /// executes double left mouse click
     #[cfg(target_os = "windows")]
-    pub fn double_click(&self) {
+    pub fn double_click(&self) -> Result<(), ()>{
         mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
         mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
+        Ok(())
     }
 
 
@@ -415,42 +451,54 @@ impl RustAutoGui {
         Ok(())
     }
 
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
-    pub fn scroll_up(&self) {
+    #[cfg(target_os = "windows")]
+    pub fn scroll_up(&self) -> Result<(),()> {
         mouse::platform::Mouse::scroll(mouse::MouseScroll::UP);
+        Ok(())
     }
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
-    pub fn scroll_down(&self) {
+
+    #[cfg(target_os = "macos")]
+    pub fn scroll_up(&self) -> Result<(), &'static str> {
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::UP)?;
+        Ok(())
+    }
+
+
+    #[cfg(target_os = "windows")]
+    pub fn scroll_down(&self) ->Result<(),()> {
         mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN);
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn scroll_down(&self) -> Result<(),&'static str>{
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN)?;
+        Ok(())
     }
 
     #[cfg(target_os = "linux")]
-    pub fn scroll_up(&self) {
+    pub fn scroll_up(&self) -> Result<(), ()>{
         self.mouse.scroll(mouse::MouseScroll::UP);
+        Ok(())
     }
     #[cfg(target_os = "linux")]
-    pub fn scroll_down(&self) {
+    pub fn scroll_down(&self) -> Result<(),()>{
         self.mouse.scroll(mouse::MouseScroll::DOWN);
+        Ok(())
     }
     /// accepts string and mimics keyboard key presses for each character in string
-    pub fn keyboard_input(&self,input:&str, shifted:&bool) {
+    pub fn keyboard_input(&self,input:&str, shifted:&bool) -> Result<(), &'static str>{
         let input_string = String::from(input);
         for letter in input_string.chars() {
-            let error_catch = self.keyboard.send_char(&letter, shifted);
-            match error_catch {
-                Ok(_) => (),
-                Err(x) => {
-                    println!("{}",x);
-                }
-            }
+            self.keyboard.send_char(&letter, shifted)?;
         }
+        Ok(())
     }
 
     /// executes keyboard command like "return" or "escape"
     pub fn keyboard_command(&self, input:&str) -> Result<(), &'static str>{
         let input_string = String::from(input);
-        let error_catch = self.keyboard.send_command(&input_string);
-        return error_catch
+        self.keyboard.send_command(&input_string)
     }
 
     pub fn keyboard_multi_key(&self, input1:&str, input2:&str, input3:Option<&str>) -> Result<(), &'static str> {
@@ -460,8 +508,8 @@ impl RustAutoGui {
             },
             None => None
         };
-        let error_catch = self.keyboard.send_multi_key(&String::from(input1), &String::from(input2), input3);
-        return error_catch
+        self.keyboard.send_multi_key(&String::from(input1), &String::from(input2), input3)?;
+        Ok(())
     }
 
 
