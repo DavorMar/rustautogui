@@ -238,6 +238,21 @@ impl Keyboard {
         keymap.insert(String::from("x"), 7);
         keymap.insert(String::from("y"), 16);
         keymap.insert(String::from("z"), 6);
+        keymap.insert(String::from("backspace"), 51);
+        keymap.insert(String::from("insert"), 114);
+        keymap.insert(String::from("print_screen"), 105);  // Might not be usable on macOS
+        keymap.insert(String::from("scroll_lock"), 107);  // Might not be usable
+        keymap.insert(String::from("pause"), 113);
+        keymap.insert(String::from("-"), 27);  // -
+        keymap.insert(String::from("="), 24);  // =
+        keymap.insert(String::from("["), 33);  // [
+        keymap.insert(String::from("]"), 30);  // ]
+        keymap.insert(String::from("\\"), 42);  // \
+        keymap.insert(String::from(";"), 41);  // ;
+        keymap.insert(String::from("'"), 39);  // '
+        keymap.insert(String::from(","), 43);  // ,
+        keymap.insert(String::from("."), 47);  // .
+        keymap.insert(String::from("/"), 44);  // /
         keymap
     }
 
