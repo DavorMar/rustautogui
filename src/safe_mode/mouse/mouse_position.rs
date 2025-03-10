@@ -1,7 +1,7 @@
 
 
 #[cfg(target_os = "linux")]
-use crate::mouse::platform::Mouse;
+use crate::safe_mode::mouse::platform::Mouse;
 #[cfg(target_os = "linux")]
 use x11::xlib::*;
 #[cfg(target_os = "linux")]
