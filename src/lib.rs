@@ -60,8 +60,9 @@ pub enum MatchMode {
 /// executes also correlation algorithms when doing find_image_on_screen
 #[allow(dead_code)]
 pub struct RustAutoGui {
+    // most of the fields are set up in load_and_prepare_template method
     template: Option<ImageBuffer<Luma<u8>, Vec<u8>>>,
-    prepared_data: PreparedData,
+    prepared_data: PreparedData, 
     debug:bool,
     template_height:u32,
     template_width:u32,
@@ -128,13 +129,9 @@ impl RustAutoGui {
     /// Loading and preparing template is a necessary process before calling find_image_on_screen function
     /// 
     /// creates vector of data stored under PreparedData enumerator, and stored inside struct field self.prepared_data
-    pub fn load_and_prepare_template(&mut self, template_path: &str, region:Option<(u32,u32,u32,u32)>, match_mode:MatchMode, max_segments: &Option<u32>) -> Result<(),&'static str > {
-        let template = imgtools::load_image_bw(template_path);
+    pub fn load_and_prepare_template(&mut self, template_path: &str, region:Option<(u32,u32,u32,u32)>, match_mode:MatchMode, max_segments: &Option<u32>) -> Result<(),String > {
         #[allow(unused_mut)] // allowed because its needed in macos code below
-        let mut template = match template {
-            Ok(x) => x,
-            Err(x) => return Err(x)
-        };
+        let mut  template = imgtools::load_image_bw(template_path)?;
         #[cfg(target_os = "macos")]
         {
             template = resize(&template, template.width()/ self.screen.scaling_factor_x as u32, template.height()/ self.screen.scaling_factor_y as u32, Nearest);
@@ -249,7 +246,7 @@ impl RustAutoGui {
     /// On windows only main monitor search is supported, while on linux, all monitors work
     /// more details in README
     #[allow(unused_variables)]
-    pub fn find_image_on_screen(&mut self, precision: f32) -> Result<Vec<(u32, u32, f64)>,&'static str>{
+    pub fn find_image_on_screen(&mut self, precision: f32) -> Result<Option<Vec<(u32, u32, f64)>>,&'static str>{
         /// searches for image on screen and returns found locations in vector format
         let image =self.screen.grab_screen_image_grayscale(&self.region)?;
        
@@ -300,11 +297,11 @@ impl RustAutoGui {
                 
                 println!("Location found at x: {}, y {}, corr {} ",corrected_found_location.0, corrected_found_location.1, corrected_found_location.2)
             }
-            return Ok(found_locations);
+            return Ok(Some(found_locations));
             
         } else {
             let empty_vec:Vec<(u32,u32,f64)> = vec![];
-            return Ok(empty_vec);
+            return Ok(None);
         };
     }
 
@@ -316,20 +313,22 @@ impl RustAutoGui {
     }
 
     /// executes find_image_on_screen and moves mouse to the middle of the image. 
-    pub fn find_image_on_screen_and_move_mouse(&mut self, precision: f32, moving_time:f32) -> Result<Vec<(u32, u32, f64)>,&'static str> {
+    pub fn find_image_on_screen_and_move_mouse(&mut self, precision: f32, moving_time:f32) -> Result<Option<Vec<(u32, u32, f64)>>,&'static str> {
         /// finds coordinates of the image on the screen and moves mouse to it. Returns None if no image found
         ///  Best used in loops
-        let found_locations = self.find_image_on_screen(precision);
-        match found_locations.clone() {
-            Ok(locations) => {
-                let top_location = locations[0];
-                let x = top_location.0 as i32 + (self.template_width /2) as i32;
-                let y = top_location.1 as i32 + (self.template_height/2) as i32;
-                self.move_mouse_to_pos(x + self.region.0 as i32,y+self.region.1 as i32, moving_time)?;
-                return found_locations
-            },
-            Err(_) => return found_locations
+        let found_locations = self.find_image_on_screen(precision)?;
+        
+        let locations = match found_locations.clone() {
+            Some(locations) => {locations},
+            None => return Ok(None)
         };
+        let top_location = locations[0];
+        let x = top_location.0 as i32 + (self.template_width /2) as i32;
+        let y = top_location.1 as i32 + (self.template_height/2) as i32;
+        self.move_mouse_to_pos(x + self.region.0 as i32,y+self.region.1 as i32, moving_time)?;
+        
+        return Ok(found_locations);
+        
            
         
     }

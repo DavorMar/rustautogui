@@ -9,17 +9,17 @@ use image::{io::Reader as ImageReader, ImageBuffer, Luma, Rgba, GrayImage, Pixel
 
 /// Loads image from the provided path and converts to black-white format
 /// Returns image in image::ImageBuffer format
-pub fn load_image_bw(location:&str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>,&'static str>  {
-    let img:Result<ImageReader<std::io::BufReader<std::fs::File>>, std::io::Error>  = ImageReader::open(location);
-    let img = match img {
+pub fn load_image_bw(location:&str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>,String>  {
+    let img  = match ImageReader::open(location){
         Ok(x) => x,
-        Err(_) => return Err("failed to open image"),
+        Err(y) => return Err(y.to_string()),
     };
-    let img = img.decode();
-    let img = match img {
+    
+    let img = match img.decode() {
         Ok(x) => x,
-        Err(_) => return Err("Failed to decode the image")
+        Err(y) => return Err(y.to_string()),
     };
+    
     let gray_image: ImageBuffer<Luma<u8>, Vec<u8>> = img.to_luma8();
     Ok(gray_image)
 }
@@ -27,17 +27,19 @@ pub fn load_image_bw(location:&str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>,&'s
 
 /// Loads image from the provided path and converts to RGBA format
 /// Returns image in image::ImageBuffer format
-pub fn load_image_rgba(location:&str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>,&'static str>  {
-    let img = ImageReader::open(location);
-    let img = match img {
+pub fn load_image_rgba(location:&str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>,String>  {
+    let img =  match ImageReader::open(location){
         Ok(x) => x,
-        Err(_) => return Err("failed to open image"),
+        Err(y) => {
+            return Err(y.to_string())
+        } 
     };
-    let img = img.decode();
-    let img = match img {
+    
+    let img = match img.decode() {
         Ok(x) => x,
-        Err(_) => return Err("Failed to decode the image")
+        Err(y) => return Err(y.to_string()),
     };
+    
     let rgba_image: ImageBuffer<Rgba<u8>, Vec<u8>> = img.to_rgba8();
     Ok(rgba_image)
 }
@@ -88,9 +90,6 @@ where
     }
     sub_image
 }
-
-
-
 
 
 ///Converts Imagebuffer to Vector format
