@@ -1,5 +1,13 @@
 # Changelog
 
+
+## [2.0.0] - 2025-03.10
+### Added/Fixed
+- complete rework of the code which will not be compatible with old versions. 
+- introduced graceful exits, except for some situations like not having x11 activated on linux
+- most of methods return Result<> now.
+
+
 All notable changes to this project will be documented in this file.
 ## [1.0.1] - 2025-03.07
 ### Fixed
