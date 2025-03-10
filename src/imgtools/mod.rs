@@ -5,27 +5,47 @@ and converting image to vector.
 */
 
 
-use image::{io::Reader as ImageReader, DynamicImage, ImageBuffer, Luma, Rgba, GrayImage, Pixel, Primitive};
+use image::{io::Reader as ImageReader, ImageBuffer, Luma, Rgba, GrayImage, Pixel, Primitive};
 
 /// Loads image from the provided path and converts to black-white format
 /// Returns image in image::ImageBuffer format
-pub fn load_image_bw(location:&str) -> ImageBuffer<Luma<u8>, Vec<u8>>  {
-    let img: DynamicImage = ImageReader::open(location).expect("Failed to load image, please check if path is correct").decode().expect("Failed to decode image");
+pub fn load_image_bw(location:&str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>,String>  {
+    let img  = match ImageReader::open(location){
+        Ok(x) => x,
+        Err(y) => return Err(y.to_string()),
+    };
+    
+    let img = match img.decode() {
+        Ok(x) => x,
+        Err(y) => return Err(y.to_string()),
+    };
+    
     let gray_image: ImageBuffer<Luma<u8>, Vec<u8>> = img.to_luma8();
-    gray_image
+    Ok(gray_image)
 }
 
 
 /// Loads image from the provided path and converts to RGBA format
 /// Returns image in image::ImageBuffer format
-pub fn load_image_rgba(location:&str) -> ImageBuffer<Rgba<u8>, Vec<u8>>  {
-    let img: DynamicImage = ImageReader::open(location).expect("Failed to load image, please check if path is correct").decode().expect("Failed to decode image");
+pub fn load_image_rgba(location:&str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>,String>  {
+    let img =  match ImageReader::open(location){
+        Ok(x) => x,
+        Err(y) => {
+            return Err(y.to_string())
+        } 
+    };
+    
+    let img = match img.decode() {
+        Ok(x) => x,
+        Err(y) => return Err(y.to_string()),
+    };
+    
     let rgba_image: ImageBuffer<Rgba<u8>, Vec<u8>> = img.to_rgba8();
-    rgba_image
+    Ok(rgba_image)
 }
 
 /// Does conversion from ImageBuffer RGBA to ImageBuffer Black and White(Luma)
-pub fn convert_image_to_bw(image:ImageBuffer<Rgba<u8>,Vec<u8>>) -> ImageBuffer<Luma<u8>,Vec<u8>> {
+pub fn convert_image_to_bw(image:ImageBuffer<Rgba<u8>,Vec<u8>>) -> Result<ImageBuffer<Luma<u8>,Vec<u8>>,&'static str> {
     let mut grayscale_data: Vec<u8> = Vec::with_capacity(image.len() as usize);
     let screen_width = image.width();
     let screen_height = image.height();
@@ -37,11 +57,15 @@ pub fn convert_image_to_bw(image:ImageBuffer<Rgba<u8>,Vec<u8>>) -> ImageBuffer<L
         let gray_value = ((r * 30 + g * 59 + b * 11) / 100) as u8;
         grayscale_data.push(gray_value);
     }
-    GrayImage::from_raw(
+    let grayscale = GrayImage::from_raw(
         screen_width as u32,
         screen_height as u32,
         grayscale_data
-        ).expect("Couldn't convert to GrayImage")
+        );
+    match grayscale {
+        Some(x ) => return Ok(x),
+        None => return Err("failed to convert image to grayscale")
+    }
 }
 
 
@@ -66,9 +90,6 @@ where
     }
     sub_image
 }
-
-
-
 
 
 ///Converts Imagebuffer to Vector format

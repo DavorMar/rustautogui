@@ -12,28 +12,26 @@ pub struct Mouse{
 }
 
 impl Mouse {
-    pub fn new(screen: Option<*mut _XDisplay>, root_window: Option<u64>) -> Self {
-        let screen = screen.unwrap();
-        let root_window = root_window.unwrap();
+    pub fn new(screen: *mut _XDisplay, root_window: u64) -> Self {
         Self {screen:screen, root_window: root_window}
     }
 
     
 
     /// moves mouse to x, y pixel coordinate on screen 
-    pub fn move_mouse_to_pos(&self, x:i32, y:i32, moving_time:f32) {
+    pub fn move_mouse_to_pos(&self, x:i32, y:i32, moving_time:f32) -> Result<(), &'static str > {
         // if no moving time, then instant move is executed
         unsafe {
             if moving_time == 0.0 {
                 XWarpPointer(self.screen, 0, self.root_window, 0, 0, 0, 0, x, y);
                 XFlush(self.screen); 
-                return  
+                return  Ok(())
             }
         }
 
         // if moving time is included, loop is executed that moves step by step
         let start = Instant::now();
-        let start_location = self.get_mouse_position();
+        let start_location = self.get_mouse_position()?;
         let distance_x = x - start_location.0;
         let distance_y= y -start_location.1;
         loop {
@@ -57,11 +55,12 @@ impl Mouse {
                  }             
                  
             }
-       }
+       };
+       Ok(())
     }
 
     /// returns x, y pixel coordinate of mouse position
-    pub fn get_mouse_position(&self) -> (i32,i32) {
+    pub fn get_mouse_position(&self) -> Result<(i32,i32), &'static str > {
         unsafe {
             let mut root_return = 0;
             let mut child_return = 0;
@@ -84,15 +83,15 @@ impl Mouse {
             );
 
             if status == 0 {
-                panic!("Unable to query pointer position");
+                return Err("Unable to query pointer position");
             }
 
-            (root_x, root_y)
+            Ok((root_x, root_y))
         }
     }
 
     /// click mouse, either left, right or middle
-    pub fn mouse_click(&self,  button: MouseClick) {
+    pub fn mouse_click(&self,  button: MouseClick) -> Result<(), &'static str> {
         let button =match button {
             MouseClick::LEFT => 1,
             MouseClick::MIDDLE => 2,
@@ -103,10 +102,9 @@ impl Mouse {
         let mut error_base = 0;
         unsafe {
             if XTestQueryExtension(self.screen, &mut event_base, &mut error_base, &mut event_base, &mut error_base) == 0 {
-                eprintln!("XTest extension not available");
-                return;
+                return Err("Xtest extension is not available")
             }
-            if let Some(window) = self.get_window_under_cursor() {
+            if let Some(window) = self.get_window_under_cursor()? {
                 self.set_focus_to_window(window);
             } 
             // Press the mouse button
@@ -118,7 +116,7 @@ impl Mouse {
             XFlush(self.screen);
             
         }
-        
+        Ok(())
     }
 
 
@@ -151,13 +149,13 @@ impl Mouse {
 
     /// return window that is at cursor position. Used when executing left click to also 
     /// change focused window
-    fn get_window_under_cursor(&self) -> Option<Window> {
+    fn get_window_under_cursor(&self) -> Result<Option<Window>,&'static str> {
         let mut child: Window = 0;
         let mut win_x: i32 = 0;
         let mut win_y: i32 = 0;
 
         unsafe {
-            let (pos_x, pos_y) = self.get_mouse_position();
+            let (pos_x, pos_y) = self.get_mouse_position()?;
             if XTranslateCoordinates(
                 self.screen,
                 XDefaultRootWindow(self.screen),
@@ -170,10 +168,10 @@ impl Mouse {
             ) != 0
             {
                 if child != 0 {
-                    return Some(child);
+                    return Ok(Some(child));
                 } 
             }
-            None
+            Ok(None)
         }   
     }
     

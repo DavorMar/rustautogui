@@ -1,3 +1,5 @@
 /target
 /Cargo.lock
 /*.png
+/src/main.rs
+/debug

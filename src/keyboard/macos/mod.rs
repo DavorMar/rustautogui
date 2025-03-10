@@ -20,68 +20,113 @@ impl Keyboard {
        
         Self { keymap:keymap}
     }
-    fn press_key(&self, keycode: CGKeyCode) {
+    
+    fn press_key(&self, keycode: CGKeyCode) -> Result<(), &'static str> {
+        let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
+        let gc_event_source = match gc_event_source {
+            Ok(x) => x,
+            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
+        };
         let event = CGEvent::new_keyboard_event(
-            CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap(),
+            gc_event_source,
             keycode,
             true,
-        ).unwrap();
-        event.post(CGEventTapLocation::HID);
-        sleep(Duration::from_millis(50));
+        );
+        match event {
+            Ok(x) => {
+                x.post(CGEventTapLocation::HID);
+                sleep(Duration::from_millis(50));
+            }
+            Err(_) => return Err("Failed creatomg CGKeyboard event"),
+        }
+        
+        
+        Ok(())
     }
     
-    fn release_key(&self, keycode: CGKeyCode) {
+    fn release_key(&self, keycode: CGKeyCode) -> Result<(), &'static str>{
+        let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
+        let gc_event_source = match gc_event_source {
+            Ok(x) => x,
+            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
+        };
         let event = CGEvent::new_keyboard_event(
-            CGEventSource::new(CGEventSourceStateID::HIDSystemState).unwrap(),
+            gc_event_source,
             keycode,
             false,
-        ).unwrap();
-        event.post(CGEventTapLocation::HID);
-        sleep(Duration::from_millis(50));
+        );
+        match event {
+            Ok(x) => {
+                x.post(CGEventTapLocation::HID);
+                sleep(Duration::from_millis(50));
+            },
+            Err(_) => return Err("Failed to create release key CGkeyboard event")
+        }
+        Ok(())
+        
     }
     
-    fn send_key(&self, keycode: CGKeyCode) {
-        self.press_key(keycode);
-        self.release_key(keycode);
+    fn send_key(&self, keycode: CGKeyCode) -> Result<(), &'static str> {
+        self.press_key(keycode)?;
+        self.release_key(keycode)?;
+        Ok(())
     }
 
-    fn send_shifted_key(&self, keycode:CGKeyCode) {
-        self.press_key(KeyCode::SHIFT);
-        self.send_key(keycode);
-        self.release_key(KeyCode::SHIFT)
+    fn send_shifted_key(&self, keycode:CGKeyCode) -> Result<(), &'static str> {
+        self.press_key(KeyCode::SHIFT)?;
+        self.send_key(keycode)?;
+        self.release_key(KeyCode::SHIFT)?;
+        Ok(())
     }
 
-    pub fn send_char(&self, key:&char, shifted:&bool) {
+    pub fn send_char(&self, key:&char, shifted:&bool) -> Result<(), &'static str >{
         let char_string = String::from(*key);
         let value = self.keymap.get(&char_string);
-        match value {
-            Some(_) => (),
+        let value = match value {
+            Some(x) => x,
             None => {
-                return
+                return Err("Wrong keyboard key input")
             }
-        }
+        };
         if *shifted {
-            self.send_shifted_key(*value.unwrap());
+            self.send_shifted_key(*value)?;
         } else {
-            self.send_key(*value.unwrap());
-        }
+            self.send_key(*value)?;
+        };
+        Ok(())
     }
 
-    pub fn send_command(&self, key:&String) {
+    pub fn send_command(&self, key:&String) -> Result<(), &'static str>{
         let value = self.keymap.get(key);
-        self.send_key(*value.expect("Wrong input key"));
+        let value = match value {
+            Some(x) => x,
+            None => return Err("Wrong keyboard command")
+        };
+        self.send_key(*value)?;
+        Ok(())
     }
 
 
-    pub fn send_multi_key(&self, key_1:&String, key_2:&String, key_3:Option<String>) {
-        let value1 = self.keymap.get(key_1).expect("Invalid first key argument");
-        let value2 = self.keymap.get(key_2).expect("Invalid second key argument");
+    pub fn send_multi_key(&self, key_1:&String, key_2:&String, key_3:Option<String>) -> Result<(), &'static str>{
+        let value1 = match self.keymap.get(key_1){
+            Some(x) => x,
+            None => return Err("False first input in multi key command")
+        };
+        let value2 = match self.keymap.get(key_2) { 
+            Some(x) => x,
+            None => return Err("False second input in multi key command")
+        };
+
+        
         
         let mut third_key = false;
         let value3 = match key_3 {
             Some(value) => {
                 third_key = true;
-                let value3 = self.keymap.get(&value).expect("Invalid third key argument");
+                let value3 = match self.keymap.get(&value){
+                    Some(x) => x,
+                    None => return Err("False first input in multi key command")
+                };
                 value3
             },
             None => {
@@ -89,22 +134,22 @@ impl Keyboard {
             }   
         };
         
-        self.press_key(*value1);
+        self.press_key(*value1)?;
         sleep(Duration::from_millis(50));
-        self.press_key(*value2);
+        self.press_key(*value2)?;
         sleep(Duration::from_millis(50));
         if third_key {
-            self.press_key(*value3);
+            self.press_key(*value3)?;
             sleep(Duration::from_millis(50));
-            self.release_key(*value3);
+            self.release_key(*value3)?;
             sleep(Duration::from_millis(50));
         }
-        self.release_key(*value2);
+        self.release_key(*value2)?;
         sleep(Duration::from_millis(50));
-        self.release_key(*value1);
+        self.release_key(*value1)?;
         sleep(Duration::from_millis(50));
         
-
+        Ok(())
     }
     
     fn create_keymap() -> HashMap<String, u16> {
@@ -193,6 +238,21 @@ impl Keyboard {
         keymap.insert(String::from("x"), 7);
         keymap.insert(String::from("y"), 16);
         keymap.insert(String::from("z"), 6);
+        keymap.insert(String::from("backspace"), 51);
+        keymap.insert(String::from("insert"), 114);
+        keymap.insert(String::from("print_screen"), 105);  // Might not be usable on macOS
+        keymap.insert(String::from("scroll_lock"), 107);  // Might not be usable
+        keymap.insert(String::from("pause"), 113);
+        keymap.insert(String::from("-"), 27);  // -
+        keymap.insert(String::from("="), 24);  // =
+        keymap.insert(String::from("["), 33);  // [
+        keymap.insert(String::from("]"), 30);  // ]
+        keymap.insert(String::from("\\"), 42);  // \
+        keymap.insert(String::from(";"), 41);  // ;
+        keymap.insert(String::from("'"), 39);  // '
+        keymap.insert(String::from(","), 43);  // ,
+        keymap.insert(String::from("."), 47);  // .
+        keymap.insert(String::from("/"), 44);  // /
         keymap
     }
 

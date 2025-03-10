@@ -89,39 +89,52 @@ impl Keyboard {
     
 
     /// function used when sending input as string
-    pub fn send_char(&self, key:&char, shifted:&bool) {
+    pub fn send_char(&self, key:&char, shifted:&bool) -> Result<(), &'static str>{
         let char_string = String::from(*key);
-        let value = self.keymap.get(&char_string);
-        match value {
-            Some(_)=> (),
-            None => return,
-        }
-        let value = value.unwrap();
+        let value = match self.keymap.get(&char_string){
+            Some(x) => x,
+            None => return Err("wrong keyboard char")
+        };
+        
+        
         if *shifted {
             Keyboard::send_shifted_key(*value);    
         } else {
             Keyboard::send_key(*value);
         }
+        Ok(())
     }
 
     /// function used when sending commands like "return" or "escape"
-    pub fn send_command(&self, key:&String) {
-        let value = self.keymap.get(key);
-        let value = value.expect("Unknown command");
+    pub fn send_command(&self, key:&String) -> Result<(), &'static str> {
+        let value = match self.keymap.get(key) {
+            Some(x) => x,
+            None => return Err("wrong keyboard char"),
+        };
+        
         Keyboard::send_key(*value);
-
+        Ok(())
     }
 
 
-    pub fn send_multi_key(&self, key_1:&String, key_2:&String, key_3:Option<String>) {
-        let value1 = self.keymap.get(key_1).expect("Invalid first key argument");
-        let value2 = self.keymap.get(key_2).expect("Invalid second key argument");
-        
+    pub fn send_multi_key(&self, key_1:&String, key_2:&String, key_3:Option<String>) -> Result<(), &'static str> {
+        let value1 = match self.keymap.get(key_1) {
+            Some(x) => x,
+            None => return Err("wrong keyboard char"),
+        };
+        let value2 = match self.keymap.get(key_2) {
+            Some(x) => x,
+            None => return Err("wrong keyboard char"),
+        };
+
         let mut third_key = false;
         let value3 = match key_3 {
             Some(value) => {
                 third_key = true;
-                let value3 = self.keymap.get(&value).expect("Invalid third key argument");
+                let value3 = match self.keymap.get(&value) {
+                    Some(x) => x,
+                    None => return Err("wrong keyboard char"),
+                };
                 value3
             },
             None => {
@@ -138,6 +151,7 @@ impl Keyboard {
             Keyboard::key_up(*value2);
             Keyboard::key_up(*value1);
         }
+        return Ok(())
         
         
 

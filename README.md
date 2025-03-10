@@ -18,9 +18,9 @@ Main functions:
 - detect cursor position
 
 
-Note: this library does not use OpenCV template matching, like python version does. OpenCV has fully optimised template matching, while here multithreading is used but no GPU acceleration yet. For that reason, finding image on screen may be slower than the python counterpart using OpenCV, but the speed is still satisfying. Once Segmented correlation algorithm is included, speed will be further increased. The goal would be to include also GPU acceleration over time.
+Note: this library does not use OpenCV template matching, like python version does. OpenCV has fully optimised template matching, while here multithreading is used but no GPU acceleration or other optimisations yet. For that reason, the speed of the algorithm itself is somewhat slower than OpenCVs template matching, but the whole process of grabbing monitor image, processing it and finding image on it is (or should be in most scenarios) much faster than python counterpart.
 
-The reason for not including OpenCV in this library is because installation of all the bindings and dependencies for rust can be a tiresome and a long process. I did not want to shape the library with prerequisite of user spending multiple hours pre installing everything needed. For this reason, template maching has been completely self developed.  
+The reason for not including OpenCV in this library is because installation of all the bindings and dependencies for rust can be a tiresome and a long process. Shaping the library with prerequisite of user spending multiple hours pre installing everything needed was not the goal. For this reason, template maching has been completely self developed, with algorithms that require less computations to achieve the result.  
 
 # Segmented template matching algorithm
 
@@ -35,7 +35,7 @@ Either run
 
 or add the crate in your Cargo.toml file like:
 
-`rustautogui = "1.0.1"`
+`rustautogui = "2.0.0"`
 
 For Linux additionally install run :
 
@@ -110,9 +110,10 @@ rustautogui.change_debug_state(true); // change debugging
 rustautogui.scroll_up();
 rustautogui.scroll_down();
 ```
-For all the keyboard commands check Keyboard_commands.txt, a roughly written list of possible inputs
+For all the keyboard commands check Keyboard_commands.txt, a roughly written list of possible inputs. If you 
+find some keyboard commands missing that you need, please open an issue in order to get it added in next versions. 
 
-Debug mode prints out number of segments in segmented picture, times taken for algorithm run and it saves segmented images.
+Debug mode prints out number of segments in segmented picture, times taken for algorithm run and it saves segmented images. It also creates debug folder in code root, where the images are saved. 
 
 ```rust
 rustautogui.save_screenshot("test.png"); //saves screen screenshot
@@ -129,7 +130,9 @@ This is a helper function to determine coordinates on screen, helpful when deter
 
 ## How does crate work:
 
-On windows, api interacts with winapi, through usage of winapi crate, on linux it interacts with x11 api through usage of x11 crate while on macOS it interacts through usage of core-graphics crate.
+On windows, api interacts with winapi, through usage of winapi crate, on linux it interacts with x11 api through usage of x11 crate while on macOS it interacts through usage of core-graphics crate. 
+Take note, on Linux there is no support for wayland. If you encounter errors on grabbing XImage or similar, 
+the reason is most likely wayland. 
 When RustAutoGui instance is created with ::new function, the Screen, Mouse and Keyboard structs are also initialized and stored under RustAutoGui struct.
 Screen struct preallocates memory segment for screen image storage. 
 

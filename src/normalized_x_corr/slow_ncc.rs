@@ -54,11 +54,11 @@ pub fn slow_ncc_template_match (
     // }
 
     let template_sum_squared_deviations = sum_squared_template as f64
-        - (sum_template as f64).powi(2) / (template_height as f64 * template_width as f64);
+        - (sum_template as f64).powi(2) / (template_height as f64 * template_width as f64);//@audit unlikely but check if template_height*template_width != 0, also powi() result varies on platform, but think it is CPU so it will be deterministic after all if not used on Raspberry Pi for example
 
     // Slide the template over the image
-    let coords: Vec<(u32, u32)> = (0..=(image_height - template_height))
-        .flat_map(|y| (0..=(image_width - template_width)).map(move |x| (x, y)))
+    let coords: Vec<(u32, u32)> = (0..=(image_height - template_height))//@audit if image_height is 0 this will underflow
+        .flat_map(|y| (0..=(image_width - template_width)).map(move |x| (x, y)))//@audit if image_width is 0 this will underflow
         .collect();
 
     let results: Vec<(u32, u32, f64)> = coords
@@ -123,7 +123,7 @@ fn calculate_corr_value(
     }
 
     let image_sum_squared_deviations = sum_squared_image as f64
-        - (sum_image as f64).powi(2) / (template_height * template_width) as f64;
+        - (sum_image as f64).powi(2) / (template_height * template_width) as f64;//@audit same as above
     let denominator = (image_sum_squared_deviations * template_sum_squared_deviations).sqrt();
 
     let corr = numerator / denominator;

@@ -51,29 +51,39 @@ impl Drop for DisplayWrapper {
     }
 }
 #[cfg(target_os = "linux")]
-pub fn print_mouse_position() {
+pub fn print_mouse_position() -> Result<(),&'static str> {
     let display_wrapper = DisplayWrapper::new();
 
     unsafe {
         let screen = XDefaultScreen(display_wrapper.display);
         let root = XRootWindow(display_wrapper.display, screen);
-        let mouse = Mouse::new(Some(display_wrapper.display), Some(root));
+        let mouse = Mouse::new(display_wrapper.display, root);
         loop {
-            let (x, y) = mouse.get_mouse_position();
+            let (x, y) = mouse.get_mouse_position()?;
             println!("{x}, {y}");
             sleep(Duration::from_millis(20));
         }
     } 
+    
 }
 
 
 
 
 
-#[cfg(any(target_os = "windows", target_os = "macos"))]
+#[cfg(target_os = "windows")]
 pub fn print_mouse_position() {
     loop {
         let (x,y) = Mouse::get_mouse_position();
+        println!("{x}, {y}");
+        sleep(Duration::from_millis(20));
+    };
+}
+
+#[cfg(target_os = "macos")]
+pub fn print_mouse_position() -> Result<(), &'static str>{
+    loop {
+        let (x,y) = Mouse::get_mouse_position().unwrap();
         println!("{x}, {y}");
         sleep(Duration::from_millis(20));
     };

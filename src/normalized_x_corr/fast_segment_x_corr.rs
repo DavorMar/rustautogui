@@ -123,7 +123,15 @@ fn save_template_segmented_images(template_segments:&Vec<(u32, u32, u32, u32, f3
     let mut rng = rand::thread_rng();
     let debug_path = Path::new("debug");
     if !debug_path.exists() {
-        fs::create_dir_all(debug_path).expect("Failed to create 'debug' directory. Please create it manualy in the root folder");
+        let error_catch = fs::create_dir_all(debug_path);
+        match error_catch {
+            Ok(_) => (),
+            Err(_) =>{
+                 println!("Failed to create debug folder. Please create it manually in the root folder");
+                 return ()
+            },
+
+        }
     }
     for (x, y, segment_width, segment_height, segment_mean) in template_segments {
         let mut rng_mult: f32 = rng.gen();
@@ -151,9 +159,12 @@ fn save_template_segmented_images(template_segments:&Vec<(u32, u32, u32, u32, f3
         // If there's no '/', just prepend "random_"
         filename2 = filename2 + "random_" + file_name;
     }
-    blurred_template
-        .save(filename2)
-        .expect("failed to save img");
+    let error_catch = blurred_template.save(filename2);
+    match error_catch {
+        Ok(_) => (),
+        Err(_) => println!("Failed to save image"),
+    }
+        
 
     let mut blurred_template2: ImageBuffer<Luma<u8>, Vec<u8>> =
         ImageBuffer::new(*template_width, *template_height);
@@ -165,9 +176,12 @@ fn save_template_segmented_images(template_segments:&Vec<(u32, u32, u32, u32, f3
             }
         }
     }
-    blurred_template2
-        .save(file_name)
-        .expect("failed to save img");
+    let error_catch = blurred_template2.save(file_name);
+        
+    match error_catch {
+        Ok(_) => (),
+        Err(_) => (),
+    }
 }
 
 
@@ -200,7 +214,7 @@ fn fast_correlation_calculation(
     *template_width, 
     *template_height
 );
-    let mean_image = sum_image as f64 / (template_height * template_width) as f64;
+    let mean_image = sum_image as f32 / (template_height * template_width) as f32;
     let mut nominator = 0.0;
 
     for (x1, y1, segment_width, segment_height, segment_value) in template_segments_fast {
@@ -211,9 +225,9 @@ fn fast_correlation_calculation(
             *segment_width,
             *segment_height,
         );
-        let segment_nominator_value: f64 = (segment_image_sum as f64
-            - mean_image as f64 * (segment_height * segment_width) as f64)
-            * (*segment_value as f64 - *segments_fast_mean as f64);
+        let segment_nominator_value: f32 = (segment_image_sum as f32
+            - mean_image  * (segment_height * segment_width) as f32)
+            * (*segment_value - *segments_fast_mean);
 
         // let segment_nominator_value: f64 =
         //     (segment_image_sum as f64 * (*segment_value as f64 - segments_mean as f64)) - (mean_image as f64 * (segment_height*segment_width) as f64 * (*segment_value as f64 - segments_mean as f64) );
@@ -235,10 +249,10 @@ fn fast_correlation_calculation(
         *template_width,
         *template_height,
     );
-    let image_sum_squared_deviations = sum_squared_image as f64
-        - (sum_image as f64).powi(2) / template_area as f64;
+    let image_sum_squared_deviations = sum_squared_image as f32
+        - (sum_image as f32).powi(2) / template_area as f32;
     let denominator =
-        image_sum_squared_deviations * *fast_segments_sum_squared_deviations as f64;
+        image_sum_squared_deviations * *fast_segments_sum_squared_deviations;
 
     ///////////////
     
@@ -247,18 +261,18 @@ fn fast_correlation_calculation(
     
     
 
-    let mut corr: f64 = (nominator*nominator) / denominator;
+    let mut corr: f32 = (nominator*nominator) / denominator;
 
     if corr > 2.0 || corr.is_nan() {
         if corr > 1.0 {}
 
         corr = -100.0;
-        return corr
+        return corr as f64
     }
 
    
     // second calculation with more detailed picture
-    if corr > *min_expected_corr as f64 {
+    if corr > *min_expected_corr {
         
         nominator = 0.0;
         for (x1, y1, segment_width, segment_height, segment_value) in template_segments_slow {
@@ -269,9 +283,9 @@ fn fast_correlation_calculation(
                 *segment_width,
                 *segment_height,
             );
-            let segment_nominator_value: f64 = (segment_image_sum as f64
-                - mean_image as f64 * (segment_height * segment_width) as f64)
-                * (*segment_value as f64 - *segments_slow_mean as f64);
+            let segment_nominator_value: f32 = (segment_image_sum as f32
+                - mean_image as f32 * (segment_height * segment_width) as f32)
+                * (*segment_value as f32 - *segments_slow_mean as f32);
     
             // let segment_nominator_value: f64 =
             //     (segment_image_sum as f64 * (*segment_value as f64 - segments_mean as f64)) - (mean_image as f64 * (segment_height*segment_width) as f64 * (*segment_value as f64 - segments_mean as f64) );
@@ -283,7 +297,7 @@ fn fast_correlation_calculation(
         }
 
         let denominator =
-        (image_sum_squared_deviations * *slow_segments_sum_squared_deviations as f64);
+        image_sum_squared_deviations * *slow_segments_sum_squared_deviations;
 
 
         
@@ -292,10 +306,10 @@ fn fast_correlation_calculation(
     if corr > 10.0 || corr.is_nan() {
 
         corr = -100.0;
-        return corr
+        return corr as f64
     }
 
-    corr
+    corr as f64
 }
 
 
