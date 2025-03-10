@@ -101,14 +101,14 @@ impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
     /// all the other struct fields are initiated as 0 or None
     #[cfg(target_os = "linux")]
-    pub fn new(debug:bool) -> Self{
+    pub fn new(debug:bool) -> Result<Self, &'static str>{
         // on linux, screen display pointer is shared to keyboard and mouse 
         // x11 works like that and initiation of individual display objects
         // under each struct wouldnt be preferable
         let screen = Screen::new();
         let keyboard = Keyboard::new(screen.display);
         let mouse_struct: Mouse = Mouse::new(screen.display, screen.root_window);
-        Self{
+        Ok(Self{
             template:None, 
             prepared_data:PreparedData::None,
             debug:debug,
@@ -120,7 +120,7 @@ impl RustAutoGui {
             match_mode:None,
             max_segments: None,
             region:(0,0,0,0)
-        }
+        })
     }
 
 
