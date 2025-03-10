@@ -58,7 +58,7 @@ rustautogui.load_and_prepare_template(
                                region: Some((0,0,1000,1000)),
                                match_mode:rustautogui::MatchMode::Segmented,
                                max_segments:&Some(3000)
-                           ); // load a template image for screen matching
+                           ).unwrap(); // load a template image for screen matching
 ```
 Arguments are template path, Option<(x,y,width,height)> region parameter. Option is used because it can be None meaning it wil search over whole screen. Matchmode can be MatchMode::Segmented(once implemented) or MatchMode::FFT.
 FFT is used in fourier transformation and it may be better if size of template is pretty large. If using smaller template, Segmented matchmode will be preffered and much faster. 
@@ -79,7 +79,7 @@ rustautogui.change_prepared_settings(
 ```
 
 ```rust
-let found_locations: Option<Vec<(u32, u32, f64)>> = rustautogui.find_image_on_screen(precision:0.9); // returns pixel coordinates for prepared template
+let found_locations: Option<Vec<(u32, u32, f64)>> = rustautogui.find_image_on_screen(precision:0.9).unwrap(); // returns pixel coordinates for prepared template
 // on screen. Returns list of coordinates that have correlation higher than inserted precision parameter
 // must have prepared template before
 // returns locations that have correlation higher than precision, ordered from highest to lowest. 
@@ -87,7 +87,7 @@ let found_locations: Option<Vec<(u32, u32, f64)>> = rustautogui.find_image_on_sc
 ```
 
 ```rust
-let found_locations: Option<Vec<(u32, u32, f64)>> =  rustautogui.find_image_on_screen_and_move_mouse(precision:0.9, moving_time:1.0);
+let found_locations: Option<Vec<(u32, u32, f64)>> =  rustautogui.find_image_on_screen_and_move_mouse(precision:0.9, moving_time:1.0).unwrap();
 // finds template image on screen and automatically moves mouse
 // cursor to the middle of the image. Matches only single
 // position with highest correlation value
@@ -100,15 +100,15 @@ IMPORTANT: Difference between linux and windows/macOS when using multiple monito
 
 On linux, search can be done on all monitors and  0, 0 coordinates start from top left position. The leftmost monitor will have zero X coordinate, while top most monitor will have Y zero coordinate. 
 ```rust
-rustautogui.left_click(); // left mouse click
-rustautogui.right_click(); // right mouse click
-rustautogui.double_click(); // double left click
-rustautogui.keyboard_input(input: "test", shifted:&false); // input string, or better say, do the sequence of key presses
-rustautogui.keyboard_command(input:"return"); //press a keyboard button 
-rustautogui.keyboard_multi_key(input1: "shift", input2:"control", input3: Some("t")) // Executed multiple key press at same time. third argument is optional
+rustautogui.left_click().unwrap(); // left mouse click
+rustautogui.right_click().unwrap(); // right mouse click
+rustautogui.double_click().unwrap(); // double left click
+rustautogui.keyboard_input(input: "test", shifted:&false).unwrap(); // input string, or better say, do the sequence of key presses
+rustautogui.keyboard_command(input:"return").unwrap(); //press a keyboard button 
+rustautogui.keyboard_multi_key(input1: "shift", input2:"control", input3: Some("t")).unwrap(); // Executed multiple key press at same time. third argument is optional
 rustautogui.change_debug_state(true); // change debugging
-rustautogui.scroll_up();
-rustautogui.scroll_down();
+rustautogui.scroll_up().unwrap();
+rustautogui.scroll_down().unwrap();
 ```
 For all the keyboard commands check Keyboard_commands.txt, a roughly written list of possible inputs. If you 
 find some keyboard commands missing that you need, please open an issue in order to get it added in next versions. 
@@ -116,13 +116,13 @@ find some keyboard commands missing that you need, please open an issue in order
 Debug mode prints out number of segments in segmented picture, times taken for algorithm run and it saves segmented images. It also creates debug folder in code root, where the images are saved. 
 
 ```rust
-rustautogui.save_screenshot("test.png"); //saves screen screenshot
+rustautogui.save_screenshot("test.png").unwrap(); //saves screen screenshot
 ```
 
 ```rust
 use rustautogui::mouse;
 fn main() {
-   mouse::mouse_position::print_mouse_position();
+   mouse::mouse_position::print_mouse_position().unwrap();
 }
 ```
 Before 0.3.0 this function popped up window, now it just prints. This was changed to reduce dependencies.
