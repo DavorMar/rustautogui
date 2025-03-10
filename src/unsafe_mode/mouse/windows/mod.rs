@@ -6,7 +6,7 @@ use winapi::um::winuser::{SetCursorPos, SendInput, INPUT, INPUT_MOUSE,
 };
 use std::time::Instant;
 use std::mem::{zeroed, size_of};
-use crate::mouse::{MouseClick, MouseScroll};
+use crate::unsafe_mode::mouse::{MouseClick, MouseScroll};
 
 
 pub struct Mouse {

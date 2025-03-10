@@ -13,7 +13,7 @@ use crate::unsafe_mode::normalized_x_corr::{
 
 extern crate rayon;
 
-use crate::imgtools;
+use crate::unsafe_mode::imgtools;
 use image::{ImageBuffer, Luma};
 use rand::prelude::*;
 use rayon::prelude::*;

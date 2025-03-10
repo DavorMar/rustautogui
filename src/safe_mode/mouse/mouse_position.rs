@@ -8,7 +8,7 @@ use x11::xlib::*;
 use std::ptr;
 
 #[cfg(any(target_os = "windows", target_os = "macos"))]
-use crate::mouse::platform::Mouse;
+use crate::safe_mode::mouse::platform::Mouse;
 
 use std::time::Duration;
 use std::thread::sleep;

@@ -25,7 +25,7 @@ pub use {
 };
 
 #[cfg(target_os = "macos")]
-pub use crate::{
+pub use {
     keyboard::macos::Keyboard,
     mouse::macos::Mouse,
     screen::macos::Screen

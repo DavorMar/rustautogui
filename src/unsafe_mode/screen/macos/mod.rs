@@ -2,7 +2,7 @@ use core_graphics::display::CGDisplay;
 use core_graphics::display;
 
 use image::{ imageops::{resize, FilterType::Nearest}, GrayImage, ImageBuffer, Luma, Rgba};
-use crate::imgtools;
+use crate::unsafe_mode::imgtools;
 
 
 #[derive(Debug, Clone)]

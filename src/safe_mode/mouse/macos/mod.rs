@@ -9,7 +9,7 @@ use core_graphics::event::{
 
 use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 use core_graphics::geometry::CGPoint;
-use crate::mouse::{MouseClick,MouseScroll};
+use crate::safe_mode::mouse::{MouseClick,MouseScroll};
 
 
 

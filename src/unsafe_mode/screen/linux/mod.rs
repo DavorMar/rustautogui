@@ -4,7 +4,7 @@ extern crate image;
 use image::{ GrayImage, ImageBuffer, Luma, Rgba};
 use std::ptr;
 use x11::xlib::*;
-use crate::imgtools;
+use crate::unsafe_mode::imgtools;
 
 const ALLPLANES: u64 = 0xFFFFFFFFFFFFFFFF;
 

@@ -11,7 +11,7 @@ use winapi::um::wingdi::{CreateCompatibleDC, CreateCompatibleBitmap, SelectObjec
 use winapi::um::wingdi::DIB_RGB_COLORS;
 use winapi::shared::minwindef::{HGLOBAL, LPVOID, UINT, DWORD};
 
-use crate::imgtools;
+use crate::unsafe_mode::imgtools;
 
 
 

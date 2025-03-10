@@ -5,7 +5,7 @@ use crate::unsafe_mode::normalized_x_corr::
 
 
 use rayon::prelude::*;
-use crate::imgtools;
+use crate::unsafe_mode::imgtools;
 
 use image::{ImageBuffer, Luma};
 
