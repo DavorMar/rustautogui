@@ -352,6 +352,9 @@ impl RustAutoGui {
     #[cfg(target_os = "windows")]
     pub fn move_mouse_to_pos(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str>{
         Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time);
+        if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
+            return Err("Out of screen boundaries");
+        }
         if self.debug {
             let (x,y) = Mouse::get_mouse_position();
             println!("Mouse moved to position {x}, {y}");    
@@ -363,6 +366,9 @@ impl RustAutoGui {
     /// moves mouse to x, y pixel coordinate
     #[cfg(target_os = "windows")]
     pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str>{
+        if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
+            return Err("Out of screen boundaries");
+        }
         Mouse::drag_mouse(x as i32, y as i32, moving_time);
 
         Ok(())
