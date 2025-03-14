@@ -371,14 +371,22 @@ impl RustAutoGui {
 
     /// moves mouse to x, y pixel coordinate
     #[cfg(target_os="macos")]
-    pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time: f32) -> Result<(), &'static str > {
-        Mouse::move_mouse_to_pos(x, y, moving_time)?;
+    pub fn move_mouse_to_pos(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str > {
+        Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time)?;
         if self.debug {
             let (x,y) = Mouse::get_mouse_position()?;
             println!("Mouse moved to position {x}, {y}");    
         }
         Ok(())
     }
+
+    #[cfg(target_os="macos")]
+    pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str > {
+        Mouse::drag_mouse(x as i32, y as i32, moving_time)?;
+        
+        Ok(())
+    }
+
 
     /// moves mouse to x, y pixel coordinate
     #[cfg(target_os = "linux")]
