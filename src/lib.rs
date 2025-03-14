@@ -132,6 +132,10 @@ impl RustAutoGui {
         if (x + width > self.screen.screen_width as u32 ) | (y + height > self.screen.screen_height as u32) {
             return Err("Selected region out of bounds")
         }
+
+        if (self.template_width > self.screen.screen_width as u32) | (self.template_height > self.screen.screen_height as u32) {
+            return Err("Selected template is larger than detected screen")
+        }
         Ok(())
 
     }
