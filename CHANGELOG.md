@@ -1,6 +1,12 @@
 # Changelog
+All notable changes to this project will be documented in this file.
 
-## [2.0.1] - 2025-03.10
+## [2.1.0] - 2025-03.15
+### Added/Fixed
+- added scroll left / right functionality
+- added another check for region boundaries that should prevent the code to run an assertion, rather returning an error instead.
+
+## [2.0.1] - 2025-03.14
 ### Fixed
 - Fixed readme code examples
 - fixed Segmented normalized cross correlation doing false matches.  
@@ -11,8 +17,6 @@
 - introduced graceful exits, except for some situations like not having x11 activated on linux
 - most of methods return Result<> now.
 
-
-All notable changes to this project will be documented in this file.
 ## [1.0.1] - 2025-03.07
 ### Fixed
 - fixed wrong creation of debug folder even when not in debug mode

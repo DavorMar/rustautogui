@@ -35,7 +35,7 @@ Either run
 
 or add the crate in your Cargo.toml file like:
 
-`rustautogui = "2.0.1"`
+`rustautogui = "2.1.0"`
 
 For Linux additionally install run :
 
@@ -43,29 +43,32 @@ For Linux additionally install run :
 
 `sudo apt-get install libx11-dev libxtst-dev`
 
+
+
 For macOS: dont forget to give necessary permissions
 
 
 ## Usage:
 
 ```rust
-use rustautogui::RustAutoGui
+use rustautogui;
 
-let mut rustautogui = RustAutoGui::new(debug:false); // create rustautogui instance
+
+let mut rustautogui = rustautogui::RustAutoGui::new(debug:false); // create rustautogui instance
 
 rustautogui.load_and_prepare_template(
                                template_path: "template.png",
                                region: Some((0,0,1000,1000)),
-                               match_mode:rustautogui::MatchMode::Segmented,
-                               max_segments:&Some(3000)
+                               match_mode: rustautogui::MatchMode::Segmented,
+                               max_segments: &Some(3000)
                            ).unwrap(); // load a template image for screen matching
 ```
-Arguments are template path, Option<(x,y,width,height)> region parameter. Option is used because it can be None meaning it wil search over whole screen. Matchmode can be MatchMode::Segmented(once implemented) or MatchMode::FFT.
+Arguments are template path, Option<(x,y,width,height)> region parameter. Option is used because it can be None meaning it will search over whole screen. Matchmode can be MatchMode::Segmented or MatchMode::FFT.
 FFT is used in fourier transformation and it may be better if size of template is pretty large. If using smaller template, Segmented matchmode will be preffered and much faster. 
 max_segments arguments is only used in Segmented matchmode and its not important for FFT match mode, when you want to set it as &None.
 If using Segmented match mode, max_segments can influence speed and precision. If using large and complex pictures(with high pixel variation), max segments determines maximum number of segments
 to divide picture into, sacrificing precision while increasing speed. The higher the number of segments, lower the speed but higher precision.
-The default value is set to 10000, which is a pretty high number. If you want to increase the speed, reduce the max segments by some value and follow the correlation value with debug mode. 
+The default value is set to 10000, but can be increased or decreased depending on template. If you want to increase the speed, reduce the max segments by some value and follow the correlation value with debug mode. 
 
 If you're looking to maximize speed, your template and region of search should be as small as possible. For instance, if youre looking for image of a button, maybe you dont need a whole button image but just a segment of it. There are various pyautogui tutorials that can explain this. 
 For this reason, if already using smaller image to speed up the algorithm, go with segmented match mode which will provide greater speed. 
@@ -109,6 +112,8 @@ rustautogui.keyboard_multi_key(input1: "shift", input2:"control", input3: Some("
 rustautogui.change_debug_state(true); // change debugging
 rustautogui.scroll_up().unwrap();
 rustautogui.scroll_down().unwrap();
+rustautogui.scroll_left().unwrap();
+rustautogui.scroll_right().unwrap();
 ```
 For all the keyboard commands check Keyboard_commands.txt, a roughly written list of possible inputs. If you 
 find some keyboard commands missing that you need, please open an issue in order to get it added in next versions. 

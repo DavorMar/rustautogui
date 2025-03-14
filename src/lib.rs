@@ -123,6 +123,18 @@ impl RustAutoGui {
         })
     }
 
+    fn check_if_region_out_of_bound(&mut self) -> Result<(), &'static str>{
+        let x = self.region.0;
+        let y = self.region.1;
+        let width = self.region.2;
+        let height = self.region.3;
+        
+        if (x + width > self.screen.screen_width as u32 ) | (y + height > self.screen.screen_height as u32) {
+            return Err("Selected region out of bounds")
+        }
+        Ok(())
+
+    }
 
     /// Loads template image from provided path and sets all the fields across structs as needed. Depending on match_mode, different template
     /// preparation process is executed. When using FFT, region is also important for zero-pad calculation 
@@ -153,7 +165,7 @@ impl RustAutoGui {
         self.region = region;
         self.screen.screen_region_width = region.2;
         self.screen.screen_region_height = region.3;
-
+        self.check_if_region_out_of_bound()?;
         let template_data = match match_mode {
             MatchMode::FFT => {
                 let prepared_data = PreparedData::FFT(normalized_x_corr::fft_ncc::prepare_template_picture(&template, &region.2, &region.3));
