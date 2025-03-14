@@ -94,29 +94,14 @@ impl Mouse {
                }
      }
 
-     pub fn scroll(direction: MouseScroll) {
-          let amount: i32 = match direction {
-               MouseScroll::UP => 120,
-               MouseScroll::DOWN => -120,
-          };
-          unsafe {
-               let mut scroll_input: INPUT = zeroed();
-              
-               scroll_input.type_ = INPUT_MOUSE;
-               scroll_input.u.mi_mut().dwFlags = MOUSEEVENTF_WHEEL;
-               scroll_input.u.mi_mut().mouseData = amount as u32;
-               SendInput(1, &mut scroll_input, size_of::<INPUT>() as i32);
-
-          }
-          
-     }
+ 
 
      pub fn scroll(direction: MouseScroll) {
           let (amount, wheel_direction) = match direction {
                MouseScroll::UP => (120, MOUSEEVENTF_WHEEL),
                MouseScroll::DOWN => (-120, MOUSEEVENTF_WHEEL),
-               MouseScroll::LEFT => (120, MOUSEEVENTF_HWHEEL),
-               MouseScroll::RIGHT => (-120, MOUSEEVENTF_HWHEEL),
+               MouseScroll::LEFT => (-120, MOUSEEVENTF_HWHEEL),
+               MouseScroll::RIGHT => (120, MOUSEEVENTF_HWHEEL),
           };
           unsafe {
                let mut scroll_input: INPUT = zeroed();

@@ -489,6 +489,20 @@ impl RustAutoGui {
         Ok(())
     }
 
+    #[cfg(target_os = "windows")]
+    pub fn scroll_left(&self) ->Result<(),()> {
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT);
+        Ok(())
+    }
+
+
+    #[cfg(target_os = "windows")]
+    pub fn scroll_right(&self) ->Result<(),()> {
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT);
+        Ok(())
+    }
+
+
     
     #[cfg(target_os = "linux")]
     pub fn scroll_up(&self) -> Result<(), ()>{
