@@ -451,22 +451,11 @@ impl RustAutoGui {
         Ok(())
     }
 
-    #[cfg(target_os = "windows")]
-    pub fn scroll_up(&self) -> Result<(),()> {
-        mouse::platform::Mouse::scroll(mouse::MouseScroll::UP);
-        Ok(())
-    }
+    
 
     #[cfg(target_os = "macos")]
     pub fn scroll_up(&self) -> Result<(), &'static str> {
         mouse::platform::Mouse::scroll(mouse::MouseScroll::UP)?;
-        Ok(())
-    }
-
-
-    #[cfg(target_os = "windows")]
-    pub fn scroll_down(&self) ->Result<(),()> {
-        mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN);
         Ok(())
     }
 
@@ -476,6 +465,31 @@ impl RustAutoGui {
         Ok(())
     }
 
+    #[cfg(target_os = "macos")]
+    pub fn scroll_left(&self) -> Result<(),&'static str>{
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT)?;
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn scroll_right(&self) -> Result<(),&'static str>{
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT)?;
+        Ok(())
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn scroll_up(&self) -> Result<(),()> {
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::UP);
+        Ok(())
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn scroll_down(&self) ->Result<(),()> {
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN);
+        Ok(())
+    }
+
+    
     #[cfg(target_os = "linux")]
     pub fn scroll_up(&self) -> Result<(), ()>{
         self.mouse.scroll(mouse::MouseScroll::UP);

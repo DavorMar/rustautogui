@@ -146,8 +146,10 @@ impl Mouse{
 
     pub fn scroll (direction:MouseScroll) -> Result<(), &'static str> {
         let delta = match direction {
-            MouseScroll::UP => 10,
-            MouseScroll::DOWN => -10,
+            MouseScroll::UP => (10,0),
+            MouseScroll::DOWN => (-10,0),
+            MouseScroll::LEFT => (0,10),
+            MouseScroll::RIGHT => (0,-10),
         };
         let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
         let cg_event_source = match cg_event_source {
@@ -155,13 +157,13 @@ impl Mouse{
             Err(_) => return Err("Error creating CGEventSource on mouse movement"),
         };
 
-
+        
         let scroll = CGEvent::new_scroll_event(
             cg_event_source,
             ScrollEventUnit::PIXEL,
-            1,
-            delta,
-            0,
+            2,
+            delta.0,
+            delta.1,
             0
         );
         match scroll {
