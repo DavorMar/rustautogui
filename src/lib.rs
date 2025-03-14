@@ -388,6 +388,12 @@ impl RustAutoGui {
 
     #[cfg(target_os="macos")]
     pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str > {
+        if self.debug {
+            if moving_time <= 0.1 {
+                println!("Warning, using low moving time may cause issues with drag mouse");
+            }
+        }
+        
         Mouse::drag_mouse(x as i32, y as i32, moving_time)?;
         
         Ok(())
