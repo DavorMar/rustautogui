@@ -339,24 +339,32 @@ impl RustAutoGui {
             None => return Ok(None)
         };
         let top_location = locations[0];
-        let x = top_location.0 as i32 + (self.template_width /2) as i32;
-        let y = top_location.1 as i32 + (self.template_height/2) as i32;
-        self.move_mouse_to_pos(x + self.region.0 as i32,y+self.region.1 as i32, moving_time)?;
+        let x = top_location.0  + (self.template_width /2) ;
+        let y = top_location.1  + (self.template_height/2) ;
+        let target_x = x + self.region.0;
+        let target_y = y+self.region.1;
+        self.move_mouse_to_pos(target_x,  target_y, moving_time)?;
         
-        return Ok(found_locations);
-        
-           
+        return Ok(Some(vec![(target_x , target_y, locations[0].2)]));   
+    }
+
+    /// moves mouse to x, y pixel coordinate
+    #[cfg(target_os = "windows")]
+    pub fn move_mouse_to_pos(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str>{
+        Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time);
+        if self.debug {
+            let (x,y) = Mouse::get_mouse_position();
+            println!("Mouse moved to position {x}, {y}");    
+        }
+        Ok(())
         
     }
 
     /// moves mouse to x, y pixel coordinate
     #[cfg(target_os = "windows")]
-    pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time: f32) -> Result<(), &'static str>{
-        Mouse::move_mouse_to_pos(x, y, moving_time);
-        if self.debug {
-            let (x,y) = Mouse::get_mouse_position();
-            println!("Mouse moved to position {x}, {y}");    
-        }
+    pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str>{
+        Mouse::drag_mouse(x as i32, y as i32, moving_time);
+
         Ok(())
         
     }

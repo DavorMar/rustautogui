@@ -5,6 +5,7 @@ use winapi::um::winuser::{SetCursorPos, SendInput, INPUT, INPUT_MOUSE,
      MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP,MOUSEEVENTF_WHEEL, MOUSEEVENTF_HWHEEL
 };
 use std::time::Instant;
+use std::{thread, time};
 use std::mem::{zeroed, size_of};
 use crate::mouse::{MouseClick, MouseScroll};
 
@@ -17,6 +18,8 @@ impl Mouse {
      pub fn new() -> Mouse {
           Mouse{}
      }
+
+
 
 
      /// moves mouse to x, y pixel coordinate on screen 
@@ -34,7 +37,6 @@ impl Mouse {
           let start_location = Mouse::get_mouse_position();
           let distance_x = x - start_location.0;
           let distance_y= y -start_location.1;
-          
           
           loop {
                
@@ -54,12 +56,38 @@ impl Mouse {
                     }  else {
                          SetCursorPos(new_x as i32, new_y as i32);
                     }             
-                    
                }
           }
                
-          }
+     }
           
+     pub fn drag_mouse(x: i32, y:i32, moving_time:f32) {
+          let (down, up) = (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP);
+          unsafe {
+               
+               
+               // set up the first input event (mouse down)
+               let mut input_down: INPUT = zeroed();
+               input_down.type_ = INPUT_MOUSE;
+               input_down.u.mi_mut().dwFlags = down;
+               SendInput(1, &mut input_down, size_of::<INPUT>() as i32);
+               let some_duration = time::Duration::from_millis(80);
+               thread::sleep(some_duration);
+               Mouse::move_mouse_to_pos(x,y, moving_time);
+               
+               let some_duration = time::Duration::from_millis(50);
+               thread::sleep(some_duration);
+
+
+               // set up the second input event (mouse up)
+               let mut input_up: INPUT = zeroed();
+               input_up.type_ = INPUT_MOUSE;
+               input_up.u.mi_mut().dwFlags = up;
+               // send the input events
+               SendInput(2, & mut input_up, size_of::<INPUT>() as i32);
+          }
+     }
+
 
      /// returns x, y pixel coordinate of mouse position
      pub fn get_mouse_position() -> (i32, i32) {
@@ -70,6 +98,7 @@ impl Mouse {
           };
           
      }
+
 
      /// click mouse, either left, right or middle "MouseClick::LEFT/RIGHT/MIDDLE enumerator"
      pub fn mouse_click(button:MouseClick){
@@ -91,7 +120,7 @@ impl Mouse {
                inputs[1].u.mi_mut().dwFlags = up;
                // send the input events
                SendInput(2, inputs.as_mut_ptr(), size_of::<INPUT>() as i32);
-               }
+          }
      }
 
  
