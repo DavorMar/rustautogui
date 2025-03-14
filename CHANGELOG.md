@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.1] - 2025-03.10
+### Fixed
+- Fixed readme code examples
+- fixed Segmented normalized cross correlation doing false matches.  
 
 ## [2.0.0] - 2025-03.10
 ### Added/Fixed

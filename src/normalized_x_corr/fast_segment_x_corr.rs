@@ -57,8 +57,6 @@ pub fn fast_ncc_template_match(
     // calculate precision into expected correlation
     let adjusted_fast_expected_corr = (precision * fast_expected_corr).pow(2);
     let adjusted_slow_expected_corr:f32 = (precision * slow_expected_corr).pow(2);
-    
-    
     if *debug {
         let mut fast_name = String::new();
         fast_name = fast_name + "debug/fast_" + image_name +".png";
@@ -93,7 +91,7 @@ pub fn fast_ncc_template_match(
             );
             (x, y, corr)
         })
-        .filter(|&(_, _, corr)| corr > adjusted_slow_expected_corr.pow(2) as f64)
+        .filter(|&(_, _, corr)| corr > adjusted_slow_expected_corr as f64)
         .collect();
 
     // returned list of found points
