@@ -481,11 +481,25 @@ impl RustAutoGui {
         self.mouse.scroll(mouse::MouseScroll::UP);
         Ok(())
     }
+
     #[cfg(target_os = "linux")]
     pub fn scroll_down(&self) -> Result<(),()>{
         self.mouse.scroll(mouse::MouseScroll::DOWN);
         Ok(())
     }
+
+    #[cfg(target_os = "linux")]
+    pub fn scroll_left(&self) -> Result<(),()>{
+        self.mouse.scroll(mouse::MouseScroll::LEFT);
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn scroll_right(&self) -> Result<(),()>{
+        self.mouse.scroll(mouse::MouseScroll::RIGHT);
+        Ok(())
+    }
+
     /// accepts string and mimics keyboard key presses for each character in string
     pub fn keyboard_input(&self,input:&str, shifted:&bool) -> Result<(), &'static str>{
         let input_string = String::from(input);

@@ -27,6 +27,8 @@ pub enum MouseClick {
 pub enum MouseScroll {
     UP,
     DOWN,
+    LEFT,
+    RIGHT,
 }
 
 pub mod mouse_position;

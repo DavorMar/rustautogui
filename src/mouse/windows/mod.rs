@@ -2,7 +2,7 @@ use winapi::shared::windef::POINT;
 use winapi::um::winuser::{SetCursorPos, SendInput, INPUT, INPUT_MOUSE,
      MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP,
      MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP,
-     MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP,MOUSEEVENTF_WHEEL
+     MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP,MOUSEEVENTF_WHEEL, MOUSEEVENTF_HWHEEL
 };
 use std::time::Instant;
 use std::mem::{zeroed, size_of};
@@ -109,9 +109,26 @@ impl Mouse {
 
           }
           
-          
-
      }
+
+     pub fn scroll(direction: MouseScroll) {
+          let (amount, wheel_direction) = match direction {
+               MouseScroll::UP => (120, MOUSEEVENTF_WHEEL),
+               MouseScroll::DOWN => (-120, MOUSEEVENTF_WHEEL),
+               MouseScroll::LEFT => (120, MOUSEEVENTF_HWHEEL),
+               MouseScroll::RIGHT => (-120, MOUSEEVENTF_HWHEEL),
+          };
+          unsafe {
+               let mut scroll_input: INPUT = zeroed();
+              
+               scroll_input.type_ = INPUT_MOUSE;
+               scroll_input.u.mi_mut().dwFlags = wheel_direction;
+               scroll_input.u.mi_mut().mouseData = amount as u32;
+               SendInput(1, &mut scroll_input, size_of::<INPUT>() as i32);
+          }    
+     }
+
+
 }
      
      

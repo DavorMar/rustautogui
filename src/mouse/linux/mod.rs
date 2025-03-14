@@ -124,6 +124,8 @@ impl Mouse {
         let button = match direction {
             MouseScroll::UP => 4,
             MouseScroll::DOWN => 5,
+            MouseScroll::LEFT => 6,
+            MouseScroll::RIGHT => 7,
         };
         let mut event_base = 0;
         let mut error_base = 0;
