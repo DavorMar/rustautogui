@@ -139,18 +139,18 @@ This is a helper function to determine coordinates on screen, helpful when deter
 
 ## Warnings options:
 
-Rustautogui may display some warnings. In case you want to turn them off, either run:
-Windows powershell:
-   $env:RUSTAUTOGUI_SUPPRESS_WARNINGS="1"    to turn off warnings
-   $env:RUSTAUTOGUI_SUPPRESS_WARNINGS="0"    to activate warnings 
+Rustautogui may display some warnings. In case you want to turn them off, either run:\
+Windows powershell:\
+   $env:RUSTAUTOGUI_SUPPRESS_WARNINGS="1"    to turn off warnings\
+   $env:RUSTAUTOGUI_SUPPRESS_WARNINGS="0"    to activate warnings\
 Windows CMD:
-   set RUSTAUTOGUI_SUPPRESS_WARNINGS=1       to turn off warnings
-   set RUSTAUTOGUI_SUPPRESS_WARNINGS=0       to turn activate warnings
+   set RUSTAUTOGUI_SUPPRESS_WARNINGS=1       to turn off warnings\
+   set RUSTAUTOGUI_SUPPRESS_WARNINGS=0       to activate warnings\
 Linux/MacOS: 
-   export RUSTAUTOGUI_SUPPRESS_WARNINGS=1    to turn off warnings
-   export RUSTAUTOGUI_SUPPRESS_WARNINGS=0    to activate warnings
+   export RUSTAUTOGUI_SUPPRESS_WARNINGS=1    to turn off warnings\
+   export RUSTAUTOGUI_SUPPRESS_WARNINGS=0    to activate warnings\
 
-or in code: 
+or in code: \
 
 ```rust
 let mut rustautogui = RustAutoGui::new(false).unwrap();
