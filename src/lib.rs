@@ -5,6 +5,7 @@ pub mod imgtools;
 pub mod normalized_x_corr;
 use std::fs;
 use std::path::Path;
+use std::env;
 
 
 #[cfg(target_os = "windows")]
@@ -85,6 +86,9 @@ impl RustAutoGui {
         let screen = Screen::new()?;
         let keyboard = Keyboard::new();
         let mouse_struct: Mouse = Mouse::new();
+        let suppress_warnings = env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
+            .map(|val| val == "1" || val.eq_ignore_ascii_case("true"))
+            .unwrap_or(false); // Default: warnings are NOT suppressed
         Ok(Self{
             template:None, 
             prepared_data:PreparedData::None,
@@ -97,7 +101,7 @@ impl RustAutoGui {
             match_mode:None,
             max_segments: None,
             region:(0,0,0,0),
-            suppress_warnings:false
+            suppress_warnings:suppress_warnings
         })
     }
 
@@ -111,6 +115,9 @@ impl RustAutoGui {
         let screen = Screen::new();
         let keyboard = Keyboard::new(screen.display);
         let mouse_struct: Mouse = Mouse::new(screen.display, screen.root_window);
+        let suppress_warnings = env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
+            .map(|val| val == "1" || val.eq_ignore_ascii_case("true"))
+            .unwrap_or(false); // Default: warnings are NOT suppressed
         Ok(Self{
             template:None, 
             prepared_data:PreparedData::None,
@@ -123,7 +130,7 @@ impl RustAutoGui {
             match_mode:None,
             max_segments: None,
             region:(0,0,0,0),
-            suppress_warnings:false
+            suppress_warnings:suppress_warnings
         })
     }
 

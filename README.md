@@ -136,6 +136,27 @@ fn main() {
 Before 0.3.0 this function popped up window, now it just prints. This was changed to reduce dependencies.
 This is a helper function to determine coordinates on screen, helpful when determining region or mouse move target. 
 
+
+## Warnings options:
+
+Rustautogui may display some warnings. In case you want to turn them off, either run:
+Windows powershell:
+   $env:RUSTAUTOGUI_SUPPRESS_WARNINGS="1"    to turn off warnings
+   $env:RUSTAUTOGUI_SUPPRESS_WARNINGS="0"    to activate warnings 
+Windows CMD:
+   set RUSTAUTOGUI_SUPPRESS_WARNINGS=1       to turn off warnings
+   set RUSTAUTOGUI_SUPPRESS_WARNINGS=0       to turn activate warnings
+Linux/MacOS: 
+   export RUSTAUTOGUI_SUPPRESS_WARNINGS=1    to turn off warnings
+   export RUSTAUTOGUI_SUPPRESS_WARNINGS=0    to activate warnings
+
+or in code: 
+
+```rust
+let mut rustautogui = RustAutoGui::new(false).unwrap();
+rustautogui.set_suppress_warnings(true);
+```
+
 ## How does crate work:
 
 On windows, api interacts with winapi, through usage of winapi crate, on linux it interacts with x11 api through usage of x11 crate while on macOS it interacts through usage of core-graphics crate. 
