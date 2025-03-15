@@ -59,6 +59,31 @@ impl Mouse {
        Ok(())
     }
 
+    pub fn drag_mouse(&self, x:i32, y:i32, moving_time:f32) -> Result<(), &'static str> {
+        let mut event_base = 0;
+        let mut error_base = 0;
+        unsafe {
+            if XTestQueryExtension(self.screen, &mut event_base, &mut error_base, &mut event_base, &mut error_base) == 0 {
+                return Err("Xtest extension is not available")
+            }
+            if let Some(window) = self.get_window_under_cursor()? {
+                self.set_focus_to_window(window);
+            } 
+            // Press the mouse button
+            XTestFakeButtonEvent(self.screen, 1, 1, CurrentTime);
+            XFlush(self.screen);           
+        }
+        let sleep_time = Duration::from_millis(50);
+        thread::sleep(sleep_time);
+        self.move_mouse_to_pos(x, y, moving_time)?;
+        unsafe {
+            // Release the mouse button
+            XTestFakeButtonEvent(self.screen, 1, 0, CurrentTime);
+            XFlush(self.screen);
+        }
+        Ok(())
+    }
+
     /// returns x, y pixel coordinate of mouse position
     pub fn get_mouse_position(&self) -> Result<(i32,i32), &'static str > {
         unsafe {
