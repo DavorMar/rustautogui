@@ -165,13 +165,10 @@ impl Keyboard {
         let mut key_map: HashMap<String, u16> = HashMap::new(); 
         // Inserting key mappings
         key_map.insert(String::from("backspace"), 0x08); // VK_BACK
-        key_map.insert(String::from("b"), 0x08); // VK_BACK
         key_map.insert(String::from("super"), 0x5B); // VK_LWIN
         key_map.insert(String::from("tab"), 0x09); // VK_TAB
-        key_map.insert(String::from("t"), 0x09); // VK_TAB
         key_map.insert(String::from("clear"), 0x0c); // VK_CLEAR
         key_map.insert(String::from("enter"), 0x0d); // VK_RETURN
-        key_map.insert(String::from("n"), 0x0d); // VK_RETURN
         key_map.insert(String::from("return"), 0x0d); // VK_RETURN
         key_map.insert(String::from("shift_l"), 0x10); // VK_SHIFT
         key_map.insert(String::from("ctrl"), 0x11); // VK_CONTROL
