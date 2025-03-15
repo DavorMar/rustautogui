@@ -107,7 +107,7 @@ rustautogui.get_screen_size(); // returns (x, y) size of display
 rustautogui.left_click().unwrap(); // left mouse click
 rustautogui.right_click().unwrap(); // right mouse click
 rustautogui.double_click().unwrap(); // double left click
-rustautogui.keyboard_input(input: "test", shifted:&false).unwrap(); // input string, or better say, do the sequence of key presses
+rustautogui.keyboard_input(input: "test!@#24").unwrap(); // input string, or better say, do the sequence of key presses
 rustautogui.keyboard_command(input:"return").unwrap(); //press a keyboard button 
 rustautogui.keyboard_multi_key(input1: "shift", input2:"control", input3: Some("t")).unwrap(); // Executed multiple key press at same time. third argument is optional
 rustautogui.change_debug_state(true); // change debugging

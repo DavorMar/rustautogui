@@ -52,7 +52,7 @@ fn main() {
 
 
     // input keyboard string
-    gui.keyboard_input("test.com", &false).unwrap();
+    gui.keyboard_input("test.com").unwrap();
 
     // press a keyboard command, in this case enter(return)
     gui.keyboard_command("return").unwrap();

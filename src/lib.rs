@@ -642,10 +642,12 @@ impl RustAutoGui {
 //////////////////// Keyboard //////////////////// 
 
     /// accepts string and mimics keyboard key presses for each character in string
-    pub fn keyboard_input(&self,input:&str, shifted:&bool) -> Result<(), &'static str>{
+    pub fn keyboard_input(&self,input:&str) -> Result<(), &'static str>{
         let input_string = String::from(input);
         for letter in input_string.chars() {
-            self.keyboard.send_char(&letter, shifted)?;
+            
+            
+            self.keyboard.send_char(&letter)?;
         }
         Ok(())
     }
