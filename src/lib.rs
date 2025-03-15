@@ -458,13 +458,11 @@ impl RustAutoGui {
 
     #[cfg(target_os="macos")]
     pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str > {
-
-        if self.debug {
-            if moving_time <= 0.1 {
-                println!("Warning, using low moving time may cause issues with drag mouse");
-            }
+     
+        if moving_time <= 0.1 {
+            println!("Warning, using low moving time may cause issues with drag mouse");
         }
-        
+  
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
             return Err("Out of screen boundaries");
         }
