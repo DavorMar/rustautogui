@@ -4,7 +4,9 @@ All notable changes to this project will be documented in this file.
 ## [2.1.0] - 2025-03.15
 ### Added/Fixed
 - added scroll left / right functionality
-- added another check for region boundaries that should prevent the code to run an assertion, rather returning an error instead.
+- added drag mouse functionalty (click down -> move to location -> click up)
+- fix: added another check for region boundaries that should prevent the code to run an assertion, rather returning an error instead.
+- fix: find_image_and_move_mouse now returns correct position
 
 ## [2.0.1] - 2025-03.14
 ### Fixed

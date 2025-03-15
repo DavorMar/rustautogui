@@ -99,9 +99,9 @@ let found_locations: Option<Vec<(u32, u32, f64)>> =  rustautogui.find_image_on_s
 // Mouse moves to highest correlation point
 ```
 IMPORTANT: Difference between linux and windows/macOS when using multiple monitors. On Windows and macOS, search for template image can be done only on the main monitor.
-
-
 On linux, search can be done on all monitors and  0, 0 coordinates start from top left position. The leftmost monitor will have zero X coordinate, while top most monitor will have Y zero coordinate. 
+
+
 ```rust
 rustautogui.left_click().unwrap(); // left mouse click
 rustautogui.right_click().unwrap(); // right mouse click
@@ -114,6 +114,8 @@ rustautogui.scroll_up().unwrap();
 rustautogui.scroll_down().unwrap();
 rustautogui.scroll_left().unwrap();
 rustautogui.scroll_right().unwrap();
+rustautogui.drag_mouse(x: 500, y:500, moving_time: 1.0).unwrap(); // executes left click down, move mouse to x, y location, left click up. 
+                                                                  //note: use moving time > 0.2
 ```
 For all the keyboard commands check Keyboard_commands.txt, a roughly written list of possible inputs. If you 
 find some keyboard commands missing that you need, please open an issue in order to get it added in next versions. 
