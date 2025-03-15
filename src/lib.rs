@@ -5,7 +5,6 @@ pub mod imgtools;
 pub mod normalized_x_corr;
 use std::fs;
 use std::path::Path;
-use log::warn;
 
 
 #[cfg(target_os = "windows")]
@@ -74,6 +73,7 @@ pub struct RustAutoGui {
     match_mode: Option<MatchMode>,
     max_segments: Option<u32>,
     region: (u32,u32,u32,u32),
+    suppress_warnings: bool,
 }
 impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
@@ -96,7 +96,8 @@ impl RustAutoGui {
             screen:screen,
             match_mode:None,
             max_segments: None,
-            region:(0,0,0,0)
+            region:(0,0,0,0),
+            suppress_warnings:false
         })
     }
 
@@ -121,8 +122,13 @@ impl RustAutoGui {
             screen:screen,
             match_mode:None,
             max_segments: None,
-            region:(0,0,0,0)
+            region:(0,0,0,0),
+            suppress_warnings:false
         })
+    }
+
+    pub fn set_suppress_warnings(&mut self, suppress: bool) {
+        self.suppress_warnings = suppress;
     }
 
     fn check_if_region_out_of_bound(&mut self) -> Result<(), &'static str>{
@@ -137,6 +143,10 @@ impl RustAutoGui {
 
         if (self.template_width > self.screen.screen_width as u32) | (self.template_height > self.screen.screen_height as u32) {
             return Err("Selected template is larger than detected screen")
+        }
+
+        if (self.template_width > self.region.2) | (self.template_height > self.region.3) {
+            return Err("Selected template is larger than selected search region. ")
         }
         Ok(())
 
@@ -179,7 +189,11 @@ impl RustAutoGui {
                 prepared_data
             },
             MatchMode::Segmented => {
-                let prepared_data = PreparedData::Segmented(normalized_x_corr::fast_segment_x_corr::prepare_template_picture(&template, max_segments, &self.debug));
+                let prepared_data: (Vec<(u32, u32, u32, u32, f32)>, Vec<(u32, u32, u32, u32, f32)>, u32, u32, f32, f32, f32, f32, f32, f32) = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(&template, max_segments, &self.debug);
+                if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
+                    return Err(String::from("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"))
+                }
+                let prepared_data = PreparedData::Segmented(prepared_data);
                 self.match_mode = Some(MatchMode::Segmented);
                 prepared_data
             }
@@ -294,7 +308,7 @@ impl RustAutoGui {
                 found_locations
             },
             PreparedData::Segmented(data) => {
-                let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, &precision, data, &self.debug, "");
+                let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, &precision, data, &self.debug, "", &self.suppress_warnings);
                 found_locations
             },
             PreparedData::None => {
@@ -462,7 +476,10 @@ impl RustAutoGui {
     #[cfg(target_os="macos")]
     pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str > {
         if moving_time < 0.5 {
-            warn!("Small moving time values may cause issues on mouse drag");
+            if !self.suppress_warnings {
+                eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
+            }
+            
         }
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
             return Err("Out of screen boundaries");
@@ -551,7 +568,9 @@ impl RustAutoGui {
             return Err("Out of screen boundaries");
         }
         if moving_time < 0.5 {
-            warn!("Small moving time values may cause issues on mouse drag");
+            if !self.suppress_warnings {
+                eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
+            }
         }
         self.mouse.drag_mouse(x as i32, y as i32, moving_time)?;
         Ok(())
