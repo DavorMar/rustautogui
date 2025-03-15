@@ -198,14 +198,14 @@ impl Keyboard {
         key_map.insert(String::from("space"), (0x20,false)); // VK_SPACE
         key_map.insert(String::from("pgup"), (0x21,false)); // VK_PRIOR
         key_map.insert(String::from("pgdn"), (0x22,false)); // VK_NEXT
-        key_map.insert(String::from("pageup"), (0x21,false)); // VK_PRIOR
-        key_map.insert(String::from("pagedown"), (0x22,false)); // VK_NEXT
+        key_map.insert(String::from("page_up"), (0x21,false)); // VK_PRIOR
+        key_map.insert(String::from("page_down"), (0x22,false)); // VK_NEXT
         key_map.insert(String::from("end"), (0x23,false)); // VK_END
         key_map.insert(String::from("home"), (0x24,false)); // VK_HOME
-        key_map.insert(String::from("left"), (0x25,false)); // VK_LEFT
-        key_map.insert(String::from("up"), (0x26,false)); // VK_UP
-        key_map.insert(String::from("right"), (0x27,false)); // VK_RIGHT
-        key_map.insert(String::from("down"), (0x28,false)); // VK_DOWN
+        key_map.insert(String::from("left_arrow"), (0x25,false)); // VK_LEFT
+        key_map.insert(String::from("up_arrow"), (0x26,false)); // VK_UP
+        key_map.insert(String::from("right_arrow"), (0x27,false)); // VK_RIGHT
+        key_map.insert(String::from("down_arrow"), (0x28,false)); // VK_DOWN
         key_map.insert(String::from("select"), (0x29,false)); // VK_SELECT
         key_map.insert(String::from("print"), (0x2a,false)); // VK_PRINT
         key_map.insert(String::from("execute"), (0x2b,false)); // VK_EXECUTE

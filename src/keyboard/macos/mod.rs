@@ -163,6 +163,7 @@ impl Keyboard {
         keymap.insert(String::from(" "), (KeyCode::SPACE,false));
         keymap.insert(String::from("delete"), (KeyCode::DELETE,false));
         keymap.insert(String::from("escape"), (KeyCode::ESCAPE,false));
+        keymap.insert(String::from("esc"), (KeyCode::ESCAPE,false));
         keymap.insert(String::from("command"), (KeyCode::COMMAND,false));
         keymap.insert(String::from("shift"), (KeyCode::SHIFT,false));
         keymap.insert(String::from("caps_lock"), (KeyCode::CAPS_LOCK,false));

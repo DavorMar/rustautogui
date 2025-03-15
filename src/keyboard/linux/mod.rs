@@ -339,10 +339,12 @@ impl Keyboard {
         keysym_map.insert(String::from("tab"), (String::from("Tab"),false));
         keysym_map.insert(String::from("delete"), (String::from("Delete"),false));
         keysym_map.insert(String::from("home"), (String::from("Home"),false));
-        keysym_map.insert(String::from("left"), (String::from("leftarrow"),false));
-        keysym_map.insert(String::from("up"), (String::from("uparrow"),false));
-        keysym_map.insert(String::from("right"), (String::from("rightarrow"),false));
-        keysym_map.insert(String::from("down"), (String::from("downarrow"),false));
+        keysym_map.insert(String::from("esc"), (String::from("Escape"),false));
+        keysym_map.insert(String::from("escape"), (String::from("Escape"),false));
+        keysym_map.insert(String::from("left_arrow"), (String::from("leftarrow"),false));
+        keysym_map.insert(String::from("up_arrow"), (String::from("uparrow"),false));
+        keysym_map.insert(String::from("right_arrow"), (String::from("rightarrow"),false));
+        keysym_map.insert(String::from("down_arrow"), (String::from("downarrow"),false));
         keysym_map.insert(String::from("end"), (String::from("End"),false));
         // keysym_map.insert(String::from(" "), (String::from("Space"),false));
         keysym_map
