@@ -1,8 +1,7 @@
-use std::collections::HashMap;
 use x11::xlib::*;
 use x11::xtest::*;
-use std::ffi::CString;
-use std::process::Command;
+use std::{process::Command, time::Duration, thread, ffi::CString,collections::HashMap};
+
 
 /// main struct for interacting with keyboard. Keymap is generated upon intialization. 
 /// screen is stored from Screen struct, where pointer for same screen object is used across the code
@@ -174,37 +173,18 @@ impl Keyboard {
     pub fn send_multi_key(&self, key_1:&String, key_2:&String, key_3:Option<String>) -> Result<(), &'static str > {
 
         unsafe {
-            let value1 = self.keymap.get(key_1);
-            let value1 = match value1 {
-                Some(x) => x,
-                None => {
-                    return Err("wrong 1st keyboard input")
-                }
-            };
             
-            let value1 = self.get_keycode(&value1.0)?;
-
-            let value2 = self.keymap.get(key_2);
-            let value2 = match value2 {
-                Some(x) => x,
-                None => {
-                    return Err("wrong 2st keyboard input")
-                }
-            };
-            let value2 = self.get_keycode(&value2.0)?;
-
+            let value1 = self.get_keycode(&key_1)?;
+            println!("got value 1");
+            
+            let value2 = self.get_keycode(&key_2)?;
+            println!("got value 2");
             let mut third_key = false;
             let value3 = match key_3 {
                 Some(value) => {
                     third_key = true;
-                    let value3 = self.keymap.get(&value);
-                    let value3 = match value3 {
-                        Some(x) => x,
-                        None => {
-                            return Err("wrong 1st keyboard input")
-                        }
-                    };
-                    let value3 = self.get_keycode(&value3.0)?;
+                    
+                    let value3 = self.get_keycode(&value)?;
                     value3
                 },
                 None => {
@@ -213,6 +193,7 @@ impl Keyboard {
             };
         
             self.press_key(value1.0);
+            thread::sleep(Duration::from_millis(50));
             self.press_key(value2.0);
             if third_key {
                 self.press_key(value3.0);
@@ -265,8 +246,6 @@ impl Keyboard {
         keysym_map.insert(String::from(";"), (String::from("semicolon"),false));
         keysym_map.insert(String::from("-"), (String::from("less"),false));
         keysym_map.insert(String::from("="), (String::from("equal"),false));
-        // keysym_map.insert(String::from(">"), (String::from("greater"),false));
-        // keysym_map.insert(String::from("<"), (String::from("smaller"),false));
         keysym_map.insert(String::from("?"), (String::from("question"),true));
         keysym_map.insert(String::from("@"), (String::from("at"),true));
         keysym_map.insert(String::from("A"), (String::from("A"),true));
@@ -330,8 +309,11 @@ impl Keyboard {
         keysym_map.insert(String::from("}"), (String::from("braceright"),true));
         keysym_map.insert(String::from("~"), (String::from("asciitilde"),false));
         keysym_map.insert(String::from("shift_l"), (String::from("Shift_L"),false));
+        keysym_map.insert(String::from("shift"), (String::from("Shift_L"),false));
         keysym_map.insert(String::from("shift_r"), (String::from("Shift_R"),false));
         keysym_map.insert(String::from("control_l"), (String::from("Control_L"),false));
+        keysym_map.insert(String::from("control"), (String::from("Control_L"),false));
+        keysym_map.insert(String::from("ctrl"), (String::from("Control_L"),false));
         keysym_map.insert(String::from("control_r"), (String::from("Control_R"),false));
         keysym_map.insert(String::from("caps_lock"), (String::from("Caps_Lock"),false));
         keysym_map.insert(String::from("return"), (String::from("Return"),false));
@@ -339,13 +321,18 @@ impl Keyboard {
         keysym_map.insert(String::from("tab"), (String::from("Tab"),false));
         keysym_map.insert(String::from("delete"), (String::from("Delete"),false));
         keysym_map.insert(String::from("home"), (String::from("Home"),false));
-        keysym_map.insert(String::from("esc"), (String::from("Escape"),false));
-        keysym_map.insert(String::from("escape"), (String::from("Escape"),false));
-        keysym_map.insert(String::from("left_arrow"), (String::from("leftarrow"),false));
-        keysym_map.insert(String::from("up_arrow"), (String::from("uparrow"),false));
-        keysym_map.insert(String::from("right_arrow"), (String::from("rightarrow"),false));
-        keysym_map.insert(String::from("down_arrow"), (String::from("downarrow"),false));
+        keysym_map.insert(String::from("left_arrow"), (String::from("Left"),false));
+        keysym_map.insert(String::from("left"), (String::from("Left"),false));
+        keysym_map.insert(String::from("up_arrow"), (String::from("Up"),false));
+        keysym_map.insert(String::from("up"), (String::from("Up"),false));
+        keysym_map.insert(String::from("right_arrow"), (String::from("Right"),false));
+        keysym_map.insert(String::from("right"), (String::from("Right"),false));
+        keysym_map.insert(String::from("down_arrow"), (String::from("Down"),false));
+        keysym_map.insert(String::from("down"), (String::from("Down"),false));
         keysym_map.insert(String::from("end"), (String::from("End"),false));
+        keysym_map.insert(String::from("alt_l"), (String::from("Alt_L"),false));
+        keysym_map.insert(String::from("alt"), (String::from("Alt_L"),false));
+        keysym_map.insert(String::from("alt_r"), (String::from("Alt_R"),false));
         // keysym_map.insert(String::from(" "), (String::from("Space"),false));
         keysym_map
     }

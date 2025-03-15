@@ -206,6 +206,12 @@ impl Keyboard {
         key_map.insert(String::from("up_arrow"), (0x26,false)); // VK_UP
         key_map.insert(String::from("right_arrow"), (0x27,false)); // VK_RIGHT
         key_map.insert(String::from("down_arrow"), (0x28,false)); // VK_DOWN
+
+        key_map.insert(String::from("left"), (0x25,false)); // VK_LEFT
+        key_map.insert(String::from("up"), (0x26,false)); // VK_UP
+        key_map.insert(String::from("right"), (0x27,false)); // VK_RIGHT
+        key_map.insert(String::from("down"), (0x28,false)); // VK_DOWN
+
         key_map.insert(String::from("select"), (0x29,false)); // VK_SELECT
         key_map.insert(String::from("print"), (0x2a,false)); // VK_PRINT
         key_map.insert(String::from("execute"), (0x2b,false)); // VK_EXECUTE
@@ -271,11 +277,15 @@ impl Keyboard {
         key_map.insert(String::from("f24"), (0x87,false)); // VK_F24
         key_map.insert(String::from("numlock"), (0x90,false)); // VK_NUMLOCK
         key_map.insert(String::from("scrolllock"), (0x91,false)); // VK_SCROLL
-        key_map.insert(String::from("shiftleft"), (0xa0,false)); // VK_LSHIFT
-        key_map.insert(String::from("shiftright"), (0xa1,false)); // VK_RSHIFT
+        key_map.insert(String::from("shift_l"), (0xa0,false)); // VK_LSHIFT
+        key_map.insert(String::from("shift"), (0xa0,false)); // VK_LSHIFT
+        key_map.insert(String::from("shift_r"), (0xa1,false)); // VK_RSHIFT
         key_map.insert(String::from("control_l"), (0xa2,false)); // VK_LCONTROL
+        key_map.insert(String::from("control"), (0xa2,false)); // VK_LCONTROL
+        key_map.insert(String::from("ctrl"), (0xa2,false)); // VK_LCONTROL
         key_map.insert(String::from("control_r"), (0xa3,false)); // VK_RCONTROL
         key_map.insert(String::from("alt_l"), (0xa4,false)); // VK_LMENU
+        key_map.insert(String::from("alt"), (0xa4,false)); // VK_LMENU
         key_map.insert(String::from("alt_r"), (0xa5,false)); // VK_RMENU
         key_map.insert(String::from("browserback"), (0xa6,false)); // VK_BROWSER_BACK
         key_map.insert(String::from("browserforward"), (0xa7,false)); // VK_BROWSER_FORWARD

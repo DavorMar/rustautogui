@@ -165,10 +165,15 @@ impl Keyboard {
         keymap.insert(String::from("escape"), (KeyCode::ESCAPE,false));
         keymap.insert(String::from("esc"), (KeyCode::ESCAPE,false));
         keymap.insert(String::from("command"), (KeyCode::COMMAND,false));
+        keymap.insert(String::from("command_l"), (KeyCode::COMMAND,false));
         keymap.insert(String::from("shift"), (KeyCode::SHIFT,false));
+        keymap.insert(String::from("shift_l"), (KeyCode::SHIFT,false));
         keymap.insert(String::from("caps_lock"), (KeyCode::CAPS_LOCK,false));
         keymap.insert(String::from("option"), (KeyCode::OPTION,false));
+        keymap.insert(String::from("option_l"), (KeyCode::OPTION,false));
         keymap.insert(String::from("control"), (KeyCode::CONTROL,false));
+        keymap.insert(String::from("control_l"), (KeyCode::CONTROL,false));
+        keymap.insert(String::from("ctrl"), (KeyCode::CONTROL,false));
         keymap.insert(String::from("command_r"), (KeyCode::RIGHT_COMMAND,false));
         keymap.insert(String::from("shift_r"), (KeyCode::RIGHT_SHIFT,false));
         keymap.insert(String::from("option_r"), (KeyCode::RIGHT_OPTION,false));
@@ -207,6 +212,11 @@ impl Keyboard {
         keymap.insert(String::from("right_arrow"), (KeyCode::RIGHT_ARROW,false));
         keymap.insert(String::from("down_arrow"), (KeyCode::DOWN_ARROW,false));
         keymap.insert(String::from("up_arrow"), (KeyCode::UP_ARROW,false));
+        keymap.insert(String::from("left"), (KeyCode::LEFT_ARROW,false));
+        keymap.insert(String::from("right"), (KeyCode::RIGHT_ARROW,false));
+        keymap.insert(String::from("down"), (KeyCode::DOWN_ARROW,false));
+        keymap.insert(String::from("up"), (KeyCode::UP_ARROW,false));
+
         keymap.insert(String::from("1"), (18,false));
         keymap.insert(String::from("2"), (19,false));
         keymap.insert(String::from("3"), (20,false));
