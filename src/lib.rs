@@ -388,6 +388,9 @@ impl RustAutoGui {
 
     #[cfg(target_os="macos")]
     pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str > {
+        if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
+            return Err("Out of screen boundaries");
+        }
         Mouse::drag_mouse(x as i32, y as i32, moving_time)?;
         
         Ok(())
@@ -396,12 +399,22 @@ impl RustAutoGui {
 
     /// moves mouse to x, y pixel coordinate
     #[cfg(target_os = "linux")]
-    pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time:f32) -> Result<(), &'static str> {
-        self.mouse.move_mouse_to_pos(x , y, moving_time)?;
+    pub fn move_mouse_to_pos(&self, x: u32, y: u32, moving_time:f32) -> Result<(), &'static str> {
+        self.mouse.move_mouse_to_pos(x as i32, y as i32, moving_time)?;
         Ok(())
     }
- 
 
+    /// moves mouse to x, y pixel coordinate
+    #[cfg(target_os = "linux")]
+    pub fn drag_mouse(&self, x: u32, y: u32, moving_time:f32) -> Result<(), &'static str> {
+        if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
+            return Err("Out of screen boundaries");
+        }
+        self.mouse.drag_mouse(x as i32, y as i32, moving_time)?;
+        Ok(())
+    }
+    
+    
     /// executes left mouse click 
     #[cfg(target_os = "windows" )]
     pub fn left_click(&self) -> Result<(),()>{
