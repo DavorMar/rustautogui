@@ -22,7 +22,7 @@ Note: this library does not use OpenCV template matching, like python version do
 
 The reason for not including OpenCV in this library is because installation of all the bindings and dependencies for rust can be a tiresome and a long process. Shaping the library with prerequisite of user spending multiple hours pre installing everything needed was not the goal. For this reason, template maching has been completely self developed, with algorithms that require less computations to achieve the result.  
 
-# Segmented template matching algorithm
+## Segmented template matching algorithm
 
 Since version 1.0.0, Rustautogui crate includes another variation of template matching algorithm using Segmented Normalized Cross-Correlation. 
 More information: https://arxiv.org/pdf/2502.01286
@@ -141,15 +141,20 @@ This is a helper function to determine coordinates on screen, helpful when deter
 
 Rustautogui may display some warnings. In case you want to turn them off, either run:\
 Windows powershell:\
-   $env:RUSTAUTOGUI_SUPPRESS_WARNINGS="1"    to turn off warnings\
-   $env:RUSTAUTOGUI_SUPPRESS_WARNINGS="0"    to activate warnings\
-Windows CMD:
-   set RUSTAUTOGUI_SUPPRESS_WARNINGS=1       to turn off warnings\
-   set RUSTAUTOGUI_SUPPRESS_WARNINGS=0       to activate warnings\
-Linux/MacOS: 
-   export RUSTAUTOGUI_SUPPRESS_WARNINGS=1    to turn off warnings\
-   export RUSTAUTOGUI_SUPPRESS_WARNINGS=0    to activate warnings\
-
+```
+   $env:RUSTAUTOGUI_SUPPRESS_WARNINGS="1"    #to turn off warnings\
+   $env:RUSTAUTOGUI_SUPPRESS_WARNINGS="0"    #to activate warnings\
+```
+Windows CMD:\
+```
+   set RUSTAUTOGUI_SUPPRESS_WARNINGS=1       #to turn off warnings\
+   set RUSTAUTOGUI_SUPPRESS_WARNINGS=0       #to activate warnings\
+```
+Linux/MacOS: \
+```
+   export RUSTAUTOGUI_SUPPRESS_WARNINGS=1    #to turn off warnings\
+   export RUSTAUTOGUI_SUPPRESS_WARNINGS=0    #to activate warnings\
+```
 or in code: \
 
 ```rust
@@ -170,6 +175,10 @@ Executing find_image_on_screen_function does cross correlation of template and s
 For this reason, function load_and_prepare_template is created, so you can preload template image and do the precalculations on it before doing correlation with find_image_on_screen.
 That is why, you should preinitialize template at some moment where speed is not crucial in your code, so it is ready for faster template matching when needed. 
 
+### Major changes: 
 
+- 1.0.0 - introduces segmented match mode
+- 2.0.0 - removed most of ungraceful exits
+- 2.1.0 - fixed on keyboard, some methods arguments / returns changed and will cause code breaking. 
 
 
