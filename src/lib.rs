@@ -123,6 +123,22 @@ impl RustAutoGui {
         })
     }
 
+    fn check_if_region_out_of_bound(&mut self) -> Result<(), &'static str>{
+        let x = self.region.0;
+        let y = self.region.1;
+        let width = self.region.2;
+        let height = self.region.3;
+        
+        if (x + width > self.screen.screen_width as u32 ) | (y + height > self.screen.screen_height as u32) {
+            return Err("Selected region out of bounds")
+        }
+
+        if (self.template_width > self.screen.screen_width as u32) | (self.template_height > self.screen.screen_height as u32) {
+            return Err("Selected template is larger than detected screen")
+        }
+        Ok(())
+
+    }
 
     /// Loads template image from provided path and sets all the fields across structs as needed. Depending on match_mode, different template
     /// preparation process is executed. When using FFT, region is also important for zero-pad calculation 
@@ -153,7 +169,7 @@ impl RustAutoGui {
         self.region = region;
         self.screen.screen_region_width = region.2;
         self.screen.screen_region_height = region.3;
-
+        self.check_if_region_out_of_bound()?;
         let template_data = match match_mode {
             MatchMode::FFT => {
                 let prepared_data = PreparedData::FFT(normalized_x_corr::fft_ncc::prepare_template_picture(&template, &region.2, &region.3));
@@ -323,20 +339,27 @@ impl RustAutoGui {
             None => return Ok(None)
         };
         let top_location = locations[0];
-        let x = top_location.0 as i32 + (self.template_width /2) as i32;
-        let y = top_location.1 as i32 + (self.template_height/2) as i32;
-        self.move_mouse_to_pos(x + self.region.0 as i32,y+self.region.1 as i32, moving_time)?;
+        let x = top_location.0  + (self.template_width /2) ;
+        let y = top_location.1  + (self.template_height/2) ;
+        let target_x = x + self.region.0;
+        let target_y = y+self.region.1;
+        self.move_mouse_to_pos(target_x,  target_y, moving_time)?;
         
-        return Ok(found_locations);
-        
-           
-        
+        return Ok(Some(vec![(target_x , target_y, locations[0].2)]));   
     }
+
+
+
+//////////////////// Windows Mouse //////////////////// 
+ 
 
     /// moves mouse to x, y pixel coordinate
     #[cfg(target_os = "windows")]
-    pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time: f32) -> Result<(), &'static str>{
-        Mouse::move_mouse_to_pos(x, y, moving_time);
+    pub fn move_mouse_to_pos(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str>{
+        Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time);
+        if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
+            return Err("Out of screen boundaries");
+        }
         if self.debug {
             let (x,y) = Mouse::get_mouse_position();
             println!("Mouse moved to position {x}, {y}");    
@@ -346,23 +369,16 @@ impl RustAutoGui {
     }
 
     /// moves mouse to x, y pixel coordinate
-    #[cfg(target_os="macos")]
-    pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time: f32) -> Result<(), &'static str > {
-        Mouse::move_mouse_to_pos(x, y, moving_time)?;
-        if self.debug {
-            let (x,y) = Mouse::get_mouse_position()?;
-            println!("Mouse moved to position {x}, {y}");    
+    #[cfg(target_os = "windows")]
+    pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str>{
+        if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
+            return Err("Out of screen boundaries");
         }
-        Ok(())
-    }
+        Mouse::drag_mouse(x as i32, y as i32, moving_time);
 
-    /// moves mouse to x, y pixel coordinate
-    #[cfg(target_os = "linux")]
-    pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time:f32) -> Result<(), &'static str> {
-        self.mouse.move_mouse_to_pos(x , y, moving_time)?;
         Ok(())
+        
     }
- 
 
     /// executes left mouse click 
     #[cfg(target_os = "windows" )]
@@ -371,10 +387,11 @@ impl RustAutoGui {
         Ok(())
     }
 
-    /// executes left mouse click 
-    #[cfg(target_os = "macos")]
-    pub fn left_click(&self) -> Result<(),&'static str>{
-        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT)?;
+        
+    /// executes middle mouse click
+    #[cfg(target_os = "windows")]
+    pub fn middle_click(&self) -> Result<(),()>{
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::MIDDLE);
         Ok(())
     }
 
@@ -385,17 +402,81 @@ impl RustAutoGui {
         Ok(())
     }
 
+
+
+    /// executes double left mouse click
+    #[cfg(target_os = "windows")]
+    pub fn double_click(&self) -> Result<(), ()>{
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
+        Ok(())
+    }
+
+
+    #[cfg(target_os = "windows")]
+    pub fn scroll_up(&self) -> Result<(),()> {
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::UP);
+        Ok(())
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn scroll_down(&self) ->Result<(),()> {
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN);
+        Ok(())
+    }
+
+    #[cfg(target_os = "windows")]
+    pub fn scroll_left(&self) ->Result<(),()> {
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT);
+        Ok(())
+    }
+
+
+    #[cfg(target_os = "windows")]
+    pub fn scroll_right(&self) ->Result<(),()> {
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT);
+        Ok(())
+    }
+
+
+
+//////////////////// MacOS Mouse //////////////////// 
+
+    /// moves mouse to x, y pixel coordinate
+    #[cfg(target_os="macos")]
+    pub fn move_mouse_to_pos(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str > {
+        Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time)?;
+        if self.debug {
+            let (x,y) = Mouse::get_mouse_position()?;
+            println!("Mouse moved to position {x}, {y}");    
+        }
+        Ok(())
+    }
+
+    #[cfg(target_os="macos")]
+    pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str > {
+        if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
+            return Err("Out of screen boundaries");
+        }
+        Mouse::drag_mouse(x as i32, y as i32, moving_time)?;
+        
+        Ok(())
+    }
+
+
+
+    /// executes left mouse click 
+    #[cfg(target_os = "macos")]
+    pub fn left_click(&self) -> Result<(),&'static str>{
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT)?;
+        Ok(())
+    }
+
+
     /// executes right mouse click 
     #[cfg(target_os = "macos")]
     pub fn right_click(&self) -> Result<(), &'static str>{
         mouse::platform::Mouse::mouse_click(mouse::MouseClick::RIGHT)?;
-        Ok(())
-    }
-        
-    /// executes middle mouse click
-    #[cfg(target_os = "windows")]
-    pub fn middle_click(&self) -> Result<(),()>{
-        mouse::platform::Mouse::mouse_click(mouse::MouseClick::MIDDLE);
         Ok(())
     }
 
@@ -413,13 +494,54 @@ impl RustAutoGui {
         Ok(())
     }
 
-    /// executes double left mouse click
-    #[cfg(target_os = "windows")]
-    pub fn double_click(&self) -> Result<(), ()>{
-        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
-        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
+
+
+    
+
+    #[cfg(target_os = "macos")]
+    pub fn scroll_up(&self) -> Result<(), &'static str> {
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::UP)?;
         Ok(())
     }
+
+    #[cfg(target_os = "macos")]
+    pub fn scroll_down(&self) -> Result<(),&'static str>{
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN)?;
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn scroll_left(&self) -> Result<(),&'static str>{
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT)?;
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn scroll_right(&self) -> Result<(),&'static str>{
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT)?;
+        Ok(())
+    }
+
+
+//////////////////// Linux Mouse //////////////////// 
+
+    /// moves mouse to x, y pixel coordinate
+    #[cfg(target_os = "linux")]
+    pub fn move_mouse_to_pos(&self, x: u32, y: u32, moving_time:f32) -> Result<(), &'static str> {
+        self.mouse.move_mouse_to_pos(x as i32, y as i32, moving_time)?;
+        Ok(())
+    }
+
+    /// moves mouse to x, y pixel coordinate
+    #[cfg(target_os = "linux")]
+    pub fn drag_mouse(&self, x: u32, y: u32, moving_time:f32) -> Result<(), &'static str> {
+        if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
+            return Err("Out of screen boundaries");
+        }
+        self.mouse.drag_mouse(x as i32, y as i32, moving_time)?;
+        Ok(())
+    }
+    
 
 
     /// executes left mouse click 
@@ -451,41 +573,33 @@ impl RustAutoGui {
         Ok(())
     }
 
-    #[cfg(target_os = "windows")]
-    pub fn scroll_up(&self) -> Result<(),()> {
-        mouse::platform::Mouse::scroll(mouse::MouseScroll::UP);
-        Ok(())
-    }
-
-    #[cfg(target_os = "macos")]
-    pub fn scroll_up(&self) -> Result<(), &'static str> {
-        mouse::platform::Mouse::scroll(mouse::MouseScroll::UP)?;
-        Ok(())
-    }
-
-
-    #[cfg(target_os = "windows")]
-    pub fn scroll_down(&self) ->Result<(),()> {
-        mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN);
-        Ok(())
-    }
-
-    #[cfg(target_os = "macos")]
-    pub fn scroll_down(&self) -> Result<(),&'static str>{
-        mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN)?;
-        Ok(())
-    }
-
+    
     #[cfg(target_os = "linux")]
     pub fn scroll_up(&self) -> Result<(), ()>{
         self.mouse.scroll(mouse::MouseScroll::UP);
         Ok(())
     }
+
     #[cfg(target_os = "linux")]
     pub fn scroll_down(&self) -> Result<(),()>{
         self.mouse.scroll(mouse::MouseScroll::DOWN);
         Ok(())
     }
+
+    #[cfg(target_os = "linux")]
+    pub fn scroll_left(&self) -> Result<(),()>{
+        self.mouse.scroll(mouse::MouseScroll::LEFT);
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn scroll_right(&self) -> Result<(),()>{
+        self.mouse.scroll(mouse::MouseScroll::RIGHT);
+        Ok(())
+    }
+
+//////////////////// Keyboard //////////////////// 
+
     /// accepts string and mimics keyboard key presses for each character in string
     pub fn keyboard_input(&self,input:&str, shifted:&bool) -> Result<(), &'static str>{
         let input_string = String::from(input);
