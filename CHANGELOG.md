@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - fix: added another check for region boundaries that should prevent the code to run an assertion, rather returning an error instead.
 - fix: find_image_and_move_mouse now returns correct position
 - changed move_mouse to accept u32 instead of i32 as x, y parameters
+- get_screen_size() method added
 
 
 ## [2.0.1] - 2025-03.14

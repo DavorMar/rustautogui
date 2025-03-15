@@ -374,7 +374,7 @@ pub fn prepare_template_picture(
 
     let max_segments = match max_segments{
         Some(x) => x,
-        None => &10000,
+        None => &std::u32::MAX,
     };
 
     // create fast segmented image

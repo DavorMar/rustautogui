@@ -5,6 +5,8 @@ pub mod imgtools;
 pub mod normalized_x_corr;
 use std::fs;
 use std::path::Path;
+use log::warn;
+
 
 #[cfg(target_os = "windows")]
 pub use crate::{
@@ -350,6 +352,11 @@ impl RustAutoGui {
 
 
 
+
+    pub fn get_screen_size(&mut self) -> (i32, i32) {
+        self.screen.dimension()
+    }
+
 //////////////////// Windows Mouse //////////////////// 
  
 
@@ -359,10 +366,6 @@ impl RustAutoGui {
         Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time);
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
             return Err("Out of screen boundaries");
-        }
-        if self.debug {
-            let (x,y) = Mouse::get_mouse_position();
-            println!("Mouse moved to position {x}, {y}");    
         }
         Ok(())
         
@@ -458,11 +461,9 @@ impl RustAutoGui {
 
     #[cfg(target_os="macos")]
     pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str > {
-     
-        if moving_time <= 0.1 {
-            println!("Warning, using low moving time may cause issues with drag mouse");
+        if moving_time < 0.5 {
+            warn!("Small moving time values may cause issues on mouse drag");
         }
-  
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
             return Err("Out of screen boundaries");
         }
@@ -548,6 +549,9 @@ impl RustAutoGui {
     pub fn drag_mouse(&self, x: u32, y: u32, moving_time:f32) -> Result<(), &'static str> {
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
             return Err("Out of screen boundaries");
+        }
+        if moving_time < 0.5 {
+            warn!("Small moving time values may cause issues on mouse drag");
         }
         self.mouse.drag_mouse(x as i32, y as i32, moving_time)?;
         Ok(())

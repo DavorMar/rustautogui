@@ -103,6 +103,7 @@ On linux, search can be done on all monitors and  0, 0 coordinates start from to
 
 
 ```rust
+rustautogui.get_screen_size(); // returns (x, y) size of display
 rustautogui.left_click().unwrap(); // left mouse click
 rustautogui.right_click().unwrap(); // right mouse click
 rustautogui.double_click().unwrap(); // double left click
