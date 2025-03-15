@@ -14,7 +14,7 @@ impl Keyboard {
     /// create new keyboard instance. Display object is needed as argument
     pub fn new(screen: *mut _XDisplay) -> Self {
         let is_us_layout: bool = Self::is_us_layout();
-        println!("{is_us_layout}");
+        
         let keymap = Keyboard::create_keymap(is_us_layout);
         Self { keymap: keymap, screen:screen}
     }
