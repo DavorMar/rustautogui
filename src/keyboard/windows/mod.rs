@@ -234,14 +234,17 @@ impl Keyboard {
         key_map.insert(String::from("num9"), ( 0x69,false)); // VK_NUMPAD9
         key_map.insert(String::from("*"), (0x6a,false));  //,false) VK_MULTIPLY
         key_map.insert(String::from("+"), (0x6b,false)); //,false) VK_ADD
+        key_map.insert(String::from("="), (0xBB,false)); //,false) VK_OEM plus
+        
         key_map.insert(String::from("separator"), ( 0x6c,true)); // VK_SEPARATOR
         key_map.insert(String::from("-"), (0xBD, false)); //,false) VK_SUBTRACT
         key_map.insert(String::from("_"), (0xBD, true)); //,false) VK_SUBTRACT
         key_map.insert(String::from("."), (0xBE,false)); // VK_OEM_PERIOD
         key_map.insert(String::from(","), (0xBC,false)); // VK_OEM_COMMA
-        key_map.insert(String::from("<"), (0xBE,true)); // VK_OEM_PERIOD
-        key_map.insert(String::from(">"), (0xBC,true)); // VK_OEM_COMMA
+        key_map.insert(String::from(">"), (0xBE,true)); // VK_OEM_PERIOD
+        key_map.insert(String::from("<"), (0xBC,true)); // VK_OEM_COMMA
         key_map.insert(String::from("/"), (0x6f,false)); // VK_DIVIDE
+        key_map.insert(String::from("?"), (0x6f,true)); // VK_DIVIDE
         key_map.insert(String::from("f1"), (0x70,false)); // VK_F1
         key_map.insert(String::from("f2"), (0x71,false)); // VK_F2
         key_map.insert(String::from("f3"), (0x72,false)); // VK_F3
@@ -365,6 +368,8 @@ impl Keyboard {
         key_map.insert(String::from("*"), (0x38,true)); // 8
         key_map.insert(String::from("("), (0x39,true)); // 9  
         key_map.insert(String::from(")"), (0x30,true)); // 0
+        key_map.insert(String::from(";"), (0xBA,false)); // VK_OEM_1
+        key_map.insert(String::from(":"), (0xBA,true)); // VK_OEM_1
         key_map.insert(String::from("["), (0xDB,false)); // [ { VK_OEM_4
         key_map.insert(String::from("]"), (0xDD,false)); // ] } VK_OEM_6
         key_map.insert(String::from("\\"), (0xDC,false)); // \ | VK_OEM_5
