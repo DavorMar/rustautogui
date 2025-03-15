@@ -6,8 +6,8 @@ All notable changes to this project will be documented in this file.
 - added scroll left / right functionality
 - added drag mouse functionalty (click down -> move to location -> click up)
 - added get_screen_size() method
+- Fix for keyboard. Works on US layout only at the moment
 - fix: added another check for region boundaries that should prevent the code to run an assertion, rather returning an error instead.
-- fix: fixed some keys on windows keyboard
 - fix: find_image_and_move_mouse now returns correct position
 - changed move_mouse to accept u32 instead of i32 as x, y parameters
 - included warnings

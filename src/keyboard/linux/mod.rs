@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use x11::xlib::*;
 use x11::xtest::*;
 use std::ffi::CString;
+use std::process::Command;
 
 /// main struct for interacting with keyboard. Keymap is generated upon intialization. 
 /// screen is stored from Screen struct, where pointer for same screen object is used across the code
@@ -12,7 +13,9 @@ pub struct Keyboard {
 impl Keyboard {
     /// create new keyboard instance. Display object is needed as argument
     pub fn new(screen: *mut _XDisplay) -> Self {
-        let keymap = Keyboard::create_keymap();
+        let is_us_layout: bool = Self::is_us_layout();
+        println!("{is_us_layout}");
+        let keymap = Keyboard::create_keymap(is_us_layout);
         Self { keymap: keymap, screen:screen}
     }
 
@@ -35,6 +38,48 @@ impl Keyboard {
         }
     }
 
+    // fn is_us_layout_old(screen:*mut _XDisplay) ->bool {
+    //     unsafe {
+    //         let mut major = 0;
+    //         let mut minor = 0;
+    //         let mut op = 0;
+    //         let mut event = 0;
+    //         let mut error = 0;
+    //         if XkbQueryExtension(screen, &mut op, &mut event, &mut error, &mut major, &mut minor) == 0 {
+    //             eprintln!("XKB extension is not available. Cannot detect keyboard layout, switching to default US. This may create issue if other layout is being used on OS");
+    //             return true;
+    //         } 
+    //         let mut state: XkbStateRec = std::mem::zeroed();
+    //         XkbGetState(screen, 0x0100, &mut state); // Get current keyboard state
+    //         let group = state.group; // Keyboard layout group (0 = US in most cases)
+            
+    //         group == 0 // If it's 0, it's likely US. Otherwise, another layout
+    //     }
+    // }
+
+
+    fn is_us_layout() -> bool {
+        let output = Command::new("setxkbmap")
+        .arg("-query")
+        .output()
+        .expect("Failed to execute setxkbmap");
+
+    let output_str = String::from_utf8_lossy(&output.stdout);
+
+    // Find the line containing "layout:"
+    if let Some(line) = output_str.lines().find(|line| line.starts_with("layout:")) {
+        // Extract the layouts and split by comma
+        let layouts: Vec<&str> = line.trim().split_whitespace().nth(1).unwrap_or("").split(',').collect();
+
+        // List of US-style QWERTY layouts
+        let us_layouts = ["us", "gb", "ca", "dk", "se", "no", "fi", "es", "pt", "it", "nl"];
+
+        // Check if any of the layouts in the list match US-style QWERTY
+        return layouts.iter().any(|&layout| us_layouts.contains(&layout));
+    }
+
+    false
+}
 
     /// execute send_key function but press Shift key before, and release it after
     fn send_shifted_key (&self, scan_code:u32) -> Result<(), &'static str> {
@@ -192,7 +237,7 @@ impl Keyboard {
     /// mapping made so  bigger variety of strings can be used when sending string as input. 
     /// for instance, instead of neccessity of sending "period", we can send ".". This means when sending a 
     /// string like url test.hr we dont need to send test, then send period, then send hr 
-    fn create_keymap () -> HashMap<String, (String,bool)> {
+    fn create_keymap (is_us_layout:bool) -> HashMap<String, (String,bool)> {
         let mut keysym_map: HashMap<String, (String,bool)> = HashMap::new();
         keysym_map.insert(String::from(String::from(" ")), (String::from("space"),false));
         keysym_map.insert(String::from("!"), (String::from("exclam"),true));
