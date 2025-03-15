@@ -122,13 +122,7 @@ impl Keyboard {
                 (XStringToKeysym(key_cstring),shifted)
             },
             None => {
-                let key_cstring = CString::new(key.clone());
-                let key_cstring = match key_cstring {
-                    Ok(x) => x,
-                    Err(_) => return Err("failed to grab key value")
-                };
-                let key_cstring = key_cstring.as_ptr();
-                (XStringToKeysym(key_cstring),false)
+                return Err("failed to grab keystring")
                 
             }
         };
