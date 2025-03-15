@@ -129,10 +129,7 @@ impl Keyboard {
             None => return Err("wrong keyboard char"),
         };
         
-        let shifted1 = value1.1;
         let value1 = value1.0;
-
-        let shifter2 = value2.1;
         let value2 = value2.0;
 
         let mut third_key = false;
@@ -149,7 +146,6 @@ impl Keyboard {
                 &(0, false)
             }   
         };
-        let shifted3 = value3.1;
         let value3 = value3.0;
         unsafe {
             Keyboard::key_down(value1);
