@@ -117,7 +117,7 @@ rustautogui.drag_mouse(x: 500, y:500, moving_time: 1.0).unwrap(); // executes le
 rustautogui.move_mouse_to_pos(x:1920, y:1080, moving_time:1.0).unwrap(); // moves mouse to position for certain time
 
 rustautogui.keyboard_input(input: "test!@#24").unwrap(); // input string, or better say, do the sequence of key presses
-rustautogui.keyboard_command(input:"return").unwrap(); //press a keyboard button 
+rustautogui.keyboard_command(input:"backspace").unwrap(); //press a keyboard button 
 rustautogui.keyboard_multi_key(input1: "shift", input2:"control", input3: Some("t")).unwrap(); // Executed multiple key press at same time. third argument is optional
 
 
