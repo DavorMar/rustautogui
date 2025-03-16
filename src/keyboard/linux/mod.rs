@@ -89,14 +89,9 @@ impl Keyboard {
     fn send_shifted_key(&self, scan_code: u32) -> Result<(), &'static str> {
         unsafe {
             let mut keysym_to_keycode2 = HashMap::new();
-            let key_cstring = CString::new("Shift_L".to_string());
-            let key_cstring = match key_cstring {
-                Ok(x) => x,
-                Err(_) => return Err("failed grabbing shift key"),
-            };
-            let key_cstring = key_cstring.as_ptr();
+            let key_cstring = CString::new("Shift_L").map_err(|_| "failed grabbing shift key")?;
 
-            let keysym = XStringToKeysym(key_cstring);
+            let keysym = XStringToKeysym(key_cstring.as_ptr());
             keysym_to_keycode2
                 .entry(keysym)
                 .or_insert_with(|| XKeysymToKeycode(self.screen, keysym) as u32);
@@ -115,13 +110,9 @@ impl Keyboard {
         let (keysym, shifted) = match value {
             Some(x) => {
                 let shifted = x.1;
-                let key_cstring = CString::new(x.0.clone());
-                let key_cstring = match key_cstring {
-                    Ok(x) => x,
-                    Err(_) => return Err("failed to grab key value"),
-                };
-                let key_cstring = key_cstring.as_ptr();
-                (XStringToKeysym(key_cstring), shifted)
+                let key_cstring =
+                    CString::new(x.0.as_str()).map_err(|_| "failed to grab key value")?;
+                (XStringToKeysym(key_cstring.as_ptr()), shifted)
             }
             None => return Err("failed to grab keystring"),
         };
