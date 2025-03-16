@@ -1,13 +1,10 @@
 extern crate rayon;
 
-
+pub mod fast_segment_x_corr;
 pub mod fft_ncc;
 pub mod slow_ncc;
-pub mod fast_segment_x_corr;
 
-fn compute_integral_image(
-    image: &Vec<Vec<u8>>,
-) -> Vec<Vec<u64>> {
+fn compute_integral_image(image: &Vec<Vec<u8>>) -> Vec<Vec<u64>> {
     /*
     Function that takes an image as input and computes an integral table (sum table).
     Table is calculated in a way : f(x,y) = sum where f(x1<=x, y1<=y), meaning it always
@@ -30,7 +27,7 @@ fn compute_integral_image(
     [ 3 6 9  12 ]
     [ 4 8 12 16 ]
     */
-    
+
     let height = image.len() as u32;
     let width = if height > 0 { image[0].len() as u32 } else { 0 };
 
@@ -46,10 +43,10 @@ fn compute_integral_image(
             } else if y == 0 {
                 pixel_value + integral_image[y as usize][(x - 1) as usize]
             } else {
-                pixel_value 
-                + integral_image[(y - 1) as usize][x as usize]
-                + integral_image[y as usize][(x - 1) as usize]
-                - integral_image[(y - 1) as usize][(x - 1) as usize]
+                pixel_value
+                    + integral_image[(y - 1) as usize][x as usize]
+                    + integral_image[y as usize][(x - 1) as usize]
+                    - integral_image[(y - 1) as usize][(x - 1) as usize]
             };
             integral_image[y as usize][x as usize] = integral_value;
         }
@@ -58,11 +55,7 @@ fn compute_integral_image(
     integral_image
 }
 
-
-
-fn compute_squared_integral_image(
-    image: &Vec<Vec<u8>>,
-) -> Vec<Vec<u64>> {
+fn compute_squared_integral_image(image: &Vec<Vec<u8>>) -> Vec<Vec<u64>> {
     /*
     Same as compute_integral_image, except we always take squared value of pixel f(x,y).
     */
@@ -82,10 +75,10 @@ fn compute_squared_integral_image(
             } else if y == 0 {
                 pixel_value + integral_image[y as usize][(x - 1) as usize]
             } else {
-                pixel_value 
-                + integral_image[(y - 1) as usize][x as usize]
-                + integral_image[y as usize][(x - 1) as usize]
-                - integral_image[(y - 1) as usize][(x - 1) as usize]
+                pixel_value
+                    + integral_image[(y - 1) as usize][x as usize]
+                    + integral_image[y as usize][(x - 1) as usize]
+                    - integral_image[(y - 1) as usize][(x - 1) as usize]
             };
             integral_image[y as usize][x as usize] = integral_value;
         }
@@ -93,7 +86,6 @@ fn compute_squared_integral_image(
 
     integral_image
 }
-
 
 /// Compute both normal and squared integral image
 fn compute_integral_images(image: &Vec<Vec<u8>>) -> (Vec<Vec<u64>>, Vec<Vec<u64>>) {
@@ -104,26 +96,30 @@ fn compute_integral_images(image: &Vec<Vec<u8>>) -> (Vec<Vec<u64>>, Vec<Vec<u64>
     for y in 0..height {
         for x in 0..width {
             let pixel_value = image[y as usize][x as usize] as u64;
-            let pixel_value_squared = (image[y as usize][x as usize] as u64).pow(2); 
+            let pixel_value_squared = (image[y as usize][x as usize] as u64).pow(2);
             let (integral_value, squared_integral_value) = if x == 0 && y == 0 {
-                (pixel_value,
-                pixel_value_squared)
+                (pixel_value, pixel_value_squared)
             } else if x == 0 {
-                (pixel_value + integral_image[(y - 1) as usize][x as usize],
-                pixel_value_squared + squared_integral_image[(y - 1) as usize][x as usize])
+                (
+                    pixel_value + integral_image[(y - 1) as usize][x as usize],
+                    pixel_value_squared + squared_integral_image[(y - 1) as usize][x as usize],
+                )
             } else if y == 0 {
-                (pixel_value + integral_image[y as usize][(x - 1) as usize],
-                pixel_value_squared + squared_integral_image[y as usize][(x - 1) as usize])
+                (
+                    pixel_value + integral_image[y as usize][(x - 1) as usize],
+                    pixel_value_squared + squared_integral_image[y as usize][(x - 1) as usize],
+                )
             } else {
-                (pixel_value 
-                + integral_image[(y - 1) as usize][x as usize]
-                + integral_image[y as usize][(x - 1) as usize]
-                - integral_image[(y - 1) as usize][(x - 1) as usize],
-
-                pixel_value_squared
-                + squared_integral_image[(y - 1) as usize][x as usize]
-                + squared_integral_image[y as usize][(x - 1) as usize]
-                - squared_integral_image[(y - 1) as usize][(x - 1) as usize])
+                (
+                    pixel_value
+                        + integral_image[(y - 1) as usize][x as usize]
+                        + integral_image[y as usize][(x - 1) as usize]
+                        - integral_image[(y - 1) as usize][(x - 1) as usize],
+                    pixel_value_squared
+                        + squared_integral_image[(y - 1) as usize][x as usize]
+                        + squared_integral_image[y as usize][(x - 1) as usize]
+                        - squared_integral_image[(y - 1) as usize][(x - 1) as usize],
+                )
             };
             integral_image[y as usize][x as usize] = integral_value;
             squared_integral_image[y as usize][x as usize] = squared_integral_value;
@@ -132,9 +128,6 @@ fn compute_integral_images(image: &Vec<Vec<u8>>) -> (Vec<Vec<u64>>, Vec<Vec<u64>
 
     (integral_image, squared_integral_image)
 }
-
-
-
 
 fn sum_region(integral_image: &Vec<Vec<u64>>, x: u32, y: u32, width: u32, height: u32) -> u64 {
     /*
@@ -166,5 +159,3 @@ fn sum_region(integral_image: &Vec<Vec<u64>>, x: u32, y: u32, width: u32, height
     }
     sum
 }
-
-

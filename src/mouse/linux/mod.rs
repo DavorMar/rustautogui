@@ -1,31 +1,30 @@
-
-use x11::xlib::*;
-use std::time::Instant;
-use x11::xtest::*;
 use super::{MouseClick, MouseScroll};
-use std::{thread, time::Duration, ptr};
+use std::time::Instant;
+use std::{ptr, thread, time::Duration};
+use x11::xlib::*;
+use x11::xtest::*;
 
-
-pub struct Mouse{
+pub struct Mouse {
     screen: *mut _XDisplay,
     root_window: u64,
 }
 
 impl Mouse {
     pub fn new(screen: *mut _XDisplay, root_window: u64) -> Self {
-        Self {screen:screen, root_window: root_window}
+        Self {
+            screen: screen,
+            root_window: root_window,
+        }
     }
 
-    
-
-    /// moves mouse to x, y pixel coordinate on screen 
-    pub fn move_mouse_to_pos(&self, x:i32, y:i32, moving_time:f32) -> Result<(), &'static str > {
+    /// moves mouse to x, y pixel coordinate on screen
+    pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time: f32) -> Result<(), &'static str> {
         // if no moving time, then instant move is executed
         unsafe {
-            if moving_time == 0.0 {
+            if moving_time <= 0.0 {
                 XWarpPointer(self.screen, 0, self.root_window, 0, 0, 0, 0, x, y);
-                XFlush(self.screen); 
-                return  Ok(())
+                XFlush(self.screen);
+                return Ok(());
             }
         }
 
@@ -33,45 +32,60 @@ impl Mouse {
         let start = Instant::now();
         let start_location = self.get_mouse_position()?;
         let distance_x = x - start_location.0;
-        let distance_y= y -start_location.1;
+        let distance_y = y - start_location.1;
         loop {
-               
             let duration = start.elapsed();
-            
-            let time_passed_percentage=  duration.as_secs_f32() / moving_time;
+
+            let time_passed_percentage = duration.as_secs_f32() / moving_time;
             if time_passed_percentage > 10.0 {
-                 continue
+                continue;
             }
-            let new_x =  start_location.0 as f32 + (time_passed_percentage  * distance_x as f32);     
-            let new_y =  start_location.1 as f32 + (time_passed_percentage * distance_y as f32) ;
+            let new_x = start_location.0 as f32 + (time_passed_percentage * distance_x as f32);
+            let new_y = start_location.1 as f32 + (time_passed_percentage * distance_y as f32);
             unsafe {
-                 if time_passed_percentage >= 1.0{
-                        XWarpPointer(self.screen, 0, self.root_window, 0, 0, 0, 0, x, y);
-                        XFlush(self.screen); 
-                      break
-                 }  else {
-                        XWarpPointer(self.screen, 0, self.root_window, 0, 0, 0, 0, new_x as i32, new_y as i32);
-                        XFlush(self.screen); 
-                 }             
-                 
+                if time_passed_percentage >= 1.0 {
+                    XWarpPointer(self.screen, 0, self.root_window, 0, 0, 0, 0, x, y);
+                    XFlush(self.screen);
+                    break;
+                } else {
+                    XWarpPointer(
+                        self.screen,
+                        0,
+                        self.root_window,
+                        0,
+                        0,
+                        0,
+                        0,
+                        new_x as i32,
+                        new_y as i32,
+                    );
+                    XFlush(self.screen);
+                }
             }
-       };
-       Ok(())
+        }
+        Ok(())
     }
 
-    pub fn drag_mouse(&self, x:i32, y:i32, moving_time:f32) -> Result<(), &'static str> {
+    pub fn drag_mouse(&self, x: i32, y: i32, moving_time: f32) -> Result<(), &'static str> {
         let mut event_base = 0;
         let mut error_base = 0;
         unsafe {
-            if XTestQueryExtension(self.screen, &mut event_base, &mut error_base, &mut event_base, &mut error_base) == 0 {
-                return Err("Xtest extension is not available")
+            if XTestQueryExtension(
+                self.screen,
+                &mut event_base,
+                &mut error_base,
+                &mut event_base,
+                &mut error_base,
+            ) == 0
+            {
+                return Err("Xtest extension is not available");
             }
             if let Some(window) = self.get_window_under_cursor()? {
                 self.set_focus_to_window(window);
-            } 
+            }
             // Press the mouse button
             XTestFakeButtonEvent(self.screen, 1, 1, CurrentTime);
-            XFlush(self.screen);           
+            XFlush(self.screen);
         }
         let sleep_time = Duration::from_millis(50);
         thread::sleep(sleep_time);
@@ -85,7 +99,7 @@ impl Mouse {
     }
 
     /// returns x, y pixel coordinate of mouse position
-    pub fn get_mouse_position(&self) -> Result<(i32,i32), &'static str > {
+    pub fn get_mouse_position(&self) -> Result<(i32, i32), &'static str> {
         unsafe {
             let mut root_return = 0;
             let mut child_return = 0;
@@ -116,34 +130,39 @@ impl Mouse {
     }
 
     /// click mouse, either left, right or middle
-    pub fn mouse_click(&self,  button: MouseClick) -> Result<(), &'static str> {
-        let button =match button {
+    pub fn mouse_click(&self, button: MouseClick) -> Result<(), &'static str> {
+        let button = match button {
             MouseClick::LEFT => 1,
             MouseClick::MIDDLE => 2,
             MouseClick::RIGHT => 3,
         };
-       
+
         let mut event_base = 0;
         let mut error_base = 0;
         unsafe {
-            if XTestQueryExtension(self.screen, &mut event_base, &mut error_base, &mut event_base, &mut error_base) == 0 {
-                return Err("Xtest extension is not available")
+            if XTestQueryExtension(
+                self.screen,
+                &mut event_base,
+                &mut error_base,
+                &mut event_base,
+                &mut error_base,
+            ) == 0
+            {
+                return Err("Xtest extension is not available");
             }
             if let Some(window) = self.get_window_under_cursor()? {
                 self.set_focus_to_window(window);
-            } 
+            }
             // Press the mouse button
             XTestFakeButtonEvent(self.screen, button, 1, CurrentTime);
             XFlush(self.screen);
-        
+
             // Release the mouse button
             XTestFakeButtonEvent(self.screen, button, 0, CurrentTime);
             XFlush(self.screen);
-            
         }
         Ok(())
     }
-
 
     pub fn scroll(&self, direction: MouseScroll) {
         let button = match direction {
@@ -155,28 +174,33 @@ impl Mouse {
         let mut event_base = 0;
         let mut error_base = 0;
         unsafe {
-            if XTestQueryExtension(self.screen, &mut event_base, &mut error_base, &mut event_base, &mut error_base) == 0 {
+            if XTestQueryExtension(
+                self.screen,
+                &mut event_base,
+                &mut error_base,
+                &mut event_base,
+                &mut error_base,
+            ) == 0
+            {
                 eprintln!("XTest extension not available");
                 return;
             }
             // if let Some(window) = self.get_window_under_cursor() {
             //     self.set_focus_to_window(window);
-            // } 
+            // }
             // Press the mouse button
             XTestFakeButtonEvent(self.screen, button, 1, CurrentTime);
             XFlush(self.screen);
-        
+
             // Release the mouse button
             XTestFakeButtonEvent(self.screen, button, 0, CurrentTime);
             XFlush(self.screen);
-            
         }
-
     }
 
-    /// return window that is at cursor position. Used when executing left click to also 
+    /// return window that is at cursor position. Used when executing left click to also
     /// change focused window
-    fn get_window_under_cursor(&self) -> Result<Option<Window>,&'static str> {
+    fn get_window_under_cursor(&self) -> Result<Option<Window>, &'static str> {
         let mut child: Window = 0;
         let mut win_x: i32 = 0;
         let mut win_y: i32 = 0;
@@ -196,12 +220,12 @@ impl Mouse {
             {
                 if child != 0 {
                     return Ok(Some(child));
-                } 
+                }
             }
             Ok(None)
-        }   
+        }
     }
-    
+
     /// change focused window. Used when clicking a window
     fn set_focus_to_window(&self, window: Window) {
         unsafe {
@@ -210,7 +234,4 @@ impl Mouse {
             thread::sleep(Duration::from_millis(50));
         }
     }
-
-
-
 }

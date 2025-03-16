@@ -1,51 +1,49 @@
 /*
 Functions used throughout the code that have more of a general purpose, like
-loading images from disk, converting image to black-white or RGB, cutting image 
+loading images from disk, converting image to black-white or RGB, cutting image
 and converting image to vector.
 */
 
-
-use image::{io::Reader as ImageReader, ImageBuffer, Luma, Rgba, GrayImage, Pixel, Primitive};
+use image::{io::Reader as ImageReader, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgba};
 
 /// Loads image from the provided path and converts to black-white format
 /// Returns image in image::ImageBuffer format
-pub fn load_image_bw(location:&str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>,String>  {
-    let img  = match ImageReader::open(location){
+pub fn load_image_bw(location: &str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, String> {
+    let img = match ImageReader::open(location) {
         Ok(x) => x,
         Err(y) => return Err(y.to_string()),
     };
-    
+
     let img = match img.decode() {
         Ok(x) => x,
         Err(y) => return Err(y.to_string()),
     };
-    
+
     let gray_image: ImageBuffer<Luma<u8>, Vec<u8>> = img.to_luma8();
     Ok(gray_image)
 }
 
-
 /// Loads image from the provided path and converts to RGBA format
 /// Returns image in image::ImageBuffer format
-pub fn load_image_rgba(location:&str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>,String>  {
-    let img =  match ImageReader::open(location){
+pub fn load_image_rgba(location: &str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, String> {
+    let img = match ImageReader::open(location) {
         Ok(x) => x,
-        Err(y) => {
-            return Err(y.to_string())
-        } 
+        Err(y) => return Err(y.to_string()),
     };
-    
+
     let img = match img.decode() {
         Ok(x) => x,
         Err(y) => return Err(y.to_string()),
     };
-    
+
     let rgba_image: ImageBuffer<Rgba<u8>, Vec<u8>> = img.to_rgba8();
     Ok(rgba_image)
 }
 
 /// Does conversion from ImageBuffer RGBA to ImageBuffer Black and White(Luma)
-pub fn convert_image_to_bw(image:ImageBuffer<Rgba<u8>,Vec<u8>>) -> Result<ImageBuffer<Luma<u8>,Vec<u8>>,&'static str> {
+pub fn convert_image_to_bw(
+    image: ImageBuffer<Rgba<u8>, Vec<u8>>,
+) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, &'static str> {
     let mut grayscale_data: Vec<u8> = Vec::with_capacity(image.len() as usize);
     let screen_width = image.width();
     let screen_height = image.height();
@@ -57,22 +55,23 @@ pub fn convert_image_to_bw(image:ImageBuffer<Rgba<u8>,Vec<u8>>) -> Result<ImageB
         let gray_value = ((r * 30 + g * 59 + b * 11) / 100) as u8;
         grayscale_data.push(gray_value);
     }
-    let grayscale = GrayImage::from_raw(
-        screen_width as u32,
-        screen_height as u32,
-        grayscale_data
-        );
+    let grayscale = GrayImage::from_raw(screen_width as u32, screen_height as u32, grayscale_data);
     match grayscale {
-        Some(x ) => return Ok(x),
-        None => return Err("failed to convert image to grayscale")
+        Some(x) => return Ok(x),
+        None => return Err("failed to convert image to grayscale"),
     }
 }
-
 
 /// Cuts Region of image. Inputs are top left x , y pixel coordinates on image,
 ///     width and height of region and the image being cut.
 ///     Returns image os same datatype
-pub fn cut_screen_region<T>(x: u32, y: u32, width: u32, height: u32, screen_image: &ImageBuffer<T, Vec<u8>>) -> ImageBuffer<T, Vec<u8>>
+pub fn cut_screen_region<T>(
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+    screen_image: &ImageBuffer<T, Vec<u8>>,
+) -> ImageBuffer<T, Vec<u8>>
 where
     T: Pixel<Subpixel = u8> + 'static,
 {
@@ -91,12 +90,10 @@ where
     sub_image
 }
 
-
 ///Converts Imagebuffer to Vector format
 pub fn imagebuffer_to_vec<T: Copy + Primitive + 'static>(
     image: &ImageBuffer<Luma<T>, Vec<T>>,
 ) -> Vec<Vec<T>> {
-    
     let (width, height) = image.dimensions();
     let zero_pixel = image.get_pixel(0, 0)[0];
     let mut vec: Vec<Vec<T>> = vec![vec![zero_pixel; width as usize]; height as usize];
@@ -108,5 +105,3 @@ pub fn imagebuffer_to_vec<T: Copy + Primitive + 'static>(
     }
     vec
 }
-
-
