@@ -52,12 +52,11 @@ impl Screen {
         }
     }
     pub fn dimension(&self) -> (i32, i32) {
-        return (self.screen_width, self.screen_height)
-        
+        return (self.screen_width, self.screen_height);
     }
 
     pub fn region_dimension(&self) -> (u32, u32) {
-        return (self.screen_region_width, self.screen_region_height)
+        return (self.screen_region_width, self.screen_region_height);
     }
 
     /// clear memory and delete screen
@@ -183,20 +182,21 @@ impl Screen {
             grayscale_data.push(gray_value);
         }
 
-        let imagebuffer_grayscale = GrayImage::from_raw(
+        GrayImage::from_raw(
             self.screen_width as u32,
             self.screen_height as u32,
             grayscale_data,
-        ).ok_or("could not convert image to grayscale")?;
-        Ok(imagebuffer_grayscale)
+        )
+        .ok_or("could not convert image to grayscale")
     }
 
     fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, &'static str> {
-        let imagebuffer_rgba = ImageBuffer::from_raw(
+        ImageBuffer::from_raw(
             self.screen_width as u32,
             self.screen_height as u32,
             self.pixel_data.clone(),
-        ).ok_or("failed to convert to RGBA")?;
-        Ok(imagebuffer_rgba)
+        )
+        .ok_or("failed to convert to RGBA")
+        
     }
 }

@@ -85,19 +85,19 @@ impl Keyboard {
             // send key
             Keyboard::send_key(scan_code);
             sleep(Duration::from_micros(50));
-            
+
             Keyboard::key_up(0x10); // shift release
             sleep(Duration::from_micros(50));
         }
     }
 
     /// Function used when sending input as string. All characters need to be part of the key map, described in Keyboard_commands.md
-    /// For each character in a string, Keyboard::send_key() is executed. If the character requires a shift key, 
+    /// For each character in a string, Keyboard::send_key() is executed. If the character requires a shift key,
     /// Keyboard::send_shifted_key is executed
     pub fn send_char(&self, key: &char) -> Result<(), &'static str> {
         let char_string = String::from(*key);
         let (value, shifted) = self.keymap.get(&char_string).ok_or("wrong keyboard char")?;
-        
+
         if *shifted {
             Keyboard::send_shifted_key(*value);
         } else {
@@ -121,26 +121,20 @@ impl Keyboard {
         key_2: &String,
         key_3: Option<String>,
     ) -> Result<(), &'static str> {
-        let value1 = match self.keymap.get(key_1) {
-            Some(x) => x,
-            None => return Err("wrong keyboard char"),
-        };
-        let value2 = self.keymap.get(key_2).ok_or("wrong keyboard char")?; 
-        
+        let value1 = self.keymap.get(key_1).ok_or("wrong keyboard char")?.0;
+        let value2 = self.keymap.get(key_2).ok_or("wrong keyboard char")?.0;
 
-        let value1 = value1.0;
-        let value2 = value2.0;
 
         let mut third_key = false;
         let value3 = match key_3 {
             Some(value) => {
                 third_key = true;
-                let value3 = self.keymap.get(&value).ok_or("wrong keyboard char")?; 
-                value3
+                let value3 = self.keymap.get(&value).ok_or("wrong keyboard char")?;
+                value3.0
             }
-            None => &(0, false),
+            None => 0,
         };
-        let value3 = value3.0;
+        
         unsafe {
             Keyboard::key_down(value1);
             Keyboard::key_down(value2);

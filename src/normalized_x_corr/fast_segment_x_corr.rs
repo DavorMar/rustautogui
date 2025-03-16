@@ -258,8 +258,6 @@ fn fast_correlation_calculation(
     let mut corr: f32 = (nominator * nominator) / denominator;
 
     if corr > 1.0 || corr.is_nan() {
-        
-
         corr = -100.0;
         return corr as f64;
     }

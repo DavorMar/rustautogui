@@ -68,7 +68,8 @@ fn main() {
     gui.keyboard_multi_key("alt", "tab", None).unwrap();
 
     // three key press
-    gui.keyboard_multi_key("shift", "control", Some("e")).unwrap();
+    gui.keyboard_multi_key("shift", "control", Some("e"))
+        .unwrap();
 
     // maybe you would want to loop search until image is found and break the loop then
     loop {

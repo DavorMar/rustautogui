@@ -26,25 +26,17 @@ pub fn load_image_bw(location: &str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, S
 /// Loads image from the provided path and converts to RGBA format
 /// Returns image in image::ImageBuffer format
 pub fn load_image_rgba(location: &str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, String> {
-    let img = match ImageReader::open(location) {
-        Ok(x) => x,
-        Err(y) => return Err(y.to_string()),
-    };
-
-    let img = match img.decode() {
-        Ok(x) => x,
-        Err(y) => return Err(y.to_string()),
-    };
-
-    let rgba_image: ImageBuffer<Rgba<u8>, Vec<u8>> = img.to_rgba8();
-    Ok(rgba_image)
+    let img = ImageReader::open(location).map_err(|x| x.to_string())?;
+    let img = img.decode().map_err(|y| y.to_string())?;
+    Ok(img.to_rgba8()) // return rgba image
+    
 }
 
 /// Does conversion from ImageBuffer RGBA to ImageBuffer Black and White(Luma)
 pub fn convert_image_to_bw(
     image: ImageBuffer<Rgba<u8>, Vec<u8>>,
 ) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, &'static str> {
-    let mut grayscale_data: Vec<u8> = Vec::with_capacity(image.len() as usize);
+    let mut grayscale_data: Vec<u8> = Vec::with_capacity(image.len());
     let screen_width = image.width();
     let screen_height = image.height();
     for chunk in image.chunks_exact(4) {
@@ -55,11 +47,8 @@ pub fn convert_image_to_bw(
         let gray_value = ((r * 30 + g * 59 + b * 11) / 100) as u8;
         grayscale_data.push(gray_value);
     }
-    let grayscale = GrayImage::from_raw(screen_width as u32, screen_height as u32, grayscale_data);
-    match grayscale {
-        Some(x) => return Ok(x),
-        None => return Err("failed to convert image to grayscale"),
-    }
+    GrayImage::from_raw(screen_width as u32, screen_height as u32, grayscale_data).ok_or("failed to convert image to grayscale")
+    
 }
 
 /// Cuts Region of image. Inputs are top left x , y pixel coordinates on image,

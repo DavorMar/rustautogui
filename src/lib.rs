@@ -11,25 +11,13 @@ use rustfft::num_complex::Complex;
 use std::{env, fs, path::Path};
 
 #[cfg(target_os = "windows")]
-pub use crate::{
-    keyboard::windows::Keyboard,
-    mouse::windows::Mouse,
-    screen::windows::Screen
-};
+pub use crate::{keyboard::windows::Keyboard, mouse::windows::Mouse, screen::windows::Screen};
 
 #[cfg(target_os = "linux")]
-pub use crate::{
-    keyboard::linux::Keyboard,
-    mouse::linux::Mouse, 
-    screen::linux::Screen
-};
+pub use crate::{keyboard::linux::Keyboard, mouse::linux::Mouse, screen::linux::Screen};
 
 #[cfg(target_os = "macos")]
-pub use crate::{
-    keyboard::macos::Keyboard, 
-    mouse::macos::Mouse, 
-    screen::macos::Screen
-};
+pub use crate::{keyboard::macos::Keyboard, mouse::macos::Mouse, screen::macos::Screen};
 
 pub mod keyboard;
 pub mod mouse;
@@ -159,8 +147,8 @@ impl RustAutoGui {
             return Err("Selected region out of bounds");
         }
 
-        // this is a redundant check since this case should be covered by the 
-        // next region check, but leaving it 
+        // this is a redundant check since this case should be covered by the
+        // next region check, but leaving it
         if (self.template_width > self.screen.screen_width as u32)
             | (self.template_height > self.screen.screen_height as u32)
         {
@@ -187,7 +175,7 @@ impl RustAutoGui {
     ) -> Result<(), String> {
         #[allow(unused_mut)] // allowed because its needed in macos code below
         let mut template = imgtools::load_image_bw(template_path)?;
-        #[cfg(target_os = "macos")] 
+        #[cfg(target_os = "macos")]
         //resize and adjust if retina screen is used
         {
             template = resize(
@@ -246,7 +234,7 @@ impl RustAutoGui {
                     max_segments,
                     &self.debug,
                 );
-                // mostly happens due to using too complex image with small max segments value 
+                // mostly happens due to using too complex image with small max segments value
                 if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
                     return Err(String::from("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"));
                 }
@@ -376,7 +364,6 @@ impl RustAutoGui {
 
         let found_locations = match &self.prepared_data {
             PreparedData::FFT(data) => {
-                
                 let found_locations = normalized_x_corr::fft_ncc::fft_ncc(&image, &precision, data);
                 found_locations
             },
@@ -437,16 +424,17 @@ impl RustAutoGui {
             None => return Ok(None),
         };
 
-        let locations_adjusted:Vec<(u32,u32,f64)> = locations.clone().into_iter().map(
-            |(mut x, mut y, corr)| {
+        let locations_adjusted: Vec<(u32, u32, f64)> = locations
+            .clone()
+            .into_iter()
+            .map(|(mut x, mut y, corr)| {
                 x = x + self.region.0 + (self.template_width / 2);
                 y = y + self.region.1 + (self.template_height / 2);
                 (x, y, corr)
-            }
-        ).collect();
+            })
+            .collect();
 
         let (target_x, target_y, _) = locations_adjusted[0];
-
 
         self.move_mouse_to_pos(target_x, target_y, moving_time)?;
 

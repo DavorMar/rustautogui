@@ -70,18 +70,14 @@ impl Mouse {
             down,
             CGPoint::new(mouse_pos.0 as f64, mouse_pos.1 as f64),
             cg_button,
-        );
-        match click_down {
-            Ok(x) => x.post(CGEventTapLocation::HID),
-            Err(_) => return Err("Failed the mouse click down CGevent"),
-        }
+        ).map_err(|_|"Failed the mouse click down CGevent")?;
+        click_down.post(CGEventTapLocation::HID);
+            
 
         sleep(Duration::from_millis(100));
 
         // Move mouse with dragging event
-        let distance = ((x - mouse_pos.0).pow(2) + (y - mouse_pos.1).pow(2)) as f32;
-        let distance = distance.sqrt();
-
+        let distance = (((x - mouse_pos.0).pow(2) + (y - mouse_pos.1).pow(2)) as f32).sqrt();
         let steps = distance / 20.0; // Adjust for smoothness
 
         let dx = (x - mouse_pos.0) as f64 / steps as f64;
@@ -107,22 +103,15 @@ impl Mouse {
 
         //click up
         let mouse_pos = Mouse::get_mouse_position()?;
-        let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let cg_event_source = match cg_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
-        };
-
+        let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState).map_err(|_| "Error creating CGEventSource on mouse movement")?;
+        
         let click_up = CGEvent::new_mouse_event(
             cg_event_source,
             up,
             CGPoint::new(mouse_pos.0 as f64, mouse_pos.1 as f64),
             cg_button,
-        );
-        match click_up {
-            Ok(x) => x.post(CGEventTapLocation::HID),
-            Err(_) => return Err("Failed the mouse click up CGevent"),
-        }
+        ).map_err(|_| "Failed the mouse click up CGevent")?;
+        click_up.post(CGEventTapLocation::HID);
 
         sleep(Duration::from_millis(20));
 
@@ -131,21 +120,15 @@ impl Mouse {
 
     // separate private function called by move to pos
     fn move_mouse(x: i32, y: i32) -> Result<(), &'static str> {
-        let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let gc_event_source = match gc_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
-        };
+        let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState).map_err(|_| "Error creating CGEventSource on mouse movement")?;
+        
         let event = CGEvent::new_mouse_event(
             gc_event_source,
             CGEventType::MouseMoved,
             CGPoint::new(x as f64, y as f64),
             CGMouseButton::Left,
-        );
-        match event {
-            Ok(xevent) => xevent.post(CGEventTapLocation::HID),
-            Err(_) => return Err("Failed creating CGEvent"),
-        };
+        ).map_err(|_| "Failed creating CGEvent")?;
+        event.post(CGEventTapLocation::HID);
 
         sleep(Duration::from_millis(20));
         Ok(())
@@ -153,16 +136,8 @@ impl Mouse {
 
     /// Gets the current mouse position.
     pub fn get_mouse_position() -> Result<(i32, i32), &'static str> {
-        let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let gc_event_source = match gc_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
-        };
-        let event = CGEvent::new(gc_event_source);
-        let event = match event {
-            Ok(x) => x,
-            Err(_) => return Err("Failed creating CGevent"),
-        };
+        let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState).map_err(|_| "Error creating CGEventSource on mouse movement" )?;
+        let event = CGEvent::new(gc_event_source).map_err(|_| "Failed creating CGevent")?;
         let point = event.location();
         Ok((point.x as i32, point.y as i32))
     }
@@ -190,41 +165,27 @@ impl Mouse {
         // needed as input for where to click
         let mouse_pos = Mouse::get_mouse_position()?;
 
-        let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let cg_event_source = match cg_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
-        };
-
+        let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState).map_err(|_| "Error creating CGEventSource on mouse movement")?;
         let click_down = CGEvent::new_mouse_event(
             cg_event_source,
             down,
             CGPoint::new(mouse_pos.0 as f64, mouse_pos.1 as f64),
             cg_button,
-        );
-        match click_down {
-            Ok(x) => x.post(CGEventTapLocation::HID),
-            Err(_) => return Err("Failed the mouse click down CGevent"),
-        }
+        ).map_err(|_| "Failed the mouse click down CGevent")?;
+        click_down.post(CGEventTapLocation::HID);
 
         sleep(Duration::from_millis(20));
 
-        let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let cg_event_source = match cg_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
-        };
-
+        let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState).map_err(|_| "Error creating CGEventSource on mouse movement")?;
+        
         let click_up = CGEvent::new_mouse_event(
             cg_event_source,
             up,
             CGPoint::new(mouse_pos.0 as f64, mouse_pos.1 as f64),
             cg_button,
-        );
-        match click_up {
-            Ok(x) => x.post(CGEventTapLocation::HID),
-            Err(_) => return Err("Failed the mouse click up CGevent"),
-        }
+        ).map_err(|_| "Failed the mouse click up CGevent")?;
+
+        click_up.post(CGEventTapLocation::HID);
 
         sleep(Duration::from_millis(20));
         Ok(())
@@ -237,11 +198,7 @@ impl Mouse {
             MouseScroll::LEFT => (0, 10),
             MouseScroll::RIGHT => (0, -10),
         };
-        let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let cg_event_source = match cg_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
-        };
+        let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState).map_err(|_| "Error creating CGEventSource on mouse movement")?;
 
         let scroll = CGEvent::new_scroll_event(
             cg_event_source,
@@ -250,25 +207,18 @@ impl Mouse {
             delta.0,
             delta.1,
             0,
-        );
-        match scroll {
-            Ok(xscroll) => xscroll.post(CGEventTapLocation::HID),
-            Err(_) => return Err("Failed creating mouse scroll CGevent"),
-        }
+        ).map_err(|_|"Failed creating mouse scroll CGevent")?;
+        scroll.post(CGEventTapLocation::HID);
 
         Ok(())
     }
 
     pub fn double_click() -> Result<(), &'static str> {
-        let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let source = match source {
-            Ok(x) => x,
-            Err(_) => return Err("Failed creating CGEventSource on mouse double click"),
-        };
+        let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState).map_err(|_| "Failed creating CGEventSource on mouse double click")?;
         let pos = Mouse::get_mouse_position()?;
 
         // needed first to get focus of the window
-        Self::mouse_click(MouseClick::LEFT).unwrap();
+        Self::mouse_click(MouseClick::LEFT)?;
         sleep(Duration::from_millis(50));
 
         // MacOs does double click wierldy.
@@ -279,32 +229,23 @@ impl Mouse {
             CGEventType::LeftMouseDown,
             CGPoint::new(pos.0 as f64, pos.1 as f64),
             CGMouseButton::Left,
-        );
-        let mouse_down_event = match mouse_down.clone() {
-            Ok(x) => {
-                x.set_integer_value_field(1, 2);
-                x
-            }
-            Err(_) => return Err("Failed creating CGevent for mouse click down action"),
-        };
+        ).map_err(|_| "Failed creating CGevent for mouse click down action")?;
+        mouse_down.set_integer_value_field(1,2);
+        
 
         let mouse_up = CGEvent::new_mouse_event(
             source.clone(),
             CGEventType::LeftMouseUp,
             CGPoint::new(pos.0 as f64, pos.1 as f64),
             CGMouseButton::Left,
-        );
-        let mouse_up_event = match mouse_up.clone() {
-            Ok(x) => {
-                x.set_integer_value_field(1, 2);
-                x
-            }
-            Err(_) => return Err("Failed creating CGevent for mouse up click"),
-        };
+        ).map_err("Failed creating CGevent for mouse up click")?;
+        mouse_up.set_integer_value_field(1, 2);
+        
+        
 
-        mouse_down_event.post(CGEventTapLocation::HID);
+        mouse_down.post(CGEventTapLocation::HID);
         sleep(Duration::from_millis(10));
-        mouse_up_event.post(CGEventTapLocation::HID);
+        mouse_up.post(CGEventTapLocation::HID);
         sleep(Duration::from_millis(50));
 
         Ok(())

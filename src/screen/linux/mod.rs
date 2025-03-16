@@ -168,17 +168,14 @@ impl Screen {
             let gray_value = ((r * 30 + g * 59 + b * 11) / 100) as u8;
             grayscale_data.push(gray_value);
         }
-        let grayscale = GrayImage::from_raw(
+        GrayImage::from_raw(
             self.screen_width as u32,
             self.screen_height as u32,
             grayscale_data,
-        );
-        let grayscale = match grayscale {
-            Some(x) => Ok(x),
-            None => Err("could not convert image to grayscale"),
-        };
+        ).ok_or("could not convert image to grayscale")
+        
 
-        grayscale
+        
     }
 
     /// convert vector to RGBA ImageBuffer

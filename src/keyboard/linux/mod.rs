@@ -95,11 +95,10 @@ impl Keyboard {
     fn send_shifted_key(&self, scan_code: u32) -> Result<(), &'static str> {
         unsafe {
             let mut keysym_to_keycode2 = HashMap::new();
-            let key_cstring = match CString::new("Shift_L".to_string()){
+            let key_cstring = match CString::new("Shift_L".to_string()) {
                 Ok(x) => x.as_ptr(),
                 Err(_) => return Err("failed grabbing shift key"),
             };
-            
 
             let keysym = XStringToKeysym(key_cstring);
             if !keysym_to_keycode2.contains_key(&keysym) {
@@ -114,8 +113,7 @@ impl Keyboard {
         Ok(())
     }
 
-
-    /// grabs the value from structs keymap, then converts String to Keysim, and then keysim to Keycode. 
+    /// grabs the value from structs keymap, then converts String to Keysim, and then keysim to Keycode.
     unsafe fn get_keycode(&self, key: &String) -> Result<(u32, bool), &'static str> {
         let value = self.keymap.get(key);
 
