@@ -52,15 +52,15 @@ impl Screen {
         }
     }
     pub fn dimension(&self) -> (i32, i32) {
-        let dimensions = (self.screen_width, self.screen_height);
-        dimensions
+        return (self.screen_width, self.screen_height)
+        
     }
 
     pub fn region_dimension(&self) -> (u32, u32) {
-        let dimensions = (self.screen_region_width, self.screen_region_height);
-        dimensions
+        return (self.screen_region_width, self.screen_region_height)
     }
 
+    /// clear memory and delete screen
     pub fn destroy(&self) {
         unsafe {
             DeleteObject(self.h_bitmap as HGLOBAL);
@@ -69,6 +69,7 @@ impl Screen {
         }
     }
 
+    /// captures screen and returns Imagebuffer in RGBA cropped for the selected region
     pub fn grab_screen_image(
         &mut self,
         region: (u32, u32, u32, u32),
@@ -84,6 +85,7 @@ impl Screen {
         Ok(cropped_image)
     }
 
+    /// captures screen, and returns grayscale Imagebuffer cropped for the selected region
     pub fn grab_screen_image_grayscale(
         &mut self,
         region: &(u32, u32, u32, u32),
@@ -99,6 +101,7 @@ impl Screen {
         Ok(cropped_image)
     }
 
+    /// grabs screen image and saves file at provided
     pub fn grab_screenshot(&mut self, image_path: &str) -> Result<(), String> {
         self.capture_screen();
         let image = self.convert_bitmap_to_rgba()?;
@@ -180,24 +183,20 @@ impl Screen {
             grayscale_data.push(gray_value);
         }
 
-        match GrayImage::from_raw(
+        let imagebuffer_grayscale = GrayImage::from_raw(
             self.screen_width as u32,
             self.screen_height as u32,
             grayscale_data,
-        ) {
-            Some(x) => return Ok(x),
-            None => return Err("could not convert image to grayscale"),
-        };
+        ).ok_or("could not convert image to grayscale")?;
+        Ok(imagebuffer_grayscale)
     }
 
     fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, &'static str> {
-        match ImageBuffer::from_raw(
+        let imagebuffer_rgba = ImageBuffer::from_raw(
             self.screen_width as u32,
             self.screen_height as u32,
             self.pixel_data.clone(),
-        ) {
-            Some(x) => return Ok(x),
-            None => return Err("failed to convert to RGBA"),
-        }
+        ).ok_or("failed to convert to RGBA")?;
+        Ok(imagebuffer_rgba)
     }
 }

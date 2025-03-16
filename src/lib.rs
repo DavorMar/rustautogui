@@ -1,23 +1,35 @@
 #![allow(unused_doc_comments, unused_imports)]
+pub mod imgtools;
+pub mod normalized_x_corr;
+
 use image::{
     imageops::{resize, FilterType::Nearest},
     ImageBuffer, Luma,
 };
 use rustfft::num_complex::Complex;
-pub mod imgtools;
-pub mod normalized_x_corr;
-use std::env;
-use std::fs;
-use std::path::Path;
+
+use std::{env, fs, path::Path};
 
 #[cfg(target_os = "windows")]
-pub use crate::{keyboard::windows::Keyboard, mouse::windows::Mouse, screen::windows::Screen};
+pub use crate::{
+    keyboard::windows::Keyboard,
+    mouse::windows::Mouse,
+    screen::windows::Screen
+};
 
 #[cfg(target_os = "linux")]
-pub use crate::{keyboard::linux::Keyboard, mouse::linux::Mouse, screen::linux::Screen};
+pub use crate::{
+    keyboard::linux::Keyboard,
+    mouse::linux::Mouse, 
+    screen::linux::Screen
+};
 
 #[cfg(target_os = "macos")]
-pub use crate::{keyboard::macos::Keyboard, mouse::macos::Mouse, screen::macos::Screen};
+pub use crate::{
+    keyboard::macos::Keyboard, 
+    mouse::macos::Mouse, 
+    screen::macos::Screen
+};
 
 pub mod keyboard;
 pub mod mouse;
@@ -81,6 +93,7 @@ impl RustAutoGui {
         let screen = Screen::new()?;
         let keyboard = Keyboard::new();
         let mouse_struct: Mouse = Mouse::new();
+        // check for env variable to suppress warnings, otherwise set default false value
         let suppress_warnings = env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
             .map(|val| val == "1" || val.eq_ignore_ascii_case("true"))
             .unwrap_or(false); // Default: warnings are NOT suppressed
@@ -110,6 +123,7 @@ impl RustAutoGui {
         let screen = Screen::new();
         let keyboard = Keyboard::new(screen.display);
         let mouse_struct: Mouse = Mouse::new(screen.display, screen.root_window);
+        // check for env variable to suppress warnings, otherwise set default false value
         let suppress_warnings = env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
             .map(|val| val == "1" || val.eq_ignore_ascii_case("true"))
             .unwrap_or(false); // Default: warnings are NOT suppressed
@@ -134,24 +148,26 @@ impl RustAutoGui {
     }
 
     fn check_if_region_out_of_bound(&mut self) -> Result<(), &'static str> {
-        let x = self.region.0;
-        let y = self.region.1;
-        let width = self.region.2;
-        let height = self.region.3;
+        let region_x = self.region.0;
+        let region_y = self.region.1;
+        let region_width = self.region.2;
+        let region_height = self.region.3;
 
-        if (x + width > self.screen.screen_width as u32)
-            | (y + height > self.screen.screen_height as u32)
+        if (region_x + region_width > self.screen.screen_width as u32)
+            | (region_y + region_height > self.screen.screen_height as u32)
         {
             return Err("Selected region out of bounds");
         }
 
+        // this is a redundant check since this case should be covered by the 
+        // next region check, but leaving it 
         if (self.template_width > self.screen.screen_width as u32)
             | (self.template_height > self.screen.screen_height as u32)
         {
             return Err("Selected template is larger than detected screen");
         }
 
-        if (self.template_width > self.region.2) | (self.template_height > self.region.3) {
+        if (self.template_width > region_width) | (self.template_height > region_height) {
             return Err("Selected template is larger than selected search region. ");
         }
         Ok(())
@@ -171,7 +187,8 @@ impl RustAutoGui {
     ) -> Result<(), String> {
         #[allow(unused_mut)] // allowed because its needed in macos code below
         let mut template = imgtools::load_image_bw(template_path)?;
-        #[cfg(target_os = "macos")]
+        #[cfg(target_os = "macos")] 
+        //resize and adjust if retina screen is used
         {
             template = resize(
                 &template,
@@ -181,8 +198,10 @@ impl RustAutoGui {
             );
         }
         let (template_width, template_height) = template.dimensions();
+        // update struct values
         self.template_width = template_width;
         self.template_height = template_height;
+        // convert to option and store in struct
         self.template = Some(template.clone());
         self.max_segments = *max_segments;
         let region = match region {
@@ -193,9 +212,14 @@ impl RustAutoGui {
             }
         };
         self.region = region;
+        // update screen struct
         self.screen.screen_region_width = region.2;
         self.screen.screen_region_height = region.3;
         self.check_if_region_out_of_bound()?;
+        // do the rest of preparation calculations depending on the matchmode
+        // FFT pads the image, does fourier transformations,
+        // calculates conjugate and inverses transformation on template
+        // Segmented creates vector of picture segments with coordinates, dimensions and average pixel value
         let template_data = match match_mode {
             MatchMode::FFT => {
                 let prepared_data =
@@ -222,6 +246,7 @@ impl RustAutoGui {
                     max_segments,
                     &self.debug,
                 );
+                // mostly happens due to using too complex image with small max segments value 
                 if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
                     return Err(String::from("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"));
                 }
@@ -254,7 +279,7 @@ impl RustAutoGui {
             }
         };
 
-        // unpack region , or set default if none
+        // unpack region , or set default if none (whole screen)
         let region = match region {
             Some(region_tuple) => region_tuple,
             None => {
@@ -264,6 +289,8 @@ impl RustAutoGui {
         };
 
         // check if template recalculation is needed
+        // if region changed and FFT used, recalculate because of image padding
+        // for Segmented, recalculate if max_segments changed
         match match_mode {
             MatchMode::FFT => {
                 if self.region == region && self.match_mode == Some(MatchMode::FFT) {
@@ -409,11 +436,22 @@ impl RustAutoGui {
             Some(locations) => locations,
             None => return Ok(None),
         };
+
+        let locations_2:Vec<(u32,u32,f64)> = locations.clone().into_iter().map(
+            |(mut x,mut y,corr)| {
+                x = x / (self.template_width / 2);
+                y = y / (self.template_height / 2);
+                (x, y, corr)
+            }
+        ).collect();
+
         let top_location = locations[0];
         let x = top_location.0 + (self.template_width / 2);
         let y = top_location.1 + (self.template_height / 2);
         let target_x = x + self.region.0;
         let target_y = y + self.region.1;
+
+
         self.move_mouse_to_pos(target_x, target_y, moving_time)?;
 
         return Ok(Some(vec![(target_x, target_y, locations[0].2)]));

@@ -139,6 +139,7 @@ fn save_template_segmented_images(
         ImageBuffer::new(*template_width, *template_height);
     let mut rng = rand::thread_rng();
     let debug_path = Path::new("debug");
+    // not returning error , just printing it because debug mode shouldnt cause crashes here
     if !debug_path.exists() {
         let error_catch = fs::create_dir_all(debug_path);
         match error_catch {
@@ -192,7 +193,7 @@ fn save_template_segmented_images(
 
     match error_catch {
         Ok(_) => (),
-        Err(_) => (),
+        Err(_) => println!("Failed to save image"),
     }
 }
 
@@ -256,8 +257,8 @@ fn fast_correlation_calculation(
 
     let mut corr: f32 = (nominator * nominator) / denominator;
 
-    if corr > 2.0 || corr.is_nan() {
-        if corr > 1.0 {}
+    if corr > 1.0 || corr.is_nan() {
+        
 
         corr = -100.0;
         return corr as f64;
@@ -291,7 +292,7 @@ fn fast_correlation_calculation(
 
         corr = (nominator * nominator) / denominator;
     }
-    if corr > 10.0 || corr.is_nan() {
+    if corr > 1.0 || corr.is_nan() {
         corr = -100.0;
         return corr as f64;
     }
