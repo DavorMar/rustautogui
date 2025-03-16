@@ -158,10 +158,12 @@ impl Keyboard {
     fn create_keymap() -> HashMap<String, (u16,bool)> {
         let mut keymap: HashMap<String, (u16, bool)> = HashMap::new();
         keymap.insert(String::from("return"), (KeyCode::RETURN,false));
+        keymap.insert(String::from("enter"), (KeyCode::RETURN,false));
         keymap.insert(String::from("tab"), (KeyCode::TAB,false));
         keymap.insert(String::from("space"), (KeyCode::SPACE,false));
         keymap.insert(String::from(" "), (KeyCode::SPACE,false));
         keymap.insert(String::from("delete"), (KeyCode::DELETE,false));
+        keymap.insert(String::from("del"), (KeyCode::DELETE,false));
         keymap.insert(String::from("escape"), (KeyCode::ESCAPE,false));
         keymap.insert(String::from("esc"), (KeyCode::ESCAPE,false));
         keymap.insert(String::from("command"), (KeyCode::COMMAND,false));
@@ -179,9 +181,9 @@ impl Keyboard {
         keymap.insert(String::from("option_r"), (KeyCode::RIGHT_OPTION,false));
         keymap.insert(String::from("control_r"), (KeyCode::RIGHT_CONTROL,false));
         keymap.insert(String::from("function"), (KeyCode::FUNCTION,false));
-        keymap.insert(String::from("vol_up"), (KeyCode::VOLUME_UP,false));
-        keymap.insert(String::from("vol_down"), (KeyCode::VOLUME_DOWN,false));
-        keymap.insert(String::from("mute"), (KeyCode::MUTE,false));
+        keymap.insert(String::from("volumeup"), (KeyCode::VOLUME_UP,false));
+        keymap.insert(String::from("volumedown"), (KeyCode::VOLUME_DOWN,false));
+        keymap.insert(String::from("volumemute"), (KeyCode::MUTE,false));
         keymap.insert(String::from("F1"), (KeyCode::F1,false));
         keymap.insert(String::from("F2"), (KeyCode::F2,false));
         keymap.insert(String::from("F3"), (KeyCode::F3,false));
@@ -205,9 +207,11 @@ impl Keyboard {
         keymap.insert(String::from("help"), (KeyCode::HELP,false));
         keymap.insert(String::from("home"), (KeyCode::HOME,false));
         keymap.insert(String::from("page_up"), (KeyCode::PAGE_UP,false));
+        keymap.insert(String::from("pgup"), (KeyCode::PAGE_UP,false));
         keymap.insert(String::from("forward_delete"), (KeyCode::FORWARD_DELETE,false));
         keymap.insert(String::from("end"), (KeyCode::END,false));
         keymap.insert(String::from("page_down"), (KeyCode::PAGE_DOWN,false));
+        keymap.insert(String::from("pgdn"), (KeyCode::PAGE_DOWN,false));
         keymap.insert(String::from("left_arrow"), (KeyCode::LEFT_ARROW,false));
         keymap.insert(String::from("right_arrow"), (KeyCode::RIGHT_ARROW,false));
         keymap.insert(String::from("down_arrow"), (KeyCode::DOWN_ARROW,false));
@@ -298,6 +302,10 @@ impl Keyboard {
         keymap.insert(String::from("backspace"), (51,false));
         keymap.insert(String::from("insert"), (114,false));
         keymap.insert(String::from("print_screen"), (105,false)); 
+        keymap.insert(String::from("printscreen"), (105,false)); 
+        keymap.insert(String::from("printscrn"), (105,false)); 
+        keymap.insert(String::from("prtsc"), (105,false)); 
+        keymap.insert(String::from("prtscr"), (105,false)); 
         keymap.insert(String::from("scroll_lock"), (107,false)); 
         keymap.insert(String::from("pause"), (113,false));
         keymap.insert(String::from("-"), (27,false));
@@ -320,8 +328,6 @@ impl Keyboard {
         keymap.insert(String::from("<"), (43,true));
         keymap.insert(String::from(">"), (47,true));
         keymap.insert(String::from("/"), (44,true));
-
-
         keymap
     }
 

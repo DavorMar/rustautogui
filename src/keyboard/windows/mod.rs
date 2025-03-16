@@ -387,9 +387,7 @@ impl Keyboard {
         key_map.insert(String::from("{"), (0xDB,true)); // [ { VK_OEM_4
         key_map.insert(String::from("}"), (0xDD,true)); // ] } VK_OEM_6
         key_map.insert(String::from("|"), (0xDC,true)); // \ | VK_OEM_5
-        key_map.insert(String::from("\""), (0xDE,true)); // ' " VK_OEM_7
-        
-        
+        key_map.insert(String::from("\""), (0xDE,true)); // ' " VK_OEM_7    
         key_map
     }
 }

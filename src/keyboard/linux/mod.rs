@@ -317,10 +317,11 @@ impl Keyboard {
         keysym_map.insert(String::from("control_r"), (String::from("Control_R"),false));
         keysym_map.insert(String::from("caps_lock"), (String::from("Caps_Lock"),false));
         keysym_map.insert(String::from("return"), (String::from("Return"),false));
+        keysym_map.insert(String::from("enter"), (String::from("Return"),false));
         keysym_map.insert(String::from("backspace"), (String::from("BackSpace"),false));
         keysym_map.insert(String::from("tab"), (String::from("Tab"),false));
-        keysym_map.insert(String::from("esc"), (String::from("Escape"),false));
         keysym_map.insert(String::from("escape"), (String::from("Escape"),false));
+        keysym_map.insert(String::from("esc"), (String::from("Escape"),false));
         keysym_map.insert(String::from("delete"), (String::from("Delete"),false));
         keysym_map.insert(String::from("home"), (String::from("Home"),false));
         keysym_map.insert(String::from("left_arrow"), (String::from("Left"),false));
