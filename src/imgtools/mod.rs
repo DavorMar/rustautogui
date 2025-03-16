@@ -23,6 +23,11 @@ pub fn load_image_bw(location: &str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, S
     Ok(gray_image)
 }
 
+pub fn load_image_from_memory_bw(bytes: &[u8]) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, String> {
+    let img = image::load_from_memory(bytes).map_err(|e| e.to_string())?;
+    Ok(img.to_luma8())
+}
+
 /// Loads image from the provided path and converts to RGBA format
 /// Returns image in image::ImageBuffer format
 pub fn load_image_rgba(location: &str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, String> {

@@ -169,22 +169,35 @@ impl RustAutoGui {
         match_mode: MatchMode,
         max_segments: &Option<u32>,
     ) -> Result<(), String> {
-        #[allow(unused_mut)] // allowed because its needed in macos code below
-        let mut template = imgtools::load_image_bw(template_path)?;
+        let template = imgtools::load_image_bw(template_path)?;
+        self.prepare_bw_template(template, region, match_mode, max_segments)
+    }
+
+    pub fn load_and_prepare_template_from_memory(
+        &mut self,
+        bytes: &[u8],
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        max_segments: &Option<u32>,
+    ) -> Result<(), String> {
+        let template = imgtools::load_image_from_memory_bw(bytes)?;
+        self.prepare_bw_template(template, region, match_mode, max_segments)
+    }
+
+    fn prepare_bw_template(
+        &mut self,
+        template: ImageBuffer<Luma<u8>, Vec<u8>>,
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        max_segments: &Option<u32>,
+    ) -> Result<(), String> {
         #[cfg(target_os = "macos")]
-        {
-            template = resize(
-                &template,
-                template.width() / self.screen.scaling_factor_x as u32,
-                template.height() / self.screen.scaling_factor_y as u32,
-                Nearest,
-            );
-        }
-        let (template_width, template_height) = template.dimensions();
-        self.template_width = template_width;
-        self.template_height = template_height;
-        self.template = Some(template.clone());
-        self.max_segments = *max_segments;
+        let template = resize(
+            &template,
+            template.width() / self.screen.scaling_factor_x as u32,
+            template.height() / self.screen.scaling_factor_y as u32,
+            Nearest,
+        );
         let region = match region {
             Some(region_tuple) => region_tuple,
             None => {
@@ -192,10 +205,6 @@ impl RustAutoGui {
                 (0, 0, screen_width as u32, screen_height as u32)
             }
         };
-        self.region = region;
-        self.screen.screen_region_width = region.2;
-        self.screen.screen_region_height = region.3;
-        self.check_if_region_out_of_bound()?;
         let template_data = match match_mode {
             MatchMode::FFT => {
                 let prepared_data =
@@ -230,6 +239,15 @@ impl RustAutoGui {
                 prepared_data
             }
         };
+        let (template_width, template_height) = template.dimensions();
+        self.template_width = template_width;
+        self.template_height = template_height;
+        self.template = Some(template);
+        self.max_segments = *max_segments;
+        self.region = region;
+        self.screen.screen_region_width = region.2;
+        self.screen.screen_region_height = region.3;
+        self.check_if_region_out_of_bound()?;
         self.prepared_data = template_data;
         return Ok(());
     }
@@ -349,7 +367,6 @@ impl RustAutoGui {
 
         let found_locations = match &self.prepared_data {
             PreparedData::FFT(data) => {
-                
                 let found_locations = normalized_x_corr::fft_ncc::fft_ncc(&image, &precision, data);
                 found_locations
             },
