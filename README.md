@@ -35,14 +35,13 @@ Either run
 
 or add the crate in your Cargo.toml file like:
 
-`rustautogui = "2.1.0"`
+`rustautogui = "2.1.1"`
 
 For Linux additionally install run :
 
 `sudo apt-get update`
 
 `sudo apt-get install libx11-dev libxtst-dev`
-
 
 
 For macOS: dont forget to give necessary permissions

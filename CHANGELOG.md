@@ -1,6 +1,13 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [2.1.1] - 2025-03.16
+### Fixed
+- added some missing keys for keyboard
+- a more detailed list of available key commands is now available in Keyboard_commands.md
+- old keyboard_commands.txt file has been removed
+- negative movement_times for mouse will not produce errors anymore. Instead, they are treated as 0.0 value
+
 ## [2.1.0] - 2025-03.15
 ### Added/Fixed
 - added scroll left / right functionality
