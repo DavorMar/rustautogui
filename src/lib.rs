@@ -697,10 +697,8 @@ impl RustAutoGui {
         input2: &str,
         input3: Option<&str>,
     ) -> Result<(), &'static str> {
-        let input3 = input3.map(String::from);
         // send automatically result of function
-        self.keyboard
-            .send_multi_key(&String::from(input1), &String::from(input2), input3)
+        self.keyboard.send_multi_key(&input1, &input2, input3)
     }
 }
 

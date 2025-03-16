@@ -5,7 +5,7 @@ use x11::xtest::*;
 /// main struct for interacting with keyboard. Keymap is generated upon intialization.
 /// screen is stored from Screen struct, where pointer for same screen object is used across the code
 pub struct Keyboard {
-    keymap: HashMap<String, (String, bool)>,
+    keymap: HashMap<&'static str, (&'static str, bool)>,
     screen: *mut _XDisplay,
 }
 impl Keyboard {
@@ -103,15 +103,14 @@ impl Keyboard {
         Ok(())
     }
 
-    unsafe fn get_keycode(&self, key: &String) -> Result<(u32, bool), &'static str> {
+    unsafe fn get_keycode(&self, key: &str) -> Result<(u32, bool), &'static str> {
         let value = self.keymap.get(key);
 
         let mut keysym_to_keycode = HashMap::new();
         let (keysym, shifted) = match value {
             Some(x) => {
                 let shifted = x.1;
-                let key_cstring =
-                    CString::new(x.0.as_str()).map_err(|_| "failed to grab key value")?;
+                let key_cstring = CString::new(x.0).map_err(|_| "failed to grab key value")?;
                 (XStringToKeysym(key_cstring.as_ptr()), shifted)
             }
             None => return Err("failed to grab keystring"),
@@ -147,7 +146,7 @@ impl Keyboard {
     }
 
     /// similar to send char, but can be string such as return, escape etc
-    pub fn send_command(&self, key: &String) -> Result<(), &'static str> {
+    pub fn send_command(&self, key: &str) -> Result<(), &'static str> {
         unsafe {
             let keycode = self.get_keycode(key)?;
             self.send_key(keycode.0);
@@ -157,9 +156,9 @@ impl Keyboard {
 
     pub fn send_multi_key(
         &self,
-        key_1: &String,
-        key_2: &String,
-        key_3: Option<String>,
+        key_1: &str,
+        key_2: &str,
+        key_3: Option<&str>,
     ) -> Result<(), &'static str> {
         unsafe {
             let value1 = self.get_keycode(key_1)?;
@@ -172,7 +171,7 @@ impl Keyboard {
                 Some(value) => {
                     third_key = true;
 
-                    self.get_keycode(&value)?
+                    self.get_keycode(value)?
                 }
                 None => (0, false),
             };
@@ -194,143 +193,131 @@ impl Keyboard {
     /// mapping made so  bigger variety of strings can be used when sending string as input.
     /// for instance, instead of neccessity of sending "period", we can send ".". This means when sending a
     /// string like url test.hr we dont need to send test, then send period, then send hr
-    fn create_keymap(_is_us_layout: bool) -> HashMap<String, (String, bool)> {
-        let mut keysym_map: HashMap<String, (String, bool)> = HashMap::new();
-        keysym_map.insert(String::from(" "), (String::from("space"), false));
-        keysym_map.insert(String::from("!"), (String::from("exclam"), true));
-        keysym_map.insert(String::from("\""), (String::from("quotedbl"), true));
-        keysym_map.insert(String::from("#"), (String::from("numbersign"), true));
-        keysym_map.insert(String::from("$"), (String::from("dollar"), true));
-        keysym_map.insert(String::from("%"), (String::from("percent"), true));
-        keysym_map.insert(String::from("&"), (String::from("ampersand"), true));
-        keysym_map.insert(String::from("'"), (String::from("apostrophe"), false));
-        keysym_map.insert(String::from("("), (String::from("parenleft"), false));
-        keysym_map.insert(String::from(")"), (String::from("parenright"), false));
-        keysym_map.insert(String::from("*"), (String::from("asterisk"), true));
-        keysym_map.insert(String::from("+"), (String::from("plus"), true));
-        keysym_map.insert(String::from(","), (String::from("comma"), false));
-        keysym_map.insert(String::from("<"), (String::from("comma"), true));
-        keysym_map.insert(String::from("-"), (String::from("minus"), false));
-        keysym_map.insert(String::from("."), (String::from("period"), false));
-        keysym_map.insert(String::from(">"), (String::from("period"), true));
-        keysym_map.insert(String::from("/"), (String::from("slash"), false));
-        keysym_map.insert(String::from("0"), (String::from("0"), false));
-        keysym_map.insert(String::from("1"), (String::from("1"), false));
-        keysym_map.insert(String::from("2"), (String::from("2"), false));
-        keysym_map.insert(String::from("3"), (String::from("3"), false));
-        keysym_map.insert(String::from("4"), (String::from("4"), false));
-        keysym_map.insert(String::from("5"), (String::from("5"), false));
-        keysym_map.insert(String::from("6"), (String::from("6"), false));
-        keysym_map.insert(String::from("7"), (String::from("7"), false));
-        keysym_map.insert(String::from("8"), (String::from("8"), false));
-        keysym_map.insert(String::from("9"), (String::from("9"), false));
-        keysym_map.insert(String::from(":"), (String::from("colon"), true));
-        keysym_map.insert(String::from(";"), (String::from("semicolon"), false));
-        keysym_map.insert(String::from("-"), (String::from("less"), false));
-        keysym_map.insert(String::from("="), (String::from("equal"), false));
-        keysym_map.insert(String::from("?"), (String::from("question"), true));
-        keysym_map.insert(String::from("@"), (String::from("at"), true));
-        keysym_map.insert(String::from("A"), (String::from("A"), true));
-        keysym_map.insert(String::from("B"), (String::from("B"), true));
-        keysym_map.insert(String::from("C"), (String::from("C"), true));
-        keysym_map.insert(String::from("D"), (String::from("D"), true));
-        keysym_map.insert(String::from("E"), (String::from("E"), true));
-        keysym_map.insert(String::from("F"), (String::from("F"), true));
-        keysym_map.insert(String::from("G"), (String::from("G"), true));
-        keysym_map.insert(String::from("H"), (String::from("H"), true));
-        keysym_map.insert(String::from("I"), (String::from("I"), true));
-        keysym_map.insert(String::from("J"), (String::from("J"), true));
-        keysym_map.insert(String::from("K"), (String::from("K"), true));
-        keysym_map.insert(String::from("L"), (String::from("L"), true));
-        keysym_map.insert(String::from("M"), (String::from("M"), true));
-        keysym_map.insert(String::from("N"), (String::from("N"), true));
-        keysym_map.insert(String::from("O"), (String::from("O"), true));
-        keysym_map.insert(String::from("P"), (String::from("P"), true));
-        keysym_map.insert(String::from("Q"), (String::from("Q"), true));
-        keysym_map.insert(String::from("R"), (String::from("R"), true));
-        keysym_map.insert(String::from("S"), (String::from("S"), true));
-        keysym_map.insert(String::from("T"), (String::from("T"), true));
-        keysym_map.insert(String::from("U"), (String::from("U"), true));
-        keysym_map.insert(String::from("V"), (String::from("V"), true));
-        keysym_map.insert(String::from("W"), (String::from("W"), true));
-        keysym_map.insert(String::from("X"), (String::from("X"), true));
-        keysym_map.insert(String::from("Y"), (String::from("Y"), true));
-        keysym_map.insert(String::from("Z"), (String::from("Z"), true));
-        keysym_map.insert(String::from("["), (String::from("bracketleft"), false));
-        keysym_map.insert(String::from("\\"), (String::from("backslash"), false));
-        keysym_map.insert(String::from("]"), (String::from("bracketright"), false));
-        keysym_map.insert(String::from("_"), (String::from("underscore"), false));
-        keysym_map.insert(String::from("a"), (String::from("a"), false));
-        keysym_map.insert(String::from("b"), (String::from("b"), false));
-        keysym_map.insert(String::from("c"), (String::from("c"), false));
-        keysym_map.insert(String::from("d"), (String::from("d"), false));
-        keysym_map.insert(String::from("e"), (String::from("e"), false));
-        keysym_map.insert(String::from("f"), (String::from("f"), false));
-        keysym_map.insert(String::from("g"), (String::from("g"), false));
-        keysym_map.insert(String::from("h"), (String::from("h"), false));
-        keysym_map.insert(String::from("i"), (String::from("i"), false));
-        keysym_map.insert(String::from("j"), (String::from("j"), false));
-        keysym_map.insert(String::from("k"), (String::from("k"), false));
-        keysym_map.insert(String::from("l"), (String::from("l"), false));
-        keysym_map.insert(String::from("m"), (String::from("m"), false));
-        keysym_map.insert(String::from("n"), (String::from("n"), false));
-        keysym_map.insert(String::from("o"), (String::from("o"), false));
-        keysym_map.insert(String::from("p"), (String::from("p"), false));
-        keysym_map.insert(String::from("q"), (String::from("q"), false));
-        keysym_map.insert(String::from("r"), (String::from("r"), false));
-        keysym_map.insert(String::from("s"), (String::from("s"), false));
-        keysym_map.insert(String::from("t"), (String::from("t"), false));
-        keysym_map.insert(String::from("u"), (String::from("u"), false));
-        keysym_map.insert(String::from("v"), (String::from("v"), false));
-        keysym_map.insert(String::from("w"), (String::from("w"), false));
-        keysym_map.insert(String::from("x"), (String::from("x"), false));
-        keysym_map.insert(String::from("y"), (String::from("y"), false));
-        keysym_map.insert(String::from("z"), (String::from("z"), false));
-        keysym_map.insert(String::from("{"), (String::from("braceleft"), true));
-        keysym_map.insert(String::from("|"), (String::from("bar"), true));
-        keysym_map.insert(String::from("}"), (String::from("braceright"), true));
-        keysym_map.insert(String::from("~"), (String::from("asciitilde"), false));
-        keysym_map.insert(String::from("shift_l"), (String::from("Shift_L"), false));
-        keysym_map.insert(String::from("shift"), (String::from("Shift_L"), false));
-        keysym_map.insert(String::from("shift_r"), (String::from("Shift_R"), false));
-        keysym_map.insert(
-            String::from("control_l"),
-            (String::from("Control_L"), false),
-        );
-        keysym_map.insert(String::from("control"), (String::from("Control_L"), false));
-        keysym_map.insert(String::from("ctrl"), (String::from("Control_L"), false));
-        keysym_map.insert(
-            String::from("control_r"),
-            (String::from("Control_R"), false),
-        );
-        keysym_map.insert(
-            String::from("caps_lock"),
-            (String::from("Caps_Lock"), false),
-        );
-        keysym_map.insert(String::from("return"), (String::from("Return"), false));
-        keysym_map.insert(String::from("enter"), (String::from("Return"), false));
-        keysym_map.insert(
-            String::from("backspace"),
-            (String::from("BackSpace"), false),
-        );
-        keysym_map.insert(String::from("tab"), (String::from("Tab"), false));
-        keysym_map.insert(String::from("escape"), (String::from("Escape"), false));
-        keysym_map.insert(String::from("esc"), (String::from("Escape"), false));
-        keysym_map.insert(String::from("delete"), (String::from("Delete"), false));
-        keysym_map.insert(String::from("home"), (String::from("Home"), false));
-        keysym_map.insert(String::from("left_arrow"), (String::from("Left"), false));
-        keysym_map.insert(String::from("left"), (String::from("Left"), false));
-        keysym_map.insert(String::from("up_arrow"), (String::from("Up"), false));
-        keysym_map.insert(String::from("up"), (String::from("Up"), false));
-        keysym_map.insert(String::from("right_arrow"), (String::from("Right"), false));
-        keysym_map.insert(String::from("right"), (String::from("Right"), false));
-        keysym_map.insert(String::from("down_arrow"), (String::from("Down"), false));
-        keysym_map.insert(String::from("down"), (String::from("Down"), false));
-        keysym_map.insert(String::from("end"), (String::from("End"), false));
-        keysym_map.insert(String::from("alt_l"), (String::from("Alt_L"), false));
-        keysym_map.insert(String::from("alt"), (String::from("Alt_L"), false));
-        keysym_map.insert(String::from("alt_r"), (String::from("Alt_R"), false));
-        // keysym_map.insert(String::from(" "), (String::from("Space"),false));
+    fn create_keymap(_is_us_layout: bool) -> HashMap<&'static str, (&'static str, bool)> {
+        let mut keysym_map = HashMap::with_capacity(128);
+        keysym_map.insert(" ", ("space", false));
+        keysym_map.insert("!", ("exclam", true));
+        keysym_map.insert("\"", ("quotedbl", true));
+        keysym_map.insert("#", ("numbersign", true));
+        keysym_map.insert("$", ("dollar", true));
+        keysym_map.insert("%", ("percent", true));
+        keysym_map.insert("&", ("ampersand", true));
+        keysym_map.insert("'", ("apostrophe", false));
+        keysym_map.insert("(", ("parenleft", false));
+        keysym_map.insert(")", ("parenright", false));
+        keysym_map.insert("*", ("asterisk", true));
+        keysym_map.insert("+", ("plus", true));
+        keysym_map.insert(",", ("comma", false));
+        keysym_map.insert("<", ("comma", true));
+        keysym_map.insert("-", ("minus", false));
+        keysym_map.insert(".", ("period", false));
+        keysym_map.insert(">", ("period", true));
+        keysym_map.insert("/", ("slash", false));
+        keysym_map.insert("0", ("0", false));
+        keysym_map.insert("1", ("1", false));
+        keysym_map.insert("2", ("2", false));
+        keysym_map.insert("3", ("3", false));
+        keysym_map.insert("4", ("4", false));
+        keysym_map.insert("5", ("5", false));
+        keysym_map.insert("6", ("6", false));
+        keysym_map.insert("7", ("7", false));
+        keysym_map.insert("8", ("8", false));
+        keysym_map.insert("9", ("9", false));
+        keysym_map.insert(":", ("colon", true));
+        keysym_map.insert(";", ("semicolon", false));
+        keysym_map.insert("-", ("less", false));
+        keysym_map.insert("=", ("equal", false));
+        keysym_map.insert("?", ("question", true));
+        keysym_map.insert("@", ("at", true));
+        keysym_map.insert("A", ("A", true));
+        keysym_map.insert("B", ("B", true));
+        keysym_map.insert("C", ("C", true));
+        keysym_map.insert("D", ("D", true));
+        keysym_map.insert("E", ("E", true));
+        keysym_map.insert("F", ("F", true));
+        keysym_map.insert("G", ("G", true));
+        keysym_map.insert("H", ("H", true));
+        keysym_map.insert("I", ("I", true));
+        keysym_map.insert("J", ("J", true));
+        keysym_map.insert("K", ("K", true));
+        keysym_map.insert("L", ("L", true));
+        keysym_map.insert("M", ("M", true));
+        keysym_map.insert("N", ("N", true));
+        keysym_map.insert("O", ("O", true));
+        keysym_map.insert("P", ("P", true));
+        keysym_map.insert("Q", ("Q", true));
+        keysym_map.insert("R", ("R", true));
+        keysym_map.insert("S", ("S", true));
+        keysym_map.insert("T", ("T", true));
+        keysym_map.insert("U", ("U", true));
+        keysym_map.insert("V", ("V", true));
+        keysym_map.insert("W", ("W", true));
+        keysym_map.insert("X", ("X", true));
+        keysym_map.insert("Y", ("Y", true));
+        keysym_map.insert("Z", ("Z", true));
+        keysym_map.insert("[", ("bracketleft", false));
+        keysym_map.insert("\\", ("backslash", false));
+        keysym_map.insert("]", ("bracketright", false));
+        keysym_map.insert("_", ("underscore", false));
+        keysym_map.insert("a", ("a", false));
+        keysym_map.insert("b", ("b", false));
+        keysym_map.insert("c", ("c", false));
+        keysym_map.insert("d", ("d", false));
+        keysym_map.insert("e", ("e", false));
+        keysym_map.insert("f", ("f", false));
+        keysym_map.insert("g", ("g", false));
+        keysym_map.insert("h", ("h", false));
+        keysym_map.insert("i", ("i", false));
+        keysym_map.insert("j", ("j", false));
+        keysym_map.insert("k", ("k", false));
+        keysym_map.insert("l", ("l", false));
+        keysym_map.insert("m", ("m", false));
+        keysym_map.insert("n", ("n", false));
+        keysym_map.insert("o", ("o", false));
+        keysym_map.insert("p", ("p", false));
+        keysym_map.insert("q", ("q", false));
+        keysym_map.insert("r", ("r", false));
+        keysym_map.insert("s", ("s", false));
+        keysym_map.insert("t", ("t", false));
+        keysym_map.insert("u", ("u", false));
+        keysym_map.insert("v", ("v", false));
+        keysym_map.insert("w", ("w", false));
+        keysym_map.insert("x", ("x", false));
+        keysym_map.insert("y", ("y", false));
+        keysym_map.insert("z", ("z", false));
+        keysym_map.insert("{", ("braceleft", true));
+        keysym_map.insert("|", ("bar", true));
+        keysym_map.insert("}", ("braceright", true));
+        keysym_map.insert("~", ("asciitilde", false));
+        keysym_map.insert("shift_l", ("Shift_L", false));
+        keysym_map.insert("shift", ("Shift_L", false));
+        keysym_map.insert("shift_r", ("Shift_R", false));
+        keysym_map.insert("control_l", ("Control_L", false));
+        keysym_map.insert("control", ("Control_L", false));
+        keysym_map.insert("ctrl", ("Control_L", false));
+        keysym_map.insert("control_r", ("Control_R", false));
+        keysym_map.insert("caps_lock", ("Caps_Lock", false));
+        keysym_map.insert("return", ("Return", false));
+        keysym_map.insert("enter", ("Return", false));
+        keysym_map.insert("backspace", ("BackSpace", false));
+        keysym_map.insert("tab", ("Tab", false));
+        keysym_map.insert("escape", ("Escape", false));
+        keysym_map.insert("esc", ("Escape", false));
+        keysym_map.insert("delete", ("Delete", false));
+        keysym_map.insert("home", ("Home", false));
+        keysym_map.insert("left_arrow", ("Left", false));
+        keysym_map.insert("left", ("Left", false));
+        keysym_map.insert("up_arrow", ("Up", false));
+        keysym_map.insert("up", ("Up", false));
+        keysym_map.insert("right_arrow", ("Right", false));
+        keysym_map.insert("right", ("Right", false));
+        keysym_map.insert("down_arrow", ("Down", false));
+        keysym_map.insert("down", ("Down", false));
+        keysym_map.insert("end", ("End", false));
+        keysym_map.insert("alt_l", ("Alt_L", false));
+        keysym_map.insert("alt", ("Alt_L", false));
+        keysym_map.insert("alt_r", ("Alt_R", false));
+        // keysym_map.insert(" ", ("Space" ,false));
         keysym_map
     }
 }
