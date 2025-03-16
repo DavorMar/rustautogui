@@ -31,9 +31,9 @@ impl Mouse {
         let distance_y = y - start_location.1;
 
         loop {
-            let duration = start.elapsed();
+            let duration = start.elapsed().as_secs_f32();
 
-            let time_passed_percentage = duration.as_secs_f32() / moving_time;
+            let time_passed_percentage = duration / moving_time;
             // on first iterations, time passed percentage gets values greater than 10, probably because duration is a
             // very small number. Probably could do if duration < 0.05 or similar
             if time_passed_percentage > 10.0 {

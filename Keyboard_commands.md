@@ -33,7 +33,7 @@
 | /                | X       | X     | X     |
 | ?                | X       | X     | X     |
 | \                | X       | X     | X     |
-| |                | X       | X     | X     |
+| \|               | X       | X     | X     |
 | `                | X       | X     | X     |
 | ~                | X       | X     | X     |
 | return / enter   | X       | X     | X     |

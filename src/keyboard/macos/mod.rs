@@ -66,11 +66,8 @@ impl Keyboard {
 
     pub fn send_char(&self, key: &char) -> Result<(), &'static str> {
         let char_string = String::from(*key);
-        let value = self.keymap.get(&char_string);
-        let value = match value {
-            Some(x) => x,
-            None => return Err("Wrong keyboard key input"),
-        };
+        let value = self.keymap.get(&char_string).ok_or("Wrong keyboard key input")?;
+        
         let shifted = value.1;
         let value = value.0;
         if shifted {
@@ -82,12 +79,7 @@ impl Keyboard {
     }
 
     pub fn send_command(&self, key: &String) -> Result<(), &'static str> {
-        let value = self.keymap.get(key);
-        let value = match value {
-            Some(x) => x,
-            None => return Err("Wrong keyboard command"),
-        };
-
+        let value = self.keymap.get(key).ok_or("Wrong keyboard command")?;
         self.send_key(value.0)?;
         Ok(())
     }
@@ -98,30 +90,18 @@ impl Keyboard {
         key_2: &String,
         key_3: Option<String>,
     ) -> Result<(), &'static str> {
-        let value1 = match self.keymap.get(key_1) {
-            Some(x) => x,
-            None => return Err("False first input in multi key command"),
-        }
-        .0;
-        let value2 = match self.keymap.get(key_2) {
-            Some(x) => x,
-            None => return Err("False second input in multi key command"),
-        }
-        .0;
+        let value1 = self.keymap.get(key_1).ok_or("False first input in multi key command")?.0;
+        let value2 = self.keymap.get(key_2).ok_or("False second input in multi key command")?.0;
 
         let mut third_key = false;
         let value3 = match key_3 {
             Some(value) => {
                 third_key = true;
-                let value3 = match self.keymap.get(&value) {
-                    Some(x) => x,
-                    None => return Err("False first input in multi key command"),
-                };
+                let value3 = self.keymap.get(&value).ok_or("False first input in multi key command")?.0;
                 value3
             }
-            None => &(0, false),
-        }
-        .0;
+            None => 0,
+        };
 
         self.press_key(value1)?;
         sleep(Duration::from_millis(50));
