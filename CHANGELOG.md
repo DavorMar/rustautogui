@@ -1,6 +1,20 @@
 # Changelog
+All notable changes to this project will be documented in this file.
 
-## [2.0.1] - 2025-03.10
+## [2.1.0] - 2025-03.15
+### Added/Fixed
+- added scroll left / right functionality
+- added drag mouse functionalty (click down -> move to location -> click up)
+- added get_screen_size() method
+- Fix for keyboard. Works on US layout only at the moment. Shifted argument from keyboard_input() method removed
+- fixed double click on MacOS
+- fix: added another check for region boundaries that should prevent the code to run an assertion, rather returning an error instead.
+- fix: find_image_and_move_mouse now returns correct position
+- changed move_mouse to accept u32 instead of i32 as x, y parameters
+- included warnings
+
+
+## [2.0.1] - 2025-03.14
 ### Fixed
 - Fixed readme code examples
 - fixed Segmented normalized cross correlation doing false matches.  
@@ -11,8 +25,6 @@
 - introduced graceful exits, except for some situations like not having x11 activated on linux
 - most of methods return Result<> now.
 
-
-All notable changes to this project will be documented in this file.
 ## [1.0.1] - 2025-03.07
 ### Fixed
 - fixed wrong creation of debug folder even when not in debug mode

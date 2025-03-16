@@ -31,6 +31,7 @@ pub fn fast_ncc_template_match(
     template_data: &(Vec<(u32, u32, u32, u32, f32)>, Vec<(u32, u32, u32, u32, f32)>, u32, u32, f32, f32, f32, f32, f32, f32),
     debug: &bool,
     image_name: &str,
+    suppress_warnings: &bool
 ) -> Vec<(u32, u32, f64)> {
     /// Process:
     /// Template preparation : done before calling template match
@@ -57,6 +58,10 @@ pub fn fast_ncc_template_match(
     // calculate precision into expected correlation
     let adjusted_fast_expected_corr = (precision * fast_expected_corr).pow(2);
     let adjusted_slow_expected_corr:f32 = (precision * slow_expected_corr).pow(2);
+    if (!*suppress_warnings ) & (adjusted_slow_expected_corr < 0.65) {    
+        eprintln!("WARNING:Segmented match mode may not be suitable for provided template image. High possibility of false positive
+            matches. Either use FFT match mode or increase number of segments(unless None as value is already selected)")
+    }
     if *debug {
         let mut fast_name = String::new();
         fast_name = fast_name + "debug/fast_" + image_name +".png";
@@ -374,7 +379,7 @@ pub fn prepare_template_picture(
 
     let max_segments = match max_segments{
         Some(x) => x,
-        None => &10000,
+        None => &std::u32::MAX,
     };
 
     // create fast segmented image
@@ -411,6 +416,12 @@ pub fn prepare_template_picture(
         let slow_segment_number = picture_segments_slow.len();
         println!("reduced number of segments to {fast_segment_number} for fast image and {slow_segment_number} for slow image" );
     }
+    if (picture_segments_fast.len() == 1) | (picture_segments_slow.len() == 1) {
+
+    }
+
+
+    
     let return_value: (Vec<(u32, u32, u32, u32, f32)>, Vec<(u32, u32, u32, u32, f32)>, u32, u32, f32, f32, f32, f32, f32, f32) = (
         picture_segments_fast,
         picture_segments_slow,
@@ -468,7 +479,7 @@ fn create_picture_segments (
         
         new_threshold += 1.0 ;
     }
-
+    
     
     let mut expected_corr = -1.0;
     let mut segments_sum = 0;

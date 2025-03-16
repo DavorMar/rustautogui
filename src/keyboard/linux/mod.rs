@@ -1,18 +1,20 @@
-use std::collections::HashMap;
 use x11::xlib::*;
 use x11::xtest::*;
-use std::ffi::CString;
+use std::{process::Command, time::Duration, thread, ffi::CString,collections::HashMap};
+
 
 /// main struct for interacting with keyboard. Keymap is generated upon intialization. 
 /// screen is stored from Screen struct, where pointer for same screen object is used across the code
 pub struct Keyboard {
-    keymap: HashMap<String,String>,
+    keymap: HashMap<String,(String,bool)>,
     screen : *mut _XDisplay,
 }
 impl Keyboard {
     /// create new keyboard instance. Display object is needed as argument
     pub fn new(screen: *mut _XDisplay) -> Self {
-        let keymap = Keyboard::create_keymap();
+        let is_us_layout: bool = Self::is_us_layout();
+        
+        let keymap = Keyboard::create_keymap(is_us_layout);
         Self { keymap: keymap, screen:screen}
     }
 
@@ -35,6 +37,48 @@ impl Keyboard {
         }
     }
 
+    // fn is_us_layout_old(screen:*mut _XDisplay) ->bool {
+    //     unsafe {
+    //         let mut major = 0;
+    //         let mut minor = 0;
+    //         let mut op = 0;
+    //         let mut event = 0;
+    //         let mut error = 0;
+    //         if XkbQueryExtension(screen, &mut op, &mut event, &mut error, &mut major, &mut minor) == 0 {
+    //             eprintln!("XKB extension is not available. Cannot detect keyboard layout, switching to default US. This may create issue if other layout is being used on OS");
+    //             return true;
+    //         } 
+    //         let mut state: XkbStateRec = std::mem::zeroed();
+    //         XkbGetState(screen, 0x0100, &mut state); // Get current keyboard state
+    //         let group = state.group; // Keyboard layout group (0 = US in most cases)
+            
+    //         group == 0 // If it's 0, it's likely US. Otherwise, another layout
+    //     }
+    // }
+
+
+    fn is_us_layout() -> bool {
+        let output = Command::new("setxkbmap")
+        .arg("-query")
+        .output()
+        .expect("Failed to execute setxkbmap");
+
+    let output_str = String::from_utf8_lossy(&output.stdout);
+
+    // Find the line containing "layout:"
+    if let Some(line) = output_str.lines().find(|line| line.starts_with("layout:")) {
+        // Extract the layouts and split by comma
+        let layouts: Vec<&str> = line.trim().split_whitespace().nth(1).unwrap_or("").split(',').collect();
+
+        // List of US-style QWERTY layouts
+        let us_layouts = ["us", "gb", "ca", "dk", "se", "no", "fi", "es", "pt", "it", "nl"];
+
+        // Check if any of the layouts in the list match US-style QWERTY
+        return layouts.iter().any(|&layout| us_layouts.contains(&layout));
+    }
+
+    false
+}
 
     /// execute send_key function but press Shift key before, and release it after
     fn send_shifted_key (&self, scan_code:u32) -> Result<(), &'static str> {
@@ -61,27 +105,23 @@ impl Keyboard {
         Ok(())
     }
 
-    unsafe fn get_keycode(&self, key: &String) -> Result<u32, &'static str> {
+    unsafe fn get_keycode(&self, key: &String) -> Result<(u32,bool), &'static str> {
         let value = self.keymap.get(key);
+        
         let mut keysym_to_keycode = HashMap::new();
-        let keysym = match value {
+        let (keysym, shifted) = match value {
             Some(x) => {
-                let key_cstring = CString::new(x.clone());
+                let shifted = x.1; 
+                let key_cstring = CString::new(x.0.clone());
                 let key_cstring = match key_cstring {
                     Ok(x) => x,
                     Err(_) => return Err("failed to grab key value")
                 };
                 let key_cstring = key_cstring.as_ptr();
-                XStringToKeysym(key_cstring)
+                (XStringToKeysym(key_cstring),shifted)
             },
             None => {
-                let key_cstring = CString::new(key.clone());
-                let key_cstring = match key_cstring {
-                    Ok(x) => x,
-                    Err(_) => return Err("failed to grab key value")
-                };
-                let key_cstring = key_cstring.as_ptr();
-                XStringToKeysym(key_cstring)
+                return Err("failed to grab keystring")
                 
             }
         };
@@ -94,22 +134,26 @@ impl Keyboard {
             keysym_to_keycode.insert(keysym, keycode);
         }
         let keycode = keysym_to_keycode[&keysym];
-        Ok(keycode)
+        Ok((keycode,shifted))
     }
 
     /// top level send character function that converts char to keycode and executes send key
-    pub fn send_char (&self, key:&char, shifted:&bool) -> Result<(), &'static str>{
+    pub fn send_char (&self, key:&char) -> Result<(), &'static str>{
         unsafe {
             let char_string: String = String::from(*key);
             let keycode = self.get_keycode(&char_string)?;
-            if keycode == 0 {
+            if keycode == (0,false) {
                 return Err("couldnt input a key")
             }
-            if *shifted {
+            let shifted = keycode.1;
+            let keycode= keycode.0;
+            
+            if shifted {
                 self.send_shifted_key(keycode)?;    
             } else {
                 self.send_key(keycode);
             }
+            
         }
         return Ok(())
 
@@ -121,7 +165,7 @@ impl Keyboard {
         
         unsafe {
             let keycode = self.get_keycode(key)?;
-            self.send_key(keycode);
+            self.send_key(keycode.0);
         }
         return Ok(())
     }
@@ -129,51 +173,34 @@ impl Keyboard {
     pub fn send_multi_key(&self, key_1:&String, key_2:&String, key_3:Option<String>) -> Result<(), &'static str > {
 
         unsafe {
-            let value1 = self.keymap.get(key_1);
-            let value1 = match value1 {
-                Some(x) => x,
-                None => {
-                    return Err("wrong 1st keyboard input")
-                }
-            };
-            let value1 = self.get_keycode(value1)?;
-
-            let value2 = self.keymap.get(key_2);
-            let value2 = match value2 {
-                Some(x) => x,
-                None => {
-                    return Err("wrong 2st keyboard input")
-                }
-            };
-            let value2 = self.get_keycode(value2)?;
-
+            
+            let value1 = self.get_keycode(&key_1)?;
+            println!("got value 1");
+            
+            let value2 = self.get_keycode(&key_2)?;
+            println!("got value 2");
             let mut third_key = false;
             let value3 = match key_3 {
                 Some(value) => {
                     third_key = true;
-                    let value3 = self.keymap.get(&value);
-                    let value3 = match value3 {
-                        Some(x) => x,
-                        None => {
-                            return Err("wrong 1st keyboard input")
-                        }
-                    };
-                    let value3 = self.get_keycode(value3)?;
+                    
+                    let value3 = self.get_keycode(&value)?;
                     value3
                 },
                 None => {
-                    0
+                    (0,false)
                 }   
             };
         
-            self.press_key(value1);
-            self.press_key(value2);
+            self.press_key(value1.0);
+            thread::sleep(Duration::from_millis(50));
+            self.press_key(value2.0);
             if third_key {
-                self.press_key(value3);
-                self.release_key(value3);
+                self.press_key(value3.0);
+                self.release_key(value3.0);
             }
-            self.release_key(value2);
-            self.release_key(value1);
+            self.release_key(value2.0);
+            self.release_key(value1.0);
         }
         Ok(())
 
@@ -185,116 +212,128 @@ impl Keyboard {
     /// mapping made so  bigger variety of strings can be used when sending string as input. 
     /// for instance, instead of neccessity of sending "period", we can send ".". This means when sending a 
     /// string like url test.hr we dont need to send test, then send period, then send hr 
-    fn create_keymap () -> HashMap<String, String> {
-        let mut keysym_map: HashMap<String, String> = HashMap::new();
-        keysym_map.insert(String::from(String::from(" ")), String::from("space"));
-        keysym_map.insert(String::from("!"), String::from("exclam"));
-        keysym_map.insert(String::from("\""), String::from("quotedbl"));
-        keysym_map.insert(String::from("#"), String::from("numbersign"));
-        keysym_map.insert(String::from("$"), String::from("dollar"));
-        keysym_map.insert(String::from("%"), String::from("percent"));
-        keysym_map.insert(String::from("&"), String::from("ampersand"));
-        keysym_map.insert(String::from("'"), String::from("apostrophe"));
-        keysym_map.insert(String::from("("), String::from("parenleft"));
-        keysym_map.insert(String::from(")"), String::from("parenright"));
-        keysym_map.insert(String::from("*"), String::from("asterisk"));
-        keysym_map.insert(String::from("+"), String::from("plus"));
-        keysym_map.insert(String::from(","), String::from("comma"));
-        keysym_map.insert(String::from("-"), String::from("minus"));
-        keysym_map.insert(String::from("."), String::from("period"));
-        keysym_map.insert(String::from("/"), String::from("slash"));
-        keysym_map.insert(String::from("0"), String::from("0"));
-        keysym_map.insert(String::from("1"), String::from("1"));
-        keysym_map.insert(String::from("2"), String::from("2"));
-        keysym_map.insert(String::from("3"), String::from("3"));
-        keysym_map.insert(String::from("4"), String::from("4"));
-        keysym_map.insert(String::from("5"), String::from("5"));
-        keysym_map.insert(String::from("6"), String::from("6"));
-        keysym_map.insert(String::from("7"), String::from("7"));
-        keysym_map.insert(String::from("8"), String::from("8"));
-        keysym_map.insert(String::from("9"), String::from("9"));
-        keysym_map.insert(String::from(":"), String::from("colon"));
-        keysym_map.insert(String::from(";"), String::from("semicolon"));
-        keysym_map.insert(String::from("-"), String::from("less"));
-        keysym_map.insert(String::from("="), String::from("equal"));
-        keysym_map.insert(String::from(">"), String::from("greater"));
-        keysym_map.insert(String::from("?"), String::from("question"));
-        keysym_map.insert(String::from("@"), String::from("at"));
-        keysym_map.insert(String::from("A"), String::from("A"));
-        keysym_map.insert(String::from("B"), String::from("B"));
-        keysym_map.insert(String::from("C"), String::from("C"));
-        keysym_map.insert(String::from("D"), String::from("D"));
-        keysym_map.insert(String::from("E"), String::from("E"));
-        keysym_map.insert(String::from("F"), String::from("F"));
-        keysym_map.insert(String::from("G"), String::from("G"));
-        keysym_map.insert(String::from("H"), String::from("H"));
-        keysym_map.insert(String::from("I"), String::from("I"));
-        keysym_map.insert(String::from("J"), String::from("J"));
-        keysym_map.insert(String::from("K"), String::from("K"));
-        keysym_map.insert(String::from("L"), String::from("L"));
-        keysym_map.insert(String::from("M"), String::from("M"));
-        keysym_map.insert(String::from("N"), String::from("N"));
-        keysym_map.insert(String::from("O"), String::from("O"));
-        keysym_map.insert(String::from("P"), String::from("P"));
-        keysym_map.insert(String::from("Q"), String::from("Q"));
-        keysym_map.insert(String::from("R"), String::from("R"));
-        keysym_map.insert(String::from("S"), String::from("S"));
-        keysym_map.insert(String::from("T"), String::from("T"));
-        keysym_map.insert(String::from("U"), String::from("U"));
-        keysym_map.insert(String::from("V"), String::from("V"));
-        keysym_map.insert(String::from("W"), String::from("W"));
-        keysym_map.insert(String::from("X"), String::from("X"));
-        keysym_map.insert(String::from("Y"), String::from("Y"));
-        keysym_map.insert(String::from("Z"), String::from("Z"));
-        keysym_map.insert(String::from("["), String::from("bracketleft"));
-        keysym_map.insert(String::from("\\"), String::from("backslash"));
-        keysym_map.insert(String::from("]"), String::from("bracketright"));
-        keysym_map.insert(String::from("_"), String::from("underscore"));
-        keysym_map.insert(String::from("a"), String::from("a"));
-        keysym_map.insert(String::from("b"), String::from("b"));
-        keysym_map.insert(String::from("c"), String::from("c"));
-        keysym_map.insert(String::from("d"), String::from("d"));
-        keysym_map.insert(String::from("e"), String::from("e"));
-        keysym_map.insert(String::from("f"), String::from("f"));
-        keysym_map.insert(String::from("g"), String::from("g"));
-        keysym_map.insert(String::from("h"), String::from("h"));
-        keysym_map.insert(String::from("i"), String::from("i"));
-        keysym_map.insert(String::from("j"), String::from("j"));
-        keysym_map.insert(String::from("k"), String::from("k"));
-        keysym_map.insert(String::from("l"), String::from("l"));
-        keysym_map.insert(String::from("m"), String::from("m"));
-        keysym_map.insert(String::from("n"), String::from("n"));
-        keysym_map.insert(String::from("o"), String::from("o"));
-        keysym_map.insert(String::from("p"), String::from("p"));
-        keysym_map.insert(String::from("q"), String::from("q"));
-        keysym_map.insert(String::from("r"), String::from("r"));
-        keysym_map.insert(String::from("s"), String::from("s"));
-        keysym_map.insert(String::from("t"), String::from("t"));
-        keysym_map.insert(String::from("u"), String::from("u"));
-        keysym_map.insert(String::from("v"), String::from("v"));
-        keysym_map.insert(String::from("w"), String::from("w"));
-        keysym_map.insert(String::from("x"), String::from("x"));
-        keysym_map.insert(String::from("y"), String::from("y"));
-        keysym_map.insert(String::from("z"), String::from("z"));
-        keysym_map.insert(String::from("{"), String::from("braceleft"));
-        keysym_map.insert(String::from("|"), String::from("bar"));
-        keysym_map.insert(String::from("}"), String::from("braceright"));
-        keysym_map.insert(String::from("~"), String::from("asciitilde"));
-        keysym_map.insert(String::from("shift_l"), String::from("Shift_L"));
-        keysym_map.insert(String::from("shift_r"), String::from("Shift_R"));
-        keysym_map.insert(String::from("control_l"), String::from("Control_L"));
-        keysym_map.insert(String::from("control_r"), String::from("Control_R"));
-        keysym_map.insert(String::from("caps_lock"), String::from("Caps_Lock"));
-        keysym_map.insert(String::from("return"), String::from("Return"));
-        keysym_map.insert(String::from("backspace"), String::from("BackSpace"));
-        keysym_map.insert(String::from("tab"), String::from("Tab"));
-        keysym_map.insert(String::from("delete"), String::from("Delete"));
-        keysym_map.insert(String::from("home"), String::from("Home"));
-        keysym_map.insert(String::from("left"), String::from("leftarrow"));
-        keysym_map.insert(String::from("up"), String::from("uparrow"));
-        keysym_map.insert(String::from("right"), String::from("rightarrow"));
-        keysym_map.insert(String::from("down"), String::from("downarrow"));
-        keysym_map.insert(String::from("end"), String::from("End"));
+    fn create_keymap (is_us_layout:bool) -> HashMap<String, (String,bool)> {
+        let mut keysym_map: HashMap<String, (String,bool)> = HashMap::new();
+        keysym_map.insert(String::from(String::from(" ")), (String::from("space"),false));
+        keysym_map.insert(String::from("!"), (String::from("exclam"),true));
+        keysym_map.insert(String::from("\""), (String::from("quotedbl"),true));
+        keysym_map.insert(String::from("#"), (String::from("numbersign"),true));
+        keysym_map.insert(String::from("$"), (String::from("dollar"),true));
+        keysym_map.insert(String::from("%"), (String::from("percent"),true));
+        keysym_map.insert(String::from("&"), (String::from("ampersand"),true));
+        keysym_map.insert(String::from("'"), (String::from("apostrophe"),false));
+        keysym_map.insert(String::from("("), (String::from("parenleft"),false));
+        keysym_map.insert(String::from(")"), (String::from("parenright"),false));
+        keysym_map.insert(String::from("*"), (String::from("asterisk"),true));
+        keysym_map.insert(String::from("+"), (String::from("plus"),true));
+        keysym_map.insert(String::from(","), (String::from("comma"),false));
+        keysym_map.insert(String::from("<"), (String::from("comma"),true));
+        keysym_map.insert(String::from("-"), (String::from("minus"),false));
+        keysym_map.insert(String::from("."), (String::from("period"),false));
+        keysym_map.insert(String::from(">"), (String::from("period"),true));
+        keysym_map.insert(String::from("/"), (String::from("slash"),false));
+        keysym_map.insert(String::from("0"), (String::from("0"),false));
+        keysym_map.insert(String::from("1"), (String::from("1"),false));
+        keysym_map.insert(String::from("2"), (String::from("2"),false));
+        keysym_map.insert(String::from("3"), (String::from("3"),false));
+        keysym_map.insert(String::from("4"), (String::from("4"),false));
+        keysym_map.insert(String::from("5"), (String::from("5"),false));
+        keysym_map.insert(String::from("6"), (String::from("6"),false));
+        keysym_map.insert(String::from("7"), (String::from("7"),false));
+        keysym_map.insert(String::from("8"), (String::from("8"),false));
+        keysym_map.insert(String::from("9"), (String::from("9"),false));
+        keysym_map.insert(String::from(":"), (String::from("colon"),true));
+        keysym_map.insert(String::from(";"), (String::from("semicolon"),false));
+        keysym_map.insert(String::from("-"), (String::from("less"),false));
+        keysym_map.insert(String::from("="), (String::from("equal"),false));
+        keysym_map.insert(String::from("?"), (String::from("question"),true));
+        keysym_map.insert(String::from("@"), (String::from("at"),true));
+        keysym_map.insert(String::from("A"), (String::from("A"),true));
+        keysym_map.insert(String::from("B"), (String::from("B"),true));
+        keysym_map.insert(String::from("C"), (String::from("C"),true));
+        keysym_map.insert(String::from("D"), (String::from("D"),true));
+        keysym_map.insert(String::from("E"), (String::from("E"),true));
+        keysym_map.insert(String::from("F"), (String::from("F"),true));
+        keysym_map.insert(String::from("G"), (String::from("G"),true));
+        keysym_map.insert(String::from("H"), (String::from("H"),true));
+        keysym_map.insert(String::from("I"), (String::from("I"),true));
+        keysym_map.insert(String::from("J"), (String::from("J"),true));
+        keysym_map.insert(String::from("K"), (String::from("K"),true));
+        keysym_map.insert(String::from("L"), (String::from("L"),true));
+        keysym_map.insert(String::from("M"), (String::from("M"),true));
+        keysym_map.insert(String::from("N"), (String::from("N"),true));
+        keysym_map.insert(String::from("O"), (String::from("O"),true));
+        keysym_map.insert(String::from("P"), (String::from("P"),true));
+        keysym_map.insert(String::from("Q"), (String::from("Q"),true));
+        keysym_map.insert(String::from("R"), (String::from("R"),true));
+        keysym_map.insert(String::from("S"), (String::from("S"),true));
+        keysym_map.insert(String::from("T"), (String::from("T"),true));
+        keysym_map.insert(String::from("U"), (String::from("U"),true));
+        keysym_map.insert(String::from("V"), (String::from("V"),true));
+        keysym_map.insert(String::from("W"), (String::from("W"),true));
+        keysym_map.insert(String::from("X"), (String::from("X"),true));
+        keysym_map.insert(String::from("Y"), (String::from("Y"),true));
+        keysym_map.insert(String::from("Z"), (String::from("Z"),true));
+        keysym_map.insert(String::from("["), (String::from("bracketleft"),false));
+        keysym_map.insert(String::from("\\"), (String::from("backslash"),false));
+        keysym_map.insert(String::from("]"), (String::from("bracketright"),false));
+        keysym_map.insert(String::from("_"), (String::from("underscore"),false));
+        keysym_map.insert(String::from("a"), (String::from("a"),false));
+        keysym_map.insert(String::from("b"), (String::from("b"),false));
+        keysym_map.insert(String::from("c"), (String::from("c"),false));
+        keysym_map.insert(String::from("d"), (String::from("d"),false));
+        keysym_map.insert(String::from("e"), (String::from("e"),false));
+        keysym_map.insert(String::from("f"), (String::from("f"),false));
+        keysym_map.insert(String::from("g"), (String::from("g"),false));
+        keysym_map.insert(String::from("h"), (String::from("h"),false));
+        keysym_map.insert(String::from("i"), (String::from("i"),false));
+        keysym_map.insert(String::from("j"), (String::from("j"),false));
+        keysym_map.insert(String::from("k"), (String::from("k"),false));
+        keysym_map.insert(String::from("l"), (String::from("l"),false));
+        keysym_map.insert(String::from("m"), (String::from("m"),false));
+        keysym_map.insert(String::from("n"), (String::from("n"),false));
+        keysym_map.insert(String::from("o"), (String::from("o"),false));
+        keysym_map.insert(String::from("p"), (String::from("p"),false));
+        keysym_map.insert(String::from("q"), (String::from("q"),false));
+        keysym_map.insert(String::from("r"), (String::from("r"),false));
+        keysym_map.insert(String::from("s"), (String::from("s"),false));
+        keysym_map.insert(String::from("t"), (String::from("t"),false));
+        keysym_map.insert(String::from("u"), (String::from("u"),false));
+        keysym_map.insert(String::from("v"), (String::from("v"),false));
+        keysym_map.insert(String::from("w"), (String::from("w"),false));
+        keysym_map.insert(String::from("x"), (String::from("x"),false));
+        keysym_map.insert(String::from("y"), (String::from("y"),false));
+        keysym_map.insert(String::from("z"), (String::from("z"),false));
+        keysym_map.insert(String::from("{"), (String::from("braceleft"),true));
+        keysym_map.insert(String::from("|"), (String::from("bar"),true));
+        keysym_map.insert(String::from("}"), (String::from("braceright"),true));
+        keysym_map.insert(String::from("~"), (String::from("asciitilde"),false));
+        keysym_map.insert(String::from("shift_l"), (String::from("Shift_L"),false));
+        keysym_map.insert(String::from("shift"), (String::from("Shift_L"),false));
+        keysym_map.insert(String::from("shift_r"), (String::from("Shift_R"),false));
+        keysym_map.insert(String::from("control_l"), (String::from("Control_L"),false));
+        keysym_map.insert(String::from("control"), (String::from("Control_L"),false));
+        keysym_map.insert(String::from("ctrl"), (String::from("Control_L"),false));
+        keysym_map.insert(String::from("control_r"), (String::from("Control_R"),false));
+        keysym_map.insert(String::from("caps_lock"), (String::from("Caps_Lock"),false));
+        keysym_map.insert(String::from("return"), (String::from("Return"),false));
+        keysym_map.insert(String::from("backspace"), (String::from("BackSpace"),false));
+        keysym_map.insert(String::from("tab"), (String::from("Tab"),false));
+        keysym_map.insert(String::from("delete"), (String::from("Delete"),false));
+        keysym_map.insert(String::from("home"), (String::from("Home"),false));
+        keysym_map.insert(String::from("left_arrow"), (String::from("Left"),false));
+        keysym_map.insert(String::from("left"), (String::from("Left"),false));
+        keysym_map.insert(String::from("up_arrow"), (String::from("Up"),false));
+        keysym_map.insert(String::from("up"), (String::from("Up"),false));
+        keysym_map.insert(String::from("right_arrow"), (String::from("Right"),false));
+        keysym_map.insert(String::from("right"), (String::from("Right"),false));
+        keysym_map.insert(String::from("down_arrow"), (String::from("Down"),false));
+        keysym_map.insert(String::from("down"), (String::from("Down"),false));
+        keysym_map.insert(String::from("end"), (String::from("End"),false));
+        keysym_map.insert(String::from("alt_l"), (String::from("Alt_L"),false));
+        keysym_map.insert(String::from("alt"), (String::from("Alt_L"),false));
+        keysym_map.insert(String::from("alt_r"), (String::from("Alt_R"),false));
+        // keysym_map.insert(String::from(" "), (String::from("Space"),false));
         keysym_map
     }
 }

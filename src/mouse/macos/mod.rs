@@ -1,6 +1,5 @@
 use std::{
-    thread::sleep,
-    time::{Duration, Instant}
+    thread::sleep, time::{Duration, Instant}
 };
 
 use core_graphics::event::{
@@ -9,6 +8,7 @@ use core_graphics::event::{
 
 use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 use core_graphics::geometry::CGPoint;
+use rustfft::num_traits::Pow;
 use crate::mouse::{MouseClick,MouseScroll};
 
 
@@ -50,6 +50,90 @@ impl Mouse{
             }
             return Ok(())
         }
+    }
+
+    pub fn drag_mouse(x: i32, y: i32, moving_time: f32) -> Result<(), &'static str> {
+        let (cg_button, down, up) = (CGMouseButton::Left, CGEventType::LeftMouseDown, CGEventType::LeftMouseUp);
+        let drag = CGEventType::LeftMouseDragged;
+        // needed as input for where to click
+        let mouse_pos = Mouse::get_mouse_position()?;
+        // click down
+        let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
+        let cg_event_source = match cg_event_source {
+            Ok(x) => x,
+            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
+        };
+        
+        let click_down = CGEvent::new_mouse_event(
+            cg_event_source.clone(),
+            down,
+            CGPoint::new(mouse_pos.0 as f64, mouse_pos.1 as f64),
+            cg_button,
+        );
+        match click_down {
+            Ok(x) => x.post(CGEventTapLocation::HID),
+            Err(_) => return Err("Failed the mouse click down CGevent")
+
+        }
+
+
+
+        sleep(Duration::from_millis(100));
+
+
+        // Move mouse with dragging event
+        let distance = ((x - mouse_pos.0).pow(2) + (y - mouse_pos.1).pow(2)) as f32;
+        let distance = distance.sqrt();
+
+        
+
+        let steps = distance / 20.0; // Adjust for smoothness
+
+        let dx = (x - mouse_pos.0) as f64 / steps as f64;
+        let dy = (y - mouse_pos.1) as f64 / steps as f64;
+        
+        
+        
+
+        for i in 1..=steps as i32{
+            let new_x = mouse_pos.0 as f64 + dx * i as f64;
+            let new_y = mouse_pos.1 as f64 + dy * i as f64;
+
+            let drag_event = CGEvent::new_mouse_event(
+                cg_event_source.clone(),
+                drag, // Use LeftMouseDragged instead of just moving
+                CGPoint::new(new_x, new_y),
+                cg_button,
+            )
+            .map_err(|_| "Failed to create drag CGEvent")?;
+            drag_event.post(CGEventTapLocation::HID);
+            
+            sleep(Duration::from_millis((moving_time * 1000.0 / steps as f32) as u64));
+        }
+
+        
+        //click up 
+        let mouse_pos = Mouse::get_mouse_position()?;
+        let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
+        let cg_event_source = match cg_event_source {
+            Ok(x) => x,
+            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
+        };
+
+        let click_up = CGEvent::new_mouse_event(
+            cg_event_source,
+            up,
+            CGPoint::new(mouse_pos.0 as f64, mouse_pos.1 as f64),
+            cg_button,
+        );
+        match click_up {
+            Ok(x) => x.post(CGEventTapLocation::HID),
+            Err(_) => return Err("Failed the mouse click up CGevent"),
+        }
+        
+        sleep(Duration::from_millis(20));
+
+        Ok(())
     }
 
     // separate private function called by move to pos
@@ -146,8 +230,10 @@ impl Mouse{
 
     pub fn scroll (direction:MouseScroll) -> Result<(), &'static str> {
         let delta = match direction {
-            MouseScroll::UP => 10,
-            MouseScroll::DOWN => -10,
+            MouseScroll::UP => (10,0),
+            MouseScroll::DOWN => (-10,0),
+            MouseScroll::LEFT => (0,10),
+            MouseScroll::RIGHT => (0,-10),
         };
         let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
         let cg_event_source = match cg_event_source {
@@ -155,13 +241,13 @@ impl Mouse{
             Err(_) => return Err("Error creating CGEventSource on mouse movement"),
         };
 
-
+        
         let scroll = CGEvent::new_scroll_event(
             cg_event_source,
             ScrollEventUnit::PIXEL,
-            1,
-            delta,
-            0,
+            2,
+            delta.0,
+            delta.1,
             0
         );
         match scroll {
@@ -183,40 +269,49 @@ impl Mouse{
             Err(_) => return Err("Failed creating CGEventSource on mouse double click")
         };
         let pos = Mouse::get_mouse_position()?;
-        for _ in [0..2] {
-            let mouse_down = CGEvent::new_mouse_event(
-                source.clone(),
-                CGEventType::LeftMouseDown,
-                CGPoint::new(pos.0 as f64, pos.1 as f64),
-                CGMouseButton::Left,
-            );
-            match mouse_down {
-                Ok(x) => {
-                    x.set_integer_value_field(1, 1); // first click
-                    x.post(CGEventTapLocation::HID);
-                    sleep(Duration::from_millis(10));
-                },
-                Err(_) => return Err("Failed creating CGevent for mouse click down action")
-            };
-            
-            let mouse_up = CGEvent::new_mouse_event(
-                source.clone(),
-                CGEventType::LeftMouseUp,
-                CGPoint::new(pos.0 as f64, pos.1 as f64),
-                CGMouseButton::Left,
-            );
-            match mouse_up {
-                Ok(x) => {
-                    x.set_integer_value_field(1, 1); // first click
-                    x.post(CGEventTapLocation::HID);
-                },
-                Err(_) => return Err("Failed creating CGevent for mouse up click")
-            };
-            
-    
-            sleep(Duration::from_millis(50)); // Small delay between clicks
-        }
         
+        // needed first to get focus of the window
+        Self::mouse_click(MouseClick::LEFT).unwrap();
+        sleep(Duration::from_millis(50));
+
+        // MacOs does double click wierldy.
+        // good explanation at https://stackoverflow.com/questions/1483657/performing-a-double-click-using-cgeventcreatemouseevent
+        // basically, the x.set_integer_value_field defines event as double click. Sending 2 times a left click does not work
+        let mouse_down = CGEvent::new_mouse_event(
+            source.clone(),
+            CGEventType::LeftMouseDown,
+            CGPoint::new(pos.0 as f64, pos.1 as f64),
+            CGMouseButton::Left,
+        );
+        let mouse_down_event = match mouse_down.clone() {
+            Ok(x) => {
+                x.set_integer_value_field(1, 2); 
+                x
+            },
+            Err(_) => return Err("Failed creating CGevent for mouse click down action")
+        };
+        
+        let mouse_up = CGEvent::new_mouse_event(
+            source.clone(),
+            CGEventType::LeftMouseUp,
+            CGPoint::new(pos.0 as f64, pos.1 as f64),
+            CGMouseButton::Left,
+        );
+        let mouse_up_event = match mouse_up.clone() {
+            Ok(x) => {
+                x.set_integer_value_field(1, 2);
+                x
+            },
+            Err(_) => return Err("Failed creating CGevent for mouse up click")
+        };
+
+        
+
+        mouse_down_event.post(CGEventTapLocation::HID);
+        sleep(Duration::from_millis(10));
+        mouse_up_event.post(CGEventTapLocation::HID);
+        sleep(Duration::from_millis(50));
+
 
         Ok(())
     }

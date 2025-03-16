@@ -82,7 +82,7 @@ pub fn fft_ncc(
     // do inverse fft 
     let mut fft_result: Vec<Complex<f32>> = product_freq.clone();
     ifft.process(&mut fft_result);
-
+    
     // flatten for multithreading
     let coords: Vec<(u32, u32)> = (0..=(image_height - template_height))//@audit could underflow if image_height = 0
         .flat_map(|y| (0..=(image_width - template_width)).map(move |x| (x, y)))//@audit could underflow if image_width = 0
