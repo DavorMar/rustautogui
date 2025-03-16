@@ -22,7 +22,7 @@ impl Mouse {
     pub fn move_mouse_to_pos(&self, x:i32, y:i32, moving_time:f32) -> Result<(), &'static str > {
         // if no moving time, then instant move is executed
         unsafe {
-            if moving_time == 0.0 {
+            if moving_time <= 0.0 {
                 XWarpPointer(self.screen, 0, self.root_window, 0, 0, 0, 0, x, y);
                 XFlush(self.screen); 
                 return  Ok(())

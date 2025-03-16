@@ -23,7 +23,7 @@ impl Mouse{
     /// moves mouse to x, y pixel coordinate on screen 
     
     pub fn move_mouse_to_pos (x:i32, y:i32 ,moving_time: f32) -> Result<(), &'static str>{
-        if moving_time == 0.0 {
+        if moving_time <= 0.0 {
             Mouse::move_mouse(x, y)?;
             return Ok(())
         } else {

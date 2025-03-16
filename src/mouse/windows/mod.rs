@@ -27,7 +27,7 @@ impl Mouse {
           // if no moving time, then instant move is executed
           unsafe {
 
-               if moving_time == 0.0 {
+               if moving_time <= 0.0 {
                     SetCursorPos(x, y);
                     return
                }
