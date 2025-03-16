@@ -14,10 +14,7 @@ impl Keyboard {
         let is_us_layout: bool = Self::is_us_layout();
 
         let keymap = Keyboard::create_keymap(is_us_layout);
-        Self {
-            keymap: keymap,
-            screen: screen,
-        }
+        Self { keymap, screen }
     }
 
     /// Function that presses key down. When sending key, press key down and release key is executed
@@ -70,7 +67,6 @@ impl Keyboard {
         if let Some(line) = output_str.lines().find(|line| line.starts_with("layout:")) {
             // Extract the layouts and split by comma
             let layouts: Vec<&str> = line
-                .trim()
                 .split_whitespace()
                 .nth(1)
                 .unwrap_or("")
@@ -101,10 +97,9 @@ impl Keyboard {
             let key_cstring = key_cstring.as_ptr();
 
             let keysym = XStringToKeysym(key_cstring);
-            if !keysym_to_keycode2.contains_key(&keysym) {
-                let keycode = XKeysymToKeycode(self.screen, keysym) as u32;
-                keysym_to_keycode2.insert(keysym, keycode);
-            }
+            keysym_to_keycode2
+                .entry(keysym)
+                .or_insert_with(|| XKeysymToKeycode(self.screen, keysym) as u32);
             let keycode = keysym_to_keycode2[&keysym];
             self.press_key(keycode); //press shift
             self.send_key(scan_code);
@@ -133,10 +128,9 @@ impl Keyboard {
         if keysym == 0 {
             return Err("failed to grab keystring");
         }
-        if !keysym_to_keycode.contains_key(&keysym) {
-            let keycode = XKeysymToKeycode(self.screen, keysym) as u32;
-            keysym_to_keycode.insert(keysym, keycode);
-        }
+        keysym_to_keycode
+            .entry(keysym)
+            .or_insert_with(|| XKeysymToKeycode(self.screen, keysym) as u32);
         let keycode = keysym_to_keycode[&keysym];
         Ok((keycode, shifted))
     }
@@ -158,7 +152,7 @@ impl Keyboard {
                 self.send_key(keycode);
             }
         }
-        return Ok(());
+        Ok(())
     }
 
     /// similar to send char, but can be string such as return, escape etc
@@ -167,7 +161,7 @@ impl Keyboard {
             let keycode = self.get_keycode(key)?;
             self.send_key(keycode.0);
         }
-        return Ok(());
+        Ok(())
     }
 
     pub fn send_multi_key(
@@ -177,18 +171,17 @@ impl Keyboard {
         key_3: Option<String>,
     ) -> Result<(), &'static str> {
         unsafe {
-            let value1 = self.get_keycode(&key_1)?;
+            let value1 = self.get_keycode(key_1)?;
             println!("got value 1");
 
-            let value2 = self.get_keycode(&key_2)?;
+            let value2 = self.get_keycode(key_2)?;
             println!("got value 2");
             let mut third_key = false;
             let value3 = match key_3 {
                 Some(value) => {
                     third_key = true;
 
-                    let value3 = self.get_keycode(&value)?;
-                    value3
+                    self.get_keycode(&value)?
                 }
                 None => (0, false),
             };
@@ -210,12 +203,9 @@ impl Keyboard {
     /// mapping made so  bigger variety of strings can be used when sending string as input.
     /// for instance, instead of neccessity of sending "period", we can send ".". This means when sending a
     /// string like url test.hr we dont need to send test, then send period, then send hr
-    fn create_keymap(is_us_layout: bool) -> HashMap<String, (String, bool)> {
+    fn create_keymap(_is_us_layout: bool) -> HashMap<String, (String, bool)> {
         let mut keysym_map: HashMap<String, (String, bool)> = HashMap::new();
-        keysym_map.insert(
-            String::from(String::from(" ")),
-            (String::from("space"), false),
-        );
+        keysym_map.insert(String::from(" "), (String::from("space"), false));
         keysym_map.insert(String::from("!"), (String::from("exclam"), true));
         keysym_map.insert(String::from("\""), (String::from("quotedbl"), true));
         keysym_map.insert(String::from("#"), (String::from("numbersign"), true));

@@ -1,4 +1,7 @@
 #![allow(unused_doc_comments, unused_imports)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::result_unit_err)]
 use image::{
     imageops::{resize, FilterType::Nearest},
     ImageBuffer, Luma,
@@ -26,23 +29,34 @@ pub mod screen;
 /// Struct of prepared data for each correlation method used
 /// Segmented consists of two image vectors and associated mean value, sum of squared deviations, sizes
 /// FFT vector consists of template vector converted to frequency domain and conjugated, sum squared deviations, size and padded size
+#[derive(Debug, Clone)]
 pub enum PreparedData {
-    Segmented(
-        (
-            Vec<(u32, u32, u32, u32, f32)>,
-            Vec<(u32, u32, u32, u32, f32)>,
-            u32,
-            u32,
-            f32,
-            f32,
-            f32,
-            f32,
-            f32,
-            f32,
-        ),
-    ),
-    FFT((Vec<Complex<f32>>, f32, u32, u32, u32)),
+    Segmented(SegmentedData),
+    FFT(FftData),
     None,
+}
+
+#[derive(Debug, Clone)]
+pub struct SegmentedData {
+    pub template_segments_fast: Vec<(u32, u32, u32, u32, f32)>,
+    pub template_segments_slow: Vec<(u32, u32, u32, u32, f32)>,
+    pub template_width: u32,
+    pub template_height: u32,
+    pub fast_segments_sum_squared_deviations: f32,
+    pub slow_segments_sum_squared_deviations: f32,
+    pub fast_expected_corr: f32,
+    pub slow_expected_corr: f32,
+    pub segments_mean_fast: f32,
+    pub segments_mean_slow: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct FftData {
+    pub template_conj_freq: Vec<Complex<f32>>,
+    pub template_sum_squared_deviations: f32,
+    pub template_width: u32,
+    pub template_height: u32,
+    pub padded_size: u32,
 }
 
 /// Matchmode Segmented correlation and Fourier transform correlation
@@ -116,16 +130,16 @@ impl RustAutoGui {
         Ok(Self {
             template: None,
             prepared_data: PreparedData::None,
-            debug: debug,
+            debug,
             template_width: 0,
             template_height: 0,
-            keyboard: keyboard,
+            keyboard,
             mouse: mouse_struct,
-            screen: screen,
+            screen,
             match_mode: None,
             max_segments: None,
             region: (0, 0, 0, 0),
-            suppress_warnings: suppress_warnings,
+            suppress_warnings,
         })
     }
 
@@ -209,29 +223,21 @@ impl RustAutoGui {
             MatchMode::FFT => {
                 let prepared_data =
                     PreparedData::FFT(normalized_x_corr::fft_ncc::prepare_template_picture(
-                        &template, &region.2, &region.3,
+                        &template, region.2, region.3,
                     ));
                 self.match_mode = Some(MatchMode::FFT);
                 prepared_data
             }
             MatchMode::Segmented => {
-                let prepared_data: (
-                    Vec<(u32, u32, u32, u32, f32)>,
-                    Vec<(u32, u32, u32, u32, f32)>,
-                    u32,
-                    u32,
-                    f32,
-                    f32,
-                    f32,
-                    f32,
-                    f32,
-                    f32,
-                ) = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
-                    &template,
-                    max_segments,
-                    &self.debug,
-                );
-                if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
+                let prepared_data =
+                    normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
+                        &template,
+                        max_segments,
+                        &self.debug,
+                    );
+                if (prepared_data.template_segments_fast.len() == 1)
+                    | (prepared_data.template_segments_slow.len() == 1)
+                {
                     return Err(String::from("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"));
                 }
                 let prepared_data = PreparedData::Segmented(prepared_data);
@@ -249,7 +255,7 @@ impl RustAutoGui {
         self.screen.screen_region_height = region.3;
         self.check_if_region_out_of_bound()?;
         self.prepared_data = template_data;
-        return Ok(());
+        Ok(())
     }
 
     /// change certain settings for prepared template, like region, match_mode or max_segments. If MatchMode is not changed, whole template
@@ -294,7 +300,7 @@ impl RustAutoGui {
                     }
                     let prepared_data =
                         PreparedData::FFT(normalized_x_corr::fft_ncc::prepare_template_picture(
-                            &template, &region.2, &region.3,
+                            &template, region.2, region.3,
                         ));
                     self.prepared_data = prepared_data;
                     self.match_mode = Some(MatchMode::FFT);
@@ -354,12 +360,12 @@ impl RustAutoGui {
                         println!("Created a debug folder in your root for saving segmented template images");
                         match image.save("debug/screen_capture.png") {
                             Ok(_) => (),
-                            Err(x) => println!("{}", x.to_string()),
+                            Err(x) => println!("{}", x),
                         };
                     }
                     Err(x) => {
                         println!("Failed to create debug folder");
-                        println!("{}", x.to_string());
+                        println!("{}", x);
                     }
                 };
             }
@@ -367,11 +373,10 @@ impl RustAutoGui {
 
         let found_locations = match &self.prepared_data {
             PreparedData::FFT(data) => {
-                let found_locations = normalized_x_corr::fft_ncc::fft_ncc(&image, &precision, data);
-                found_locations
+                normalized_x_corr::fft_ncc::fft_ncc(&image, precision, data)
             },
             PreparedData::Segmented(data) => {
-                let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, &precision, data, &self.debug, "", &self.suppress_warnings);
+                let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, precision, data, &self.debug, "", &self.suppress_warnings);
                 found_locations
             },
             PreparedData::None => {
@@ -380,17 +385,12 @@ impl RustAutoGui {
 
         };
 
-        if found_locations.len() > 0 {
+        if !found_locations.is_empty() {
             if self.debug {
-                let corrected_found_location: (u32, u32, f64);
-                let x = found_locations[0].0 as u32
-                    + (self.template_width / 2) as u32
-                    + self.region.0 as u32;
-                let y = found_locations[0].1 as u32
-                    + (self.template_height / 2) as u32
-                    + self.region.1 as u32;
+                let x = found_locations[0].0 as u32 + (self.template_width / 2) + self.region.0;
+                let y = found_locations[0].1 as u32 + (self.template_height / 2) + self.region.1;
                 let corr = found_locations[0].2;
-                corrected_found_location = (x, y, corr);
+                let corrected_found_location: (u32, u32, f64) = (x, y, corr);
 
                 println!(
                     "Location found at x: {}, y {}, corr {} ",
@@ -399,11 +399,11 @@ impl RustAutoGui {
                     corrected_found_location.2
                 )
             }
-            return Ok(Some(found_locations));
+            Ok(Some(found_locations))
         } else {
             let empty_vec: Vec<(u32, u32, f64)> = vec![];
-            return Ok(None);
-        };
+            Ok(None)
+        }
     }
 
     /// saves screenshot and saves it at provided path
@@ -433,7 +433,7 @@ impl RustAutoGui {
         let target_y = y + self.region.1;
         self.move_mouse_to_pos(target_x, target_y, moving_time)?;
 
-        return Ok(Some(vec![(target_x, target_y, locations[0].2)]));
+        Ok(Some(vec![(target_x, target_y, locations[0].2)]))
     }
 
     pub fn get_screen_size(&mut self) -> (i32, i32) {
@@ -618,10 +618,8 @@ impl RustAutoGui {
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
             return Err("Out of screen boundaries");
         }
-        if moving_time < 0.5 {
-            if !self.suppress_warnings {
-                eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
-            }
+        if moving_time < 0.5 && !self.suppress_warnings {
+            eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
         }
         self.mouse.drag_mouse(x as i32, y as i32, moving_time)?;
         Ok(())
@@ -704,10 +702,7 @@ impl RustAutoGui {
         input2: &str,
         input3: Option<&str>,
     ) -> Result<(), &'static str> {
-        let input3 = match input3 {
-            Some(x) => Some(String::from(x)),
-            None => None,
-        };
+        let input3 = input3.map(String::from);
         // send automatically result of function
         self.keyboard
             .send_multi_key(&String::from(input1), &String::from(input2), input3)

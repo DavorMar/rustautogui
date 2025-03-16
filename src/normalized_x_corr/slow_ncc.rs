@@ -18,7 +18,7 @@ pub fn slow_ncc_template_match(
     let mut min_corr = -100.0;
 
     // Compute integral images
-    let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(&image);
+    let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(image);
 
     let image_integral = compute_integral_image(&image_vec);
     let squared_image_integral = compute_squared_integral_image(&image_vec);
@@ -58,10 +58,10 @@ pub fn slow_ncc_template_match(
         .par_iter()
         .map(|&(x, y)| {
             let corr = calculate_corr_value(
-                &image,
+                image,
                 &image_integral,
                 &squared_image_integral,
-                &template,
+                template,
                 template_width,
                 template_height,
                 sum_template,
@@ -84,8 +84,8 @@ pub fn slow_ncc_template_match(
 
 fn calculate_corr_value(
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
-    image_integral: &Vec<Vec<u64>>,
-    squared_image_integral: &Vec<Vec<u64>>,
+    image_integral: &[Vec<u64>],
+    squared_image_integral: &[Vec<u64>],
     template: &ImageBuffer<Luma<u8>, Vec<u8>>,
     template_width: u32,
     template_height: u32,
@@ -97,8 +97,8 @@ fn calculate_corr_value(
     let sum_image: u64 = sum_region(image_integral, x, y, template_width, template_height);
     let sum_squared_image: u64 = sum_region(
         squared_image_integral,
-        x as u32,
-        y as u32,
+        x,
+        y,
         template_width,
         template_height,
     );

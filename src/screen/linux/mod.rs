@@ -20,6 +20,12 @@ pub struct Screen {
     pub root_window: u64,
 }
 
+impl Default for Screen {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Screen {
     pub fn new() -> Self {
         unsafe {
@@ -37,12 +43,12 @@ impl Screen {
             let screen_width = XDisplayWidth(display, screen);
             let screen_height = XDisplayHeight(display, screen);
             Screen {
-                screen_width: screen_width,
-                screen_height: screen_height,
+                screen_width,
+                screen_height,
                 screen_region_width: 0,
                 screen_region_height: 0,
                 pixel_data: vec![0u8; (screen_width * screen_height * 4) as usize],
-                display: display,
+                display,
                 root_window: root,
             }
         }
@@ -50,14 +56,12 @@ impl Screen {
 
     /// returns screen dimensions. All monitors included
     pub fn dimension(&self) -> (i32, i32) {
-        let dimensions = (self.screen_width, self.screen_height);
-        dimensions
+        (self.screen_width, self.screen_height)
     }
 
     /// return region dimension which is set up when template is precalculated
     pub fn region_dimension(&self) -> (u32, u32) {
-        let dimensions = (self.screen_region_width, self.screen_region_height);
-        dimensions
+        (self.screen_region_width, self.screen_region_height)
     }
 
     pub fn destroy(&self) {
@@ -104,10 +108,10 @@ impl Screen {
         let image = self.convert_bitmap_to_rgba()?;
         let error_catch = image.save(image_path);
         match error_catch {
-            Ok(_) => return Ok(()),
+            Ok(_) => Ok(()),
             Err(y) => {
                 let error_msg = y.to_string();
-                return Err(error_msg);
+                Err(error_msg)
             }
         }
     }
@@ -153,7 +157,7 @@ impl Screen {
             self.pixel_data = pixel_data;
             XDestroyImage(ximage);
         }
-        return Ok(());
+        Ok(())
     }
 
     /// convert vector to Luma Imagebuffer
@@ -173,12 +177,11 @@ impl Screen {
             self.screen_height as u32,
             grayscale_data,
         );
-        let grayscale = match grayscale {
+
+        match grayscale {
             Some(x) => Ok(x),
             None => Err("could not convert image to grayscale"),
-        };
-
-        grayscale
+        }
     }
 
     /// convert vector to RGBA ImageBuffer
@@ -189,8 +192,8 @@ impl Screen {
             self.pixel_data.clone(),
         );
         match image {
-            Some(x) => return Ok(x),
-            None => return Err("Failed conversion to RGBa"),
+            Some(x) => Ok(x),
+            None => Err("Failed conversion to RGBa"),
         }
     }
 }

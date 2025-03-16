@@ -68,14 +68,14 @@ fn main() {
     gui.keyboard_multi_key("alt", "tab", None).unwrap();
 
     // three key press
-    gui.keyboard_multi_key("shift", "control", Some("e")).unwrap();
+    gui.keyboard_multi_key("shift", "control", Some("e"))
+        .unwrap();
 
     // maybe you would want to loop search until image is found and break the loop then
     loop {
         let pos = gui.find_image_on_screen_and_move_mouse(0.9, 1.0).unwrap();
-        match pos {
-            Some(_) => break,
-            None => (),
+        if let Some(_) = pos {
+            break;
         }
     }
 }

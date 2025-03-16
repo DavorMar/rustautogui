@@ -4,7 +4,7 @@
  * http://scribblethink.org/Work/nvisionInterface/vi95_lewis.pdf
  */
 
-use crate::imgtools;
+use crate::{imgtools, FftData};
 use core::cmp::max;
 use image::{ImageBuffer, Luma};
 use rayon::prelude::*;
@@ -14,24 +14,24 @@ use super::{compute_integral_images, sum_region};
 
 pub fn fft_ncc(
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
-    precision: &f32,
-    prepared_data: &(Vec<Complex<f32>>, f32, u32, u32, u32),
+    precision: f32,
+    prepared_data: &FftData,
 ) -> Vec<(u32, u32, f64)> {
     // retreive all precalculated template data, most importantly template with already fft and conjugation calculated
     // sum squared deviations will be needed for denominator
-    let (
+    let FftData {
         template_conj_freq,
         template_sum_squared_deviations,
         template_width,
         template_height,
         padded_size,
-    ) = prepared_data;
+    } = prepared_data;
 
     let mut planner = FftPlanner::<f32>::new();
     let fft: std::sync::Arc<dyn Fft<f32>> =
         planner.plan_fft_forward((padded_size * padded_size) as usize);
     let (image_width, image_height) = image.dimensions();
-    let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(&image);
+    let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(image);
 
     // compute needed integral images for denominator calculation
     let (image_integral, squared_image_integral) = compute_integral_images(&image_vec);
@@ -88,18 +88,18 @@ pub fn fft_ncc(
             let corr = fft_correlation_calculation(
                 &image_integral,
                 &squared_image_integral,
-                &template_width,
-                &template_height,
-                &template_sum_squared_deviations,
-                &x,
-                &y,
-                &padded_size,
+                *template_width,
+                *template_height,
+                *template_sum_squared_deviations,
+                x,
+                y,
+                *padded_size,
                 &fft_result,
             );
 
             (x, y, corr)
         })
-        .filter(|&(_, _, corr)| corr > *precision as f64)
+        .filter(|&(_, _, corr)| corr > precision as f64)
         .collect();
     found_points.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap());
 
@@ -108,38 +108,38 @@ pub fn fft_ncc(
 
 #[allow(dead_code)]
 fn fft_correlation_calculation(
-    image_integral: &Vec<Vec<u64>>,
-    squared_image_integral: &Vec<Vec<u64>>,
-    template_width: &u32,
-    template_height: &u32,
-    template_sum_squared_deviations: &f32,
-    x: &u32, // big image x value
-    y: &u32, // big image y value,
-    padded_size: &u32,
-    fft_result: &Vec<Complex<f32>>,
+    image_integral: &[Vec<u64>],
+    squared_image_integral: &[Vec<u64>],
+    template_width: u32,
+    template_height: u32,
+    template_sum_squared_deviations: f32,
+    x: u32, // big image x value
+    y: u32, // big image y value,
+    padded_size: u32,
+    fft_result: &[Complex<f32>],
 ) -> f64 {
     /// Function for calculation of correlation at each pixel position
     ////////// denominator calculation
-    let sum_image: u64 = sum_region(image_integral, *x, *y, *template_width, *template_height);
+    let sum_image: u64 = sum_region(image_integral, x, y, template_width, template_height);
 
     let sum_squared_image: u64 = sum_region(
         squared_image_integral,
-        *x,
-        *y,
-        *template_width,
-        *template_height,
+        x,
+        y,
+        template_width,
+        template_height,
     );
     let image_sum_squared_deviations = sum_squared_image as f64
         - (sum_image as f64).powi(2) / (template_height * template_width) as f64; //@audit check template_height*template_width!=0
     let denominator =
-        (image_sum_squared_deviations * *template_sum_squared_deviations as f64).sqrt();
+        (image_sum_squared_deviations * template_sum_squared_deviations as f64).sqrt();
 
     /////////////// NOMINATOR CALCULATION
 
     // fft result is calculated invert of whole image and template that were padded and zero valued
     // each pixel position shows value for that template position
-    let numerator_value = fft_result[(y * padded_size) as usize + *x as usize].re
-        / (padded_size * padded_size) as f32; //@audit guess the padded_size is always non zero but could be checked
+    let numerator_value =
+        fft_result[(y * padded_size) as usize + x as usize].re / (padded_size * padded_size) as f32; //@audit guess the padded_size is always non zero but could be checked
     let mut corr = numerator_value as f64 / denominator;
 
     if corr > 2.0 {
@@ -150,14 +150,14 @@ fn fft_correlation_calculation(
 
 pub fn prepare_template_picture(
     template: &ImageBuffer<Luma<u8>, Vec<u8>>,
-    image_width: &u32,
-    image_height: &u32,
-) -> (Vec<Complex<f32>>, f32, u32, u32, u32) {
+    image_width: u32,
+    image_height: u32,
+) -> FftData {
     /// precalculate all the neccessary data so its not slowing down main process
     /// returning template in frequency domain, with calculated conjugate
     let (template_width, template_height) = template.dimensions();
-    let padded_width = (*image_width).next_power_of_two();
-    let padded_height = (*image_height).next_power_of_two();
+    let padded_width = image_width.next_power_of_two();
+    let padded_height = image_height.next_power_of_two();
     let padded_size = max(padded_width, padded_height);
 
     let mut sum_template = 0.0;
@@ -176,7 +176,7 @@ pub fn prepare_template_picture(
     for y in 0..template_height {
         for x in 0..template_width {
             let template_value = template.get_pixel(x, y)[0] as f32;
-            let squared_deviation = (template_value - mean_template_value as f32).powf(2.0);
+            let squared_deviation = (template_value - mean_template_value).powf(2.0);
             template_sum_squared_deviations += squared_deviation;
 
             // set zero mean value on new template
@@ -201,12 +201,12 @@ pub fn prepare_template_picture(
     // calculate template conjugate
     let template_conj_freq: Vec<Complex<f32>> =
         template_padded.iter().map(|&val| val.conj()).collect();
-    let return_value = (
+
+    FftData {
         template_conj_freq,
         template_sum_squared_deviations,
         template_width,
         template_height,
         padded_size,
-    );
-    return_value
+    }
 }
