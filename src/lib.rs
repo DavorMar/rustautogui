@@ -437,24 +437,20 @@ impl RustAutoGui {
             None => return Ok(None),
         };
 
-        let locations_2:Vec<(u32,u32,f64)> = locations.clone().into_iter().map(
-            |(mut x,mut y,corr)| {
-                x = x / (self.template_width / 2);
-                y = y / (self.template_height / 2);
+        let locations_adjusted:Vec<(u32,u32,f64)> = locations.clone().into_iter().map(
+            |(mut x, mut y, corr)| {
+                x = x + self.region.0 + (self.template_width / 2);
+                y = y + self.region.1 + (self.template_height / 2);
                 (x, y, corr)
             }
         ).collect();
 
-        let top_location = locations[0];
-        let x = top_location.0 + (self.template_width / 2);
-        let y = top_location.1 + (self.template_height / 2);
-        let target_x = x + self.region.0;
-        let target_y = y + self.region.1;
+        let (target_x, target_y, _) = locations_adjusted[0];
 
 
         self.move_mouse_to_pos(target_x, target_y, moving_time)?;
 
-        return Ok(Some(vec![(target_x, target_y, locations[0].2)]));
+        return Ok(Some(locations_adjusted));
     }
 
     pub fn get_screen_size(&mut self) -> (i32, i32) {
