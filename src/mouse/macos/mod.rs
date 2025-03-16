@@ -60,9 +60,8 @@ impl Mouse {
         let mouse_pos = Mouse::get_mouse_position()?;
         // click down
         let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let cg_event_source = match cg_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
+        let Ok(cg_event_source) = cg_event_source else {
+            return Err("Error creating CGEventSource on mouse movement");
         };
 
         let click_down = CGEvent::new_mouse_event(
@@ -108,9 +107,8 @@ impl Mouse {
         //click up
         let mouse_pos = Mouse::get_mouse_position()?;
         let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let cg_event_source = match cg_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
+        let Ok(cg_event_source) = cg_event_source else {
+            return Err("Error creating CGEventSource on mouse movement");
         };
 
         let click_up = CGEvent::new_mouse_event(
@@ -132,9 +130,8 @@ impl Mouse {
     // separate private function called by move to pos
     fn move_mouse(x: i32, y: i32) -> Result<(), &'static str> {
         let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let gc_event_source = match gc_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
+        let Ok(gc_event_source) = gc_event_source else {
+            return Err("Error creating CGEventSource on mouse movement");
         };
         let event = CGEvent::new_mouse_event(
             gc_event_source,
@@ -154,14 +151,12 @@ impl Mouse {
     /// Gets the current mouse position.
     pub fn get_mouse_position() -> Result<(i32, i32), &'static str> {
         let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let gc_event_source = match gc_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
+        let Ok(gc_event_source) = gc_event_source else {
+            return Err("Error creating CGEventSource on mouse movement");
         };
         let event = CGEvent::new(gc_event_source);
-        let event = match event {
-            Ok(x) => x,
-            Err(_) => return Err("Failed creating CGevent"),
+        let Ok(event) = event else {
+            return Err("Failed creating CGevent");
         };
         let point = event.location();
         Ok((point.x as i32, point.y as i32))
@@ -191,9 +186,8 @@ impl Mouse {
         let mouse_pos = Mouse::get_mouse_position()?;
 
         let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let cg_event_source = match cg_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
+        let Ok(cg_event_source) = cg_event_source else {
+            return Err("Error creating CGEventSource on mouse movement");
         };
 
         let click_down = CGEvent::new_mouse_event(
@@ -210,9 +204,8 @@ impl Mouse {
         sleep(Duration::from_millis(20));
 
         let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let cg_event_source = match cg_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
+        let Ok(cg_event_source) = cg_event_source else {
+            return Err("Error creating CGEventSource on mouse movement");
         };
 
         let click_up = CGEvent::new_mouse_event(
@@ -238,9 +231,8 @@ impl Mouse {
             MouseScroll::RIGHT => (0, -10),
         };
         let cg_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let cg_event_source = match cg_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
+        let Ok(cg_event_source) = cg_event_source else {
+            return Err("Error creating CGEventSource on mouse movement");
         };
 
         let scroll = CGEvent::new_scroll_event(
@@ -260,11 +252,8 @@ impl Mouse {
     }
 
     pub fn double_click() -> Result<(), &'static str> {
-        let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let source = match source {
-            Ok(x) => x,
-            Err(_) => return Err("Failed creating CGEventSource on mouse double click"),
-        };
+        let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState)
+            .ok_or("Failed creating CGEventSource on mouse double click")?;
         let pos = Mouse::get_mouse_position()?;
 
         // needed first to get focus of the window

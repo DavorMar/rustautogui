@@ -269,13 +269,9 @@ impl RustAutoGui {
         match_mode: MatchMode,
         max_segments: &Option<u32>,
     ) {
-        let template = self.template.clone();
-        let template = match template {
-            Some(image) => image,
-            None => {
-                println!("No template loaded! Please use load_and_prepare_template method before changing prepared settings");
-                return;
-            }
+        let Some(template) = self.template.as_ref() else {
+            println!("No template loaded! Please use load_and_prepare_template method before changing prepared settings");
+            return;
         };
 
         // unpack region , or set default if none
@@ -300,7 +296,7 @@ impl RustAutoGui {
                     }
                     let prepared_data =
                         PreparedData::FFT(normalized_x_corr::fft_ncc::prepare_template_picture(
-                            &template, region.2, region.3,
+                            template, region.2, region.3,
                         ));
                     self.prepared_data = prepared_data;
                     self.match_mode = Some(MatchMode::FFT);
@@ -320,7 +316,7 @@ impl RustAutoGui {
                     }
                     let prepared_data = PreparedData::Segmented(
                         normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
-                            &template,
+                            template,
                             &None,
                             &self.debug,
                         ),
@@ -422,9 +418,8 @@ impl RustAutoGui {
         ///  Best used in loops
         let found_locations = self.find_image_on_screen(precision)?;
 
-        let locations = match found_locations.clone() {
-            Some(locations) => locations,
-            None => return Ok(None),
+        let Some(locations) = found_locations.as_ref() else {
+            return Ok(None);
         };
         let top_location = locations[0];
         let x = top_location.0 + (self.template_width / 2);

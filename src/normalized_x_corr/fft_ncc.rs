@@ -67,13 +67,12 @@ pub fn fft_ncc(
     fft.process(&mut image_padded);
 
     // calculate F(image) * F(template).conjugate
-    let product_freq: Vec<Complex<f32>> = image_padded
+    let mut fft_result: Vec<Complex<f32>> = image_padded
         .iter()
         .zip(template_conj_freq.iter())
         .map(|(&img_val, &tmpl_val)| img_val * tmpl_val)
         .collect();
     // do inverse fft
-    let mut fft_result: Vec<Complex<f32>> = product_freq.clone();
     ifft.process(&mut fft_result);
 
     // flatten for multithreading

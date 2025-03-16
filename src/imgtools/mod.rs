@@ -9,15 +9,9 @@ use image::{io::Reader as ImageReader, GrayImage, ImageBuffer, Luma, Pixel, Prim
 /// Loads image from the provided path and converts to black-white format
 /// Returns image in image::ImageBuffer format
 pub fn load_image_bw(location: &str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, String> {
-    let img = match ImageReader::open(location) {
-        Ok(x) => x,
-        Err(y) => return Err(y.to_string()),
-    };
+    let img = ImageReader::open(location).map_err(|y| y.to_string())?;
 
-    let img = match img.decode() {
-        Ok(x) => x,
-        Err(y) => return Err(y.to_string()),
-    };
+    let img = img.decode().map_err(|y| y.to_string())?;
 
     let gray_image: ImageBuffer<Luma<u8>, Vec<u8>> = img.to_luma8();
     Ok(gray_image)
@@ -31,15 +25,9 @@ pub fn load_image_from_memory_bw(bytes: &[u8]) -> Result<ImageBuffer<Luma<u8>, V
 /// Loads image from the provided path and converts to RGBA format
 /// Returns image in image::ImageBuffer format
 pub fn load_image_rgba(location: &str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, String> {
-    let img = match ImageReader::open(location) {
-        Ok(x) => x,
-        Err(y) => return Err(y.to_string()),
-    };
+    let img = ImageReader::open(location).map_err(|y| y.to_string())?;
 
-    let img = match img.decode() {
-        Ok(x) => x,
-        Err(y) => return Err(y.to_string()),
-    };
+    let img = img.decode().map_err(|y| y.to_string())?;
 
     let rgba_image: ImageBuffer<Rgba<u8>, Vec<u8>> = img.to_rgba8();
     Ok(rgba_image)
@@ -61,10 +49,7 @@ pub fn convert_image_to_bw(
         grayscale_data.push(gray_value);
     }
     let grayscale = GrayImage::from_raw(screen_width, screen_height, grayscale_data);
-    match grayscale {
-        Some(x) => Ok(x),
-        None => Err("failed to convert image to grayscale"),
-    }
+    grayscale.ok_or("failed to convert image to grayscale")
 }
 
 /// Cuts Region of image. Inputs are top left x , y pixel coordinates on image,

@@ -315,7 +315,7 @@ pub fn prepare_template_picture(
 
     if *debug {
         let pixel_number = template_height * template_width;
-        println! {"starting with {pixel_number}"};
+        println!("starting with {pixel_number}");
     }
     // calculate needed sums
     for y in 0..template_height {
@@ -341,10 +341,7 @@ pub fn prepare_template_picture(
     let fast_threshold = 0.99 * avg_deviation_of_template;
     let slow_threshold = 0.01 * avg_deviation_of_template;
 
-    let max_segments = match max_segments {
-        Some(x) => *x,
-        None => u32::MAX,
-    };
+    let max_segments = (*max_segments).unwrap_or(u32::MAX);
 
     // create fast segmented image
     let (

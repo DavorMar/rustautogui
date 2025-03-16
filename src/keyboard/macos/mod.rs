@@ -13,15 +13,12 @@ impl Keyboard {
     pub fn new() -> Self {
         let keymap: HashMap<String, (u16, bool)> = Keyboard::create_keymap();
 
-        Self { keymap: keymap }
+        Self { keymap }
     }
 
     fn press_key(&self, keycode: CGKeyCode) -> Result<(), &'static str> {
-        let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let gc_event_source = match gc_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
-        };
+        let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState)
+            .ok_or("Error creating CGEventSource on mouse movement")?;
         let event = CGEvent::new_keyboard_event(gc_event_source, keycode, true);
         match event {
             Ok(x) => {
@@ -35,20 +32,16 @@ impl Keyboard {
     }
 
     fn release_key(&self, keycode: CGKeyCode) -> Result<(), &'static str> {
-        let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let gc_event_source = match gc_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
-        };
+        let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState)
+            .ok_or("Error creating CGEventSource on mouse movement")?;
         let event = CGEvent::new_keyboard_event(gc_event_source, keycode, false);
         match event {
             Ok(x) => {
                 x.post(CGEventTapLocation::HID);
-                sleep(Duration::from_millis(50));
+                Ok(sleep(Duration::from_millis(50)))
             }
-            Err(_) => return Err("Failed to create release key CGkeyboard event"),
+            Err(_) => Err("Failed to create release key CGkeyboard event"),
         }
-        Ok(())
     }
 
     fn send_key(&self, keycode: CGKeyCode) -> Result<(), &'static str> {
@@ -66,13 +59,10 @@ impl Keyboard {
 
     pub fn send_char(&self, key: &char) -> Result<(), &'static str> {
         let char_string = String::from(*key);
-        let value = self.keymap.get(&char_string);
-        let value = match value {
-            Some(x) => x,
-            None => return Err("Wrong keyboard key input"),
-        };
-        let shifted = value.1;
-        let value = value.0;
+        let (shifted, value) = self
+            .keymap
+            .get(&char_string)
+            .ok_or("Wrong keyboard key input")?;
         if shifted {
             self.send_shifted_key(value)?;
         } else {
@@ -82,11 +72,7 @@ impl Keyboard {
     }
 
     pub fn send_command(&self, key: &String) -> Result<(), &'static str> {
-        let value = self.keymap.get(key);
-        let value = match value {
-            Some(x) => x,
-            None => return Err("Wrong keyboard command"),
-        };
+        let value = self.keymap.get(key).ok_or("Wrong keyboard command")?;
 
         self.send_key(value.0)?;
         Ok(())
@@ -98,26 +84,24 @@ impl Keyboard {
         key_2: &String,
         key_3: Option<String>,
     ) -> Result<(), &'static str> {
-        let value1 = match self.keymap.get(key_1) {
-            Some(x) => x,
-            None => return Err("False first input in multi key command"),
-        }
-        .0;
-        let value2 = match self.keymap.get(key_2) {
-            Some(x) => x,
-            None => return Err("False second input in multi key command"),
-        }
-        .0;
+        let value1 = self
+            .keymap
+            .get(key_1)
+            .ok_or("False first input in multi key command")?
+            .0;
+        let value2 = self
+            .keymap
+            .get(key_2)
+            .ok_or("False second input in multi key command")?
+            .0;
 
         let mut third_key = false;
         let value3 = match key_3 {
             Some(value) => {
                 third_key = true;
-                let value3 = match self.keymap.get(&value) {
-                    Some(x) => x,
-                    None => return Err("False first input in multi key command"),
-                };
-                value3
+                self.keymap
+                    .get(&value)
+                    .ok_or("False first input in multi key command")?
             }
             None => &(0, false),
         }

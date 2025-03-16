@@ -97,12 +97,7 @@ impl Keyboard {
     /// function used when sending input as string
     pub fn send_char(&self, key: &char) -> Result<(), &'static str> {
         let char_string = String::from(*key);
-        let value = match self.keymap.get(&char_string) {
-            Some(x) => x,
-            None => return Err("wrong keyboard char"),
-        };
-        let shifted = value.1;
-        let value = value.0;
+        let (shifted, value) = self.keymap.get(&char_string).ok_or("wrong keyboard char")?;
 
         if shifted {
             Keyboard::send_shifted_key(value);
@@ -114,11 +109,7 @@ impl Keyboard {
 
     /// function used when sending commands like "return" or "escape"
     pub fn send_command(&self, key: &String) -> Result<(), &'static str> {
-        let value = match self.keymap.get(key) {
-            Some(x) => x,
-            None => return Err("wrong keyboard char"),
-        };
-        let value = value.0;
+        let value = self.keymap.get(key).ok_or("wrong keyboard char")?.0;
 
         Keyboard::send_key(value);
         Ok(())
@@ -130,14 +121,8 @@ impl Keyboard {
         key_2: &String,
         key_3: Option<String>,
     ) -> Result<(), &'static str> {
-        let value1 = match self.keymap.get(key_1) {
-            Some(x) => x,
-            None => return Err("wrong keyboard char"),
-        };
-        let value2 = match self.keymap.get(key_2) {
-            Some(x) => x,
-            None => return Err("wrong keyboard char"),
-        };
+        let value1 = self.keymap.get(key_1).ok_or("wrong keyboard char")?;
+        let value2 = self.keymap.get(key_2).ok_or("wrong keyboard char")?;
 
         let value1 = value1.0;
         let value2 = value2.0;
@@ -146,11 +131,7 @@ impl Keyboard {
         let value3 = match key_3 {
             Some(value) => {
                 third_key = true;
-                let value3 = match self.keymap.get(&value) {
-                    Some(x) => x,
-                    None => return Err("wrong keyboard char"),
-                };
-                value3
+                self.keymap.get(&value).ok_or("wrong keyboard char")?
             }
             None => &(0, false),
         };

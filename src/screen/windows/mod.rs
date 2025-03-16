@@ -180,24 +180,20 @@ impl Screen {
             grayscale_data.push(gray_value);
         }
 
-        match GrayImage::from_raw(
+        GrayImage::from_raw(
             self.screen_width as u32,
             self.screen_height as u32,
             grayscale_data,
-        ) {
-            Some(x) => return Ok(x),
-            None => return Err("could not convert image to grayscale"),
-        };
+        )
+        .ok_or("could not convert image to grayscale")
     }
 
     fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, &'static str> {
-        match ImageBuffer::from_raw(
+        ImageBuffer::from_raw(
             self.screen_width as u32,
             self.screen_height as u32,
             self.pixel_data.clone(),
-        ) {
-            Some(x) => return Ok(x),
-            None => return Err("failed to convert to RGBA"),
-        }
+        )
+        .ok_or("failed to convert to RGBA")
     }
 }

@@ -178,22 +178,16 @@ impl Screen {
             grayscale_data,
         );
 
-        match grayscale {
-            Some(x) => Ok(x),
-            None => Err("could not convert image to grayscale"),
-        }
+        grayscale.ok_or("could not convert image to grayscale")
     }
 
     /// convert vector to RGBA ImageBuffer
     fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, &'static str> {
-        let image = ImageBuffer::from_raw(
+        ImageBuffer::from_raw(
             self.screen_width as u32,
             self.screen_height as u32,
             self.pixel_data.clone(),
-        );
-        match image {
-            Some(x) => Ok(x),
-            None => Err("Failed conversion to RGBa"),
-        }
+        )
+        .ok_or("Failed conversion to RGBa")
     }
 }
