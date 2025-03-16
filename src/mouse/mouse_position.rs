@@ -1,21 +1,19 @@
-
-
 #[cfg(target_os = "linux")]
 use crate::mouse::platform::Mouse;
 #[cfg(target_os = "linux")]
-use x11::xlib::*;
-#[cfg(target_os = "linux")]
 use std::ptr;
+#[cfg(target_os = "linux")]
+use x11::xlib::*;
 
 #[cfg(any(target_os = "windows", target_os = "macos"))]
 use crate::mouse::platform::Mouse;
 
-use std::time::Duration;
 use std::thread::sleep;
+use std::time::Duration;
 
-/* 
+/*
 
-small helper function to open a window that shows mouse position 
+small helper function to open a window that shows mouse position
 
 
 
@@ -29,7 +27,7 @@ fn main() {
 struct DisplayWrapper {
     display: *mut x11::xlib::Display,
 }
-//created so display gets dropped when code finishes 
+//created so display gets dropped when code finishes
 #[cfg(target_os = "linux")]
 impl DisplayWrapper {
     fn new() -> Self {
@@ -51,7 +49,7 @@ impl Drop for DisplayWrapper {
     }
 }
 #[cfg(target_os = "linux")]
-pub fn print_mouse_position() -> Result<(),&'static str> {
+pub fn print_mouse_position() -> Result<(), &'static str> {
     let display_wrapper = DisplayWrapper::new();
 
     unsafe {
@@ -63,28 +61,23 @@ pub fn print_mouse_position() -> Result<(),&'static str> {
             println!("{x}, {y}");
             sleep(Duration::from_millis(20));
         }
-    } 
-    
+    }
 }
-
-
-
-
 
 #[cfg(target_os = "windows")]
 pub fn print_mouse_position() {
     loop {
-        let (x,y) = Mouse::get_mouse_position();
+        let (x, y) = Mouse::get_mouse_position();
         println!("{x}, {y}");
         sleep(Duration::from_millis(20));
-    };
+    }
 }
 
 #[cfg(target_os = "macos")]
-pub fn print_mouse_position() -> Result<(), &'static str>{
+pub fn print_mouse_position() -> Result<(), &'static str> {
     loop {
-        let (x,y) = Mouse::get_mouse_position().unwrap();
+        let (x, y) = Mouse::get_mouse_position().unwrap();
         println!("{x}, {y}");
         sleep(Duration::from_millis(20));
-    };
+    }
 }
