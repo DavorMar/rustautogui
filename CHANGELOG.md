@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+- Add `load_and_prepare_template_from_memory`
+- Fix clippy warnigns
+- Use `&str` instead of `&String`, `&[u8]` instead of `&Vec`, avoid unneded allocations
+- Fix dangling `ptr` in `CString`
+- Add `CI`
+
 ## [2.1.1] - 2025-03.16
 ### Fixed
 - added some missing keys for keyboard
@@ -24,11 +30,11 @@ All notable changes to this project will be documented in this file.
 ## [2.0.1] - 2025-03.14
 ### Fixed
 - Fixed readme code examples
-- fixed Segmented normalized cross correlation doing false matches.  
+- fixed Segmented normalized cross correlation doing false matches.
 
 ## [2.0.0] - 2025-03.10
 ### Added/Fixed
-- complete rework of the code which will not be compatible with old versions. 
+- complete rework of the code which will not be compatible with old versions.
 - introduced graceful exits, except for some situations like not having x11 activated on linux
 - most of methods return Result<> now.
 
@@ -47,7 +53,7 @@ All notable changes to this project will be documented in this file.
 
 ## [0.3.1] - 2024-08.01
 ### Added
--small optimization to template prepare 
+-small optimization to template prepare
 
 ## [0.3.0] - 2024-07.27
 ### Removed
