@@ -102,14 +102,8 @@ impl Screen {
     pub fn grab_screenshot(&mut self, image_path: &str) -> Result<(), String> {
         self.capture_screen()?;
         let image = self.convert_bitmap_to_rgba()?;
-        let error_catch = image.save(image_path);
-        match error_catch {
-            Ok(_) => return Ok(()),
-            Err(y) => {
-                let error_msg = y.to_string();
-                return Err(error_msg);
-            }
-        }
+        image.save(image_path).map_err(|x| x.to_string())
+        
     }
 
     /// first order capture screen function. it captures screen image and stores it as vector in self.pixel_data
@@ -178,14 +172,11 @@ impl Screen {
 
     /// convert vector to RGBA ImageBuffer
     fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, &'static str> {
-        let image = ImageBuffer::from_raw(
+        ImageBuffer::from_raw(
             self.screen_width as u32,
             self.screen_height as u32,
             self.pixel_data.clone(),
-        );
-        match image {
-            Some(x) => return Ok(x),
-            None => return Err("Failed conversion to RGBa"),
-        }
+        ).map_err(|_| "Failed conversion to RGBa")
+        
     }
 }

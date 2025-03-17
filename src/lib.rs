@@ -530,10 +530,6 @@ impl RustAutoGui {
             return Err("Out of screen boundaries");
         }
         Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time)?;
-        if self.debug {
-            let (x, y) = Mouse::get_mouse_position()?;
-            println!("Mouse moved to position {x}, {y}");
-        }
         Ok(())
     }
 

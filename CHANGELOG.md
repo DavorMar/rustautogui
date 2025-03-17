@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [2.2.0] - 2025-03-
+### Added / Fixed
+- find_image_and_move_mouse now returns vec of all found locations instead of just top location 
+
 ## [2.1.1] - 2025-03.16
 ### Fixed
 - added some missing keys for keyboard

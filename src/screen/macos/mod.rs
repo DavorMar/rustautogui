@@ -98,14 +98,7 @@ impl Screen {
     pub fn grab_screenshot(&mut self, image_path: &str) -> Result<(), String> {
         self.capture_screen()?;
         let image = self.convert_bitmap_to_rgba()?;
-        let error_catch = image.save(image_path);
-        match error_catch {
-            Ok(_) => return Ok(()),
-            Err(y) => {
-                let err_string = y.to_string();
-                return Err(err_string);
-            }
-        }
+        image.save(image_path).map_err(|x| x.to_string())
     }
 
     /// first order capture screen function. it captures screen image and stores it as vector in self.pixel_data
@@ -144,33 +137,27 @@ impl Screen {
             let gray_value = ((r * 30 + g * 59 + b * 11) / 100) as u8;
             grayscale_data.push(gray_value);
         }
-        let image = GrayImage::from_raw(
+        let mut image = GrayImage::from_raw(
             (self.scaling_factor_x * self.screen_width as f64) as u32,
             (self.scaling_factor_y * self.screen_height as f64) as u32,
             grayscale_data,
+        )
+        .ok_or("Could not convert image to grayscale")?;
+        let image = resize(
+            &mut image,
+            self.screen_width as u32,
+            self.screen_height as u32,
+            Nearest,
         );
-        match image {
-            Some(mut x) => {
-                return Ok(resize(
-                    &mut x,
-                    self.screen_width as u32,
-                    self.screen_height as u32,
-                    Nearest,
-                ))
-            }
-            None => return Err("Could not ocnvert image to grayscale"),
-        }
+        Ok(image)
     }
 
     /// convert vector to RGBA ImageBuffer
     fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, &'static str> {
-        match ImageBuffer::from_raw(
+        ImageBuffer::from_raw(
             (self.scaling_factor_x * self.screen_width as f64) as u32,
             (self.scaling_factor_y * self.screen_height as f64) as u32,
             self.pixel_data.clone(),
-        ) {
-            Some(x) => return Ok(x),
-            None => return Err("Could not convert image to rgba"),
-        }
+        ).ok_or("Could not convert image to rgba")
     }
 }
