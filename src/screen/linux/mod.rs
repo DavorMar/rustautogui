@@ -176,7 +176,7 @@ impl Screen {
             self.screen_width as u32,
             self.screen_height as u32,
             self.pixel_data.clone(),
-        ).map_err(|_| "Failed conversion to RGBa")
+        ).ok_or("Failed conversion to RGBa")
         
     }
 }

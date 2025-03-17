@@ -122,10 +122,7 @@ impl Keyboard {
             Some(x) => {
                 let shifted = x.1;
                 let key_cstring = CString::new(x.0.clone());
-                let key_cstring = match key_cstring {
-                    Ok(x) => x,
-                    Err(_) => return Err("failed to grab key value"),
-                };
+                let key_cstring = key_cstring.map_err(|_| "failed to grab key value")?;
                 let key_cstring = key_cstring.as_ptr();
                 (XStringToKeysym(key_cstring), shifted)
             }
@@ -146,13 +143,11 @@ impl Keyboard {
     pub fn send_char(&self, key: &char) -> Result<(), &'static str> {
         unsafe {
             let char_string: String = String::from(*key);
-            let keycode = self.get_keycode(&char_string)?;
-            if keycode == (0, false) {
+            let (keycode, shifted) = self.get_keycode(&char_string)?;
+            if keycode == 0 {
                 return Err("couldnt input a key");
             }
-            let shifted = keycode.1;
-            let keycode = keycode.0;
-
+            
             if shifted {
                 self.send_shifted_key(keycode)?;
             } else {
@@ -179,10 +174,8 @@ impl Keyboard {
     ) -> Result<(), &'static str> {
         unsafe {
             let value1 = self.get_keycode(&key_1)?;
-            println!("got value 1");
 
             let value2 = self.get_keycode(&key_2)?;
-            println!("got value 2");
             let mut third_key = false;
             let value3 = match key_3 {
                 Some(value) => {

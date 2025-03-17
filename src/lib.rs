@@ -608,9 +608,8 @@ impl RustAutoGui {
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
             return Err("Out of screen boundaries");
         }
-        self.mouse
-            .move_mouse_to_pos(x as i32, y as i32, moving_time)?;
-        Ok(())
+        self.mouse.move_mouse_to_pos(x as i32, y as i32, moving_time)
+        
     }
 
     /// moves mouse to x, y pixel coordinate
@@ -624,37 +623,35 @@ impl RustAutoGui {
                 eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
             }
         }
-        self.mouse.drag_mouse(x as i32, y as i32, moving_time)?;
-        Ok(())
+        self.mouse.drag_mouse(x as i32, y as i32, moving_time)
+        
     }
 
     /// executes left mouse click
     #[cfg(target_os = "linux")]
     pub fn left_click(&self) -> Result<(), &'static str> {
-        self.mouse.mouse_click(mouse::MouseClick::LEFT)?;
-        Ok(())
+        self.mouse.mouse_click(mouse::MouseClick::LEFT)
+        
     }
 
     /// executes right mouse click
     #[cfg(target_os = "linux")]
     pub fn right_click(&self) -> Result<(), &'static str> {
-        self.mouse.mouse_click(mouse::MouseClick::RIGHT)?;
-        Ok(())
+        self.mouse.mouse_click(mouse::MouseClick::RIGHT)
     }
 
     /// executes middle mouse click
     #[cfg(target_os = "linux")]
     pub fn middle_click(&self) -> Result<(), &'static str> {
-        self.mouse.mouse_click(mouse::MouseClick::MIDDLE)?;
-        Ok(())
+        self.mouse.mouse_click(mouse::MouseClick::MIDDLE)
     }
 
     /// executes double left mouse click
     #[cfg(target_os = "linux")]
     pub fn double_click(&self) -> Result<(), &'static str> {
         self.mouse.mouse_click(mouse::MouseClick::LEFT)?;
-        self.mouse.mouse_click(mouse::MouseClick::LEFT)?;
-        Ok(())
+        self.mouse.mouse_click(mouse::MouseClick::LEFT)
+        
     }
 
     #[cfg(target_os = "linux")]
