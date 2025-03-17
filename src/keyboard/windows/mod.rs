@@ -95,9 +95,12 @@ impl Keyboard {
     }
 
     /// function used when sending input as string
-    pub fn send_char(&self, key: &char) -> Result<(), &'static str> {
-        let char_string = String::from(*key);
-        let (shifted, value) = self.keymap.get(&char_string).ok_or("wrong keyboard char")?;
+    pub fn send_char(&self, key: char) -> Result<(), &'static str> {
+        let char_string = String::from(key);
+        let &(value, shifted) = self
+            .keymap
+            .get(char_string.as_str())
+            .ok_or("wrong keyboard char")?;
 
         if shifted {
             Keyboard::send_shifted_key(value);

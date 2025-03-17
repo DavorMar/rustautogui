@@ -126,9 +126,9 @@ impl Keyboard {
     }
 
     /// top level send character function that converts char to keycode and executes send key
-    pub fn send_char(&self, key: &char) -> Result<(), &'static str> {
+    pub fn send_char(&self, key: char) -> Result<(), &'static str> {
         unsafe {
-            let char_string: String = String::from(*key);
+            let char_string: String = String::from(key);
             let keycode = self.get_keycode(&char_string)?;
             if keycode == (0, false) {
                 return Err("couldnt input a key");

@@ -253,7 +253,7 @@ impl Mouse {
 
     pub fn double_click() -> Result<(), &'static str> {
         let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState)
-            .ok_or("Failed creating CGEventSource on mouse double click")?;
+            .map_err(|_| "Failed creating CGEventSource on mouse double click")?;
         let pos = Mouse::get_mouse_position()?;
 
         // needed first to get focus of the window

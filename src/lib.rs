@@ -679,7 +679,7 @@ impl RustAutoGui {
     pub fn keyboard_input(&self, input: &str) -> Result<(), &'static str> {
         let input_string = String::from(input);
         for letter in input_string.chars() {
-            self.keyboard.send_char(&letter)?;
+            self.keyboard.send_char(letter)?;
         }
         Ok(())
     }

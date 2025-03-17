@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 - Add `load_and_prepare_template_from_memory`
 - Fix clippy warnigns
 - Use `&str` instead of `&String`, `&[u8]` instead of `&Vec`, avoid unneded allocations
+- Pass primitive types by value instead of by ref
 - Fix dangling `ptr` in `CString`
 - Add `CI`
 

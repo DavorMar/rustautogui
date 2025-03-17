@@ -7,18 +7,18 @@ use std::thread::sleep;
 use std::time::Duration;
 
 pub struct Keyboard {
-    keymap: HashMap<String, (u16, bool)>,
+    keymap: HashMap<&'static str, (u16, bool)>,
 }
 impl Keyboard {
     pub fn new() -> Self {
-        let keymap: HashMap<&'static str, (u16, bool)> = Keyboard::create_keymap();
+        let keymap = Keyboard::create_keymap();
 
         Self { keymap }
     }
 
     fn press_key(&self, keycode: CGKeyCode) -> Result<(), &'static str> {
         let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState)
-            .ok_or("Error creating CGEventSource on mouse movement")?;
+            .map_err(|_| "Error creating CGEventSource on mouse movement")?;
         let event = CGEvent::new_keyboard_event(gc_event_source, keycode, true);
         match event {
             Ok(x) => {
@@ -33,7 +33,7 @@ impl Keyboard {
 
     fn release_key(&self, keycode: CGKeyCode) -> Result<(), &'static str> {
         let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState)
-            .ok_or("Error creating CGEventSource on mouse movement")?;
+            .map_err(|_| "Error creating CGEventSource on mouse movement")?;
         let event = CGEvent::new_keyboard_event(gc_event_source, keycode, false);
         match event {
             Ok(x) => {
@@ -57,11 +57,11 @@ impl Keyboard {
         Ok(())
     }
 
-    pub fn send_char(&self, key: &char) -> Result<(), &'static str> {
-        let char_string = String::from(*key);
-        let (shifted, value) = self
+    pub fn send_char(&self, key: char) -> Result<(), &'static str> {
+        let char_string = String::from(key);
+        let &(value, shifted) = self
             .keymap
-            .get(&char_string)
+            .get(&char_string.as_str())
             .ok_or("Wrong keyboard key input")?;
         if shifted {
             self.send_shifted_key(value)?;
