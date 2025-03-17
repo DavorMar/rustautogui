@@ -28,10 +28,9 @@ impl Screen {
             // for that detection of retina is needed to divide all the pixel positions
             // by the factor. As far as i understood it should actually always be 2 but leaving it like this
             // shouldnt produce errors and covers any different case
-            let image = match main_display.image() {
-                Some(x) => x,
-                None => return Err("Failed to create CGImage from display"),
-            };
+            let image = main_display
+                .image()
+                .ok_or("Failed to create CGImage from display")?;
             let image_height = image.height() as i32;
             let image_width = image.width() as i32;
             let screen_width = main_display.pixels_wide() as i32;
@@ -110,10 +109,10 @@ impl Screen {
 
     /// first order capture screen function. it captures screen image and stores it as vector in self.pixel_data
     fn capture_screen(&mut self) -> Result<(), &'static str> {
-        let image = match self.display.image() {
-            Some(x) => x,
-            None => return Err("Failed to capture screen image"),
-        };
+        let image = self
+            .display
+            .image()
+            .ok_or("Failed to capture screen image")?;
 
         let pixel_data: Vec<u8> = image
             .data()
@@ -164,13 +163,11 @@ impl Screen {
 
     /// convert vector to RGBA ImageBuffer
     fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, &'static str> {
-        match ImageBuffer::from_raw(
+        ImageBuffer::from_raw(
             (self.scaling_factor_x * self.screen_width as f64) as u32,
             (self.scaling_factor_y * self.screen_height as f64) as u32,
             self.pixel_data.clone(),
-        ) {
-            Some(x) => return Ok(x),
-            None => return Err("Could not convert image to rgba"),
-        }
+        )
+        .ok_or("Could not convert image to rgba")
     }
 }

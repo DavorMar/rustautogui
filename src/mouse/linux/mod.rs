@@ -12,8 +12,8 @@ pub struct Mouse {
 impl Mouse {
     pub fn new(screen: *mut _XDisplay, root_window: u64) -> Self {
         Self {
-            screen: screen,
-            root_window: root_window,
+            screen,
+            root_window,
         }
     }
 
@@ -217,10 +217,9 @@ impl Mouse {
                 &mut win_y,
                 &mut child,
             ) != 0
+                && child != 0
             {
-                if child != 0 {
-                    return Ok(Some(child));
-                }
+                return Ok(Some(child));
             }
             Ok(None)
         }
