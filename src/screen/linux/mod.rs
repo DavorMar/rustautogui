@@ -172,10 +172,8 @@ impl Screen {
             self.screen_width as u32,
             self.screen_height as u32,
             grayscale_data,
-        ).ok_or("could not convert image to grayscale")
-        
-
-        
+        )
+        .ok_or("could not convert image to grayscale")
     }
 
     /// convert vector to RGBA ImageBuffer

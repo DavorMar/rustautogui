@@ -18,36 +18,22 @@ impl Keyboard {
 
     fn press_key(&self, keycode: CGKeyCode) -> Result<(), &'static str> {
         let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let gc_event_source = match gc_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
-        };
-        let event = CGEvent::new_keyboard_event(gc_event_source, keycode, true);
-        match event {
-            Ok(x) => {
-                x.post(CGEventTapLocation::HID);
-                sleep(Duration::from_millis(50));
-            }
-            Err(_) => return Err("Failed creatomg CGKeyboard event"),
-        }
-
+        let gc_event_source =
+            gc_event_source.map_err(|_| "Error creating CGEventSource on mouse movement")?;
+        let event = CGEvent::new_keyboard_event(gc_event_source, keycode, true)
+            .map_err(|_| "Failed creatomg CGKeyboard event")?;
+        event.post(CGEventTapLocation::HID);
+        sleep(Duration::from_millis(50));
         Ok(())
     }
 
     fn release_key(&self, keycode: CGKeyCode) -> Result<(), &'static str> {
-        let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let gc_event_source = match gc_event_source {
-            Ok(x) => x,
-            Err(_) => return Err("Error creating CGEventSource on mouse movement"),
-        };
-        let event = CGEvent::new_keyboard_event(gc_event_source, keycode, false);
-        match event {
-            Ok(x) => {
-                x.post(CGEventTapLocation::HID);
-                sleep(Duration::from_millis(50));
-            }
-            Err(_) => return Err("Failed to create release key CGkeyboard event"),
-        }
+        let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState)
+            .map_err(|_| "Error creating CGEventSource on mouse movement")?;
+        let event = CGEvent::new_keyboard_event(gc_event_source, keycode, false)
+            .map_err(|_| "Failed to create release key CGkeyboard event")?;
+        event.post(CGEventTapLocation::HID);
+        sleep(Duration::from_millis(50));
         Ok(())
     }
 

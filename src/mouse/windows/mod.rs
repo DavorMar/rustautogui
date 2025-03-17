@@ -44,7 +44,7 @@ impl Mouse {
 
             unsafe {
                 if time_passed_percentage >= 1.0 {
-                    SetCursorPos(x , y);
+                    SetCursorPos(x, y);
                     break;
                 } else {
                     SetCursorPos(new_x as i32, new_y as i32);

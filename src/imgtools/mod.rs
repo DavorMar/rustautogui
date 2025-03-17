@@ -29,7 +29,6 @@ pub fn load_image_rgba(location: &str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>,
     let img = ImageReader::open(location).map_err(|x| x.to_string())?;
     let img = img.decode().map_err(|y| y.to_string())?;
     Ok(img.to_rgba8()) // return rgba image
-    
 }
 
 /// Does conversion from ImageBuffer RGBA to ImageBuffer Black and White(Luma)
@@ -47,8 +46,8 @@ pub fn convert_image_to_bw(
         let gray_value = ((r * 30 + g * 59 + b * 11) / 100) as u8;
         grayscale_data.push(gray_value);
     }
-    GrayImage::from_raw(screen_width as u32, screen_height as u32, grayscale_data).ok_or("failed to convert image to grayscale")
-    
+    GrayImage::from_raw(screen_width as u32, screen_height as u32, grayscale_data)
+        .ok_or("failed to convert image to grayscale")
 }
 
 /// Cuts Region of image. Inputs are top left x , y pixel coordinates on image,

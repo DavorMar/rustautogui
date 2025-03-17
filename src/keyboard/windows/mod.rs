@@ -124,7 +124,6 @@ impl Keyboard {
         let value1 = self.keymap.get(key_1).ok_or("wrong keyboard char")?.0;
         let value2 = self.keymap.get(key_2).ok_or("wrong keyboard char")?.0;
 
-
         let mut third_key = false;
         let value3 = match key_3 {
             Some(value) => {
@@ -134,7 +133,7 @@ impl Keyboard {
             }
             None => 0,
         };
-        
+
         unsafe {
             Keyboard::key_down(value1);
             Keyboard::key_down(value2);

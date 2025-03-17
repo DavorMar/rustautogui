@@ -197,6 +197,5 @@ impl Screen {
             self.pixel_data.clone(),
         )
         .ok_or("failed to convert to RGBA")
-        
     }
 }
