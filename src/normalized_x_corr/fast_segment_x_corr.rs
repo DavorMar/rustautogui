@@ -287,7 +287,7 @@ fn fast_correlation_calculation(
 
 pub fn prepare_template_picture(
     template: &ImageBuffer<Luma<u8>, Vec<u8>>,
-    max_segments: &Option<u32>,
+    max_segments: Option<u32>,
     debug: &bool,
 ) -> SegmentedData {
     ///
@@ -341,7 +341,7 @@ pub fn prepare_template_picture(
     let fast_threshold = 0.99 * avg_deviation_of_template;
     let slow_threshold = 0.01 * avg_deviation_of_template;
 
-    let max_segments = (*max_segments).unwrap_or(u32::MAX);
+    let max_segments = max_segments.unwrap_or(u32::MAX);
 
     // create fast segmented image
     let (

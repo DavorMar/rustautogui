@@ -181,7 +181,7 @@ impl RustAutoGui {
         template_path: &str,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: &Option<u32>,
+        max_segments: Option<u32>,
     ) -> Result<(), String> {
         let template = imgtools::load_image_bw(template_path)?;
         self.prepare_bw_template(template, region, match_mode, max_segments)
@@ -192,7 +192,7 @@ impl RustAutoGui {
         bytes: &[u8],
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: &Option<u32>,
+        max_segments: Option<u32>,
     ) -> Result<(), String> {
         let template = imgtools::load_image_from_memory_bw(bytes)?;
         self.prepare_bw_template(template, region, match_mode, max_segments)
@@ -203,7 +203,7 @@ impl RustAutoGui {
         template: ImageBuffer<Luma<u8>, Vec<u8>>,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: &Option<u32>,
+        max_segments: Option<u32>,
     ) -> Result<(), String> {
         #[cfg(target_os = "macos")]
         let template = resize(
@@ -249,7 +249,7 @@ impl RustAutoGui {
         self.template_width = template_width;
         self.template_height = template_height;
         self.template = Some(template);
-        self.max_segments = *max_segments;
+        self.max_segments = max_segments;
         self.region = region;
         self.screen.screen_region_width = region.2;
         self.screen.screen_region_height = region.3;
@@ -267,7 +267,7 @@ impl RustAutoGui {
         &mut self,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: &Option<u32>,
+        max_segments: Option<u32>,
     ) {
         let Some(template) = self.template.as_ref() else {
             println!("No template loaded! Please use load_and_prepare_template method before changing prepared settings");
@@ -305,7 +305,7 @@ impl RustAutoGui {
             MatchMode::Segmented => {
                 // no need to recalculate if max segments havent changed or if match mode has not changed
                 if self.match_mode == Some(MatchMode::Segmented)
-                    && self.max_segments == *max_segments
+                    && self.max_segments == max_segments
                 {
                     if self.debug {
                         println!("Keeping same template data");
@@ -317,7 +317,7 @@ impl RustAutoGui {
                     let prepared_data = PreparedData::Segmented(
                         normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
                             template,
-                            &None,
+                            None,
                             &self.debug,
                         ),
                     );
