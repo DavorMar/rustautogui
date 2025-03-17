@@ -9,10 +9,9 @@ use image::{io::Reader as ImageReader, GrayImage, ImageBuffer, Luma, Pixel, Prim
 /// Loads image from the provided path and converts to black-white format
 /// Returns image in image::ImageBuffer format
 pub fn load_image_bw(location: &str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, String> {
-    let img = match ImageReader::open(location) {
-        Ok(x) => x,
-        Err(y) => return Err(y.to_string()),
-    };
+    
+    let img = ImageReader::open(location).map_err(|x| x.to_string())?; 
+        
 
     let img = match img.decode() {
         Ok(x) => x,

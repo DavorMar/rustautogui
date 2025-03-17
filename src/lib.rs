@@ -3,8 +3,7 @@ pub mod imgtools;
 pub mod normalized_x_corr;
 
 use image::{
-    imageops::{resize, FilterType::Nearest},
-    ImageBuffer, Luma,
+    imageops::{resize, FilterType::Nearest}, ImageBuffer, Luma, Pixel, Primitive, Rgba
 };
 use rustfft::num_complex::Complex;
 
@@ -29,19 +28,27 @@ pub mod screen;
 pub enum PreparedData {
     Segmented(
         (
-            Vec<(u32, u32, u32, u32, f32)>,
-            Vec<(u32, u32, u32, u32, f32)>,
-            u32,
-            u32,
-            f32,
-            f32,
-            f32,
-            f32,
-            f32,
-            f32,
+            Vec<(u32, u32, u32, u32, f32)>, // template_segments_fast
+            Vec<(u32, u32, u32, u32, f32)>, // template_segments_slow
+            u32, // template_width
+            u32, // template_height 
+            f32, // segment_sum_squared_deviations_fast
+            f32, // segment_sum_squared_deviations_slow 
+            f32, // expected_corr_fast
+            f32, // expected_corr_slow
+            f32, // segments_mean_fast
+            f32, // segments_mean_slow
         ),
     ),
-    FFT((Vec<Complex<f32>>, f32, u32, u32, u32)),
+    FFT(
+        (
+            Vec<Complex<f32>>, // template_conj_freq
+            f32,  // template_sum_squared_deviations
+            u32, // template_width
+            u32, // template_height
+            u32 // padded_size
+        )
+    ),
     None,
 }
 
@@ -161,6 +168,24 @@ impl RustAutoGui {
         Ok(())
     }
 
+    pub fn prepare_template_from_imagebuffer<P, T>(image:ImageBuffer<P,Vec<T>>) -> Result<(), String> 
+        where 
+            P: Pixel<Subpixel = T> + 'static ,
+            T: Primitive + 'static,
+            
+    {   
+        image.as_raw();
+        let mut len = 0;
+        let image = image.clone();
+        image.into_iter().map(|_| len +=1);
+
+        // let buffer_len = image.as_raw();
+
+
+        
+        Ok(())
+    }
+
     /// Loads template image from provided path and sets all the fields across structs as needed. Depending on match_mode, different template
     /// preparation process is executed. When using FFT, region is also important for zero-pad calculation
     /// Loading and preparing template is a necessary process before calling find_image_on_screen function
@@ -218,6 +243,7 @@ impl RustAutoGui {
                 prepared_data
             }
             MatchMode::Segmented => {
+                self.match_mode = Some(MatchMode::Segmented);
                 let prepared_data: (
                     Vec<(u32, u32, u32, u32, f32)>,
                     Vec<(u32, u32, u32, u32, f32)>,
@@ -233,14 +259,14 @@ impl RustAutoGui {
                     &template,
                     max_segments,
                     &self.debug,
-                );
+                ); 
                 // mostly happens due to using too complex image with small max segments value
                 if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
                     return Err(String::from("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"));
                 }
-                let prepared_data = PreparedData::Segmented(prepared_data);
-                self.match_mode = Some(MatchMode::Segmented);
-                prepared_data
+                
+                
+                PreparedData::Segmented(prepared_data)
             }
         };
         self.prepared_data = template_data;

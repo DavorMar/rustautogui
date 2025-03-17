@@ -201,12 +201,12 @@ pub fn prepare_template_picture(
     // calculate template conjugate
     let template_conj_freq: Vec<Complex<f32>> =
         template_padded.iter().map(|&val| val.conj()).collect();
-    let return_value = (
+    (
         template_conj_freq,
         template_sum_squared_deviations,
         template_width,
         template_height,
         padded_size,
-    );
-    return_value
+    )
+    
 }
