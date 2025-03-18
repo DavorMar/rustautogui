@@ -103,7 +103,6 @@ impl Screen {
         self.capture_screen()?;
         let image = self.convert_bitmap_to_rgba()?;
         image.save(image_path).map_err(|x| x.to_string())
-        
     }
 
     /// first order capture screen function. it captures screen image and stores it as vector in self.pixel_data
@@ -176,7 +175,7 @@ impl Screen {
             self.screen_width as u32,
             self.screen_height as u32,
             self.pixel_data.clone(),
-        ).ok_or("Failed conversion to RGBa")
-        
+        )
+        .ok_or("Failed conversion to RGBa")
     }
 }

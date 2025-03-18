@@ -3,11 +3,13 @@ pub mod imgtools;
 pub mod normalized_x_corr;
 
 use image::{
-    imageops::{resize, FilterType::Nearest}, ImageBuffer, Luma, Pixel, Primitive, Rgba
+    imageops::{resize, FilterType::Nearest},
+    DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba,
 };
-use rustfft::num_complex::Complex;
+use normalized_x_corr::fast_segment_x_corr::prepare_template_picture;
+use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
 
-use std::{env, fs, path::Path};
+use std::{env, fs, path::Path, str::FromStr};
 
 #[cfg(target_os = "windows")]
 pub use crate::{keyboard::windows::Keyboard, mouse::windows::Mouse, screen::windows::Screen};
@@ -30,24 +32,24 @@ pub enum PreparedData {
         (
             Vec<(u32, u32, u32, u32, f32)>, // template_segments_fast
             Vec<(u32, u32, u32, u32, f32)>, // template_segments_slow
-            u32, // template_width
-            u32, // template_height 
-            f32, // segment_sum_squared_deviations_fast
-            f32, // segment_sum_squared_deviations_slow 
-            f32, // expected_corr_fast
-            f32, // expected_corr_slow
-            f32, // segments_mean_fast
-            f32, // segments_mean_slow
+            u32,                            // template_width
+            u32,                            // template_height
+            f32,                            // segment_sum_squared_deviations_fast
+            f32,                            // segment_sum_squared_deviations_slow
+            f32,                            // expected_corr_fast
+            f32,                            // expected_corr_slow
+            f32,                            // segments_mean_fast
+            f32,                            // segments_mean_slow
         ),
     ),
     FFT(
         (
             Vec<Complex<f32>>, // template_conj_freq
-            f32,  // template_sum_squared_deviations
-            u32, // template_width
-            u32, // template_height
-            u32 // padded_size
-        )
+            f32,               // template_sum_squared_deviations
+            u32,               // template_width
+            u32,               // template_height
+            u32,               // padded_size
+        ),
     ),
     None,
 }
@@ -168,38 +170,83 @@ impl RustAutoGui {
         Ok(())
     }
 
-    pub fn prepare_template_from_imagebuffer<P, T>(image:ImageBuffer<P,Vec<T>>) -> Result<(), String> 
-        where 
-            P: Pixel<Subpixel = T> + 'static ,
-            T: Primitive + 'static,
-            
-    {   
-        image.as_raw();
-        let mut len = 0;
-        let image = image.clone();
-        image.into_iter().map(|_| len +=1);
+    pub fn prepare_template_from_imagebuffer<P, T>(
+        &mut self,
+        image: ImageBuffer<P, Vec<T>>,
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        max_segments: &Option<u32>,
+    ) -> Result<(), String>
+    where
+        P: Pixel<Subpixel = T> + 'static,
+        T: Primitive + ToPrimitive + 'static,
+    {
+        let buff_len = image.as_raw().len() as u32;
+        let (img_w, img_h) = image.dimensions();
+        if (&img_w * &img_h) == 0 {
+            let err = "Error: The buffer provided is empty and has no size".to_string();
+            return Err(err);
+        }
+        let dimensions = buff_len / (img_w * img_h);
 
-        // let buffer_len = image.as_raw();
-
-
-        
+        match dimensions {
+            1 => { // Black and white image (Luma)
+                // convert from Vec<T> to Vec<u8>
+                let raw_img: Vec<u8> = image
+                    .as_raw()
+                    .into_iter()
+                    .map(|x| x.to_u8().unwrap_or(0))
+                    .collect();
+                // convert to imagebuffer and prepare template
+                if let Some(luma_image) =
+                    ImageBuffer::<Luma<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img)
+                {
+                    self.prepare_template_picture(luma_image, region, match_mode, max_segments)?
+                }
+            }
+            3 => { // Rgb
+                let raw_img: Vec<u8> = image
+                    .as_raw()
+                    .into_iter()
+                    .map(|x| x.to_u8().unwrap_or(0))
+                    .collect();
+                if let Some(rgb_img) =
+                    ImageBuffer::<Rgb<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img)
+                {
+                    let luma_image = DynamicImage::ImageRgb8(rgb_img).to_luma8();
+                    self.prepare_template_picture(luma_image, region, match_mode, max_segments)?
+                }
+            }
+            4 => { // Rgba
+                let raw_img: Vec<u8> = image
+                    .as_raw()
+                    .into_iter()
+                    .map(|x| x.to_u8().unwrap_or(0))
+                    .collect();
+                if let Some(rgba_img) =
+                    ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img)
+                {
+                    let luma_image = DynamicImage::ImageRgba8(rgba_img).to_luma8();
+                    self.prepare_template_picture(luma_image, region, match_mode, max_segments)?
+                }
+            }
+            _ => {
+                return Err(
+                    "Unknown image format. Load works only for Rgb/Rgba/Luma(BW) formats"
+                        .to_string(),
+                )
+            }
+        }
         Ok(())
     }
 
-    /// Loads template image from provided path and sets all the fields across structs as needed. Depending on match_mode, different template
-    /// preparation process is executed. When using FFT, region is also important for zero-pad calculation
-    /// Loading and preparing template is a necessary process before calling find_image_on_screen function
-    ///
-    /// creates vector of data stored under PreparedData enumerator, and stored inside struct field self.prepared_data
-    pub fn load_and_prepare_template(
+    fn prepare_template_picture(
         &mut self,
-        template_path: &str,
+        template: ImageBuffer<Luma<u8>, Vec<u8>>,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
         max_segments: &Option<u32>,
     ) -> Result<(), String> {
-        #[allow(unused_mut)] // allowed because its needed in macos code below
-        let mut template = imgtools::load_image_bw(template_path)?;
         #[cfg(target_os = "macos")]
         //resize and adjust if retina screen is used
         {
@@ -259,18 +306,34 @@ impl RustAutoGui {
                     &template,
                     max_segments,
                     &self.debug,
-                ); 
+                );
                 // mostly happens due to using too complex image with small max segments value
                 if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
                     return Err(String::from("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"));
                 }
-                
-                
+
                 PreparedData::Segmented(prepared_data)
             }
         };
         self.prepared_data = template_data;
         return Ok(());
+    }
+
+    /// Loads template image from provided path and sets all the fields across structs as needed. Depending on match_mode, different template
+    /// preparation process is executed. When using FFT, region is also important for zero-pad calculation
+    /// Loading and preparing template is a necessary process before calling find_image_on_screen function
+    ///
+    /// creates vector of data stored under PreparedData enumerator, and stored inside struct field self.prepared_data
+    pub fn load_and_prepare_template(
+        &mut self,
+        template_path: &str,
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        max_segments: &Option<u32>,
+    ) -> Result<(), String> {
+        #[allow(unused_mut)] // allowed because its needed in macos code below
+        let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+        self.prepare_template_picture(template, region, match_mode, max_segments)
     }
 
     /// change certain settings for prepared template, like region, match_mode or max_segments. If MatchMode is not changed, whole template
@@ -634,8 +697,8 @@ impl RustAutoGui {
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
             return Err("Out of screen boundaries");
         }
-        self.mouse.move_mouse_to_pos(x as i32, y as i32, moving_time)
-        
+        self.mouse
+            .move_mouse_to_pos(x as i32, y as i32, moving_time)
     }
 
     /// moves mouse to x, y pixel coordinate
@@ -650,14 +713,12 @@ impl RustAutoGui {
             }
         }
         self.mouse.drag_mouse(x as i32, y as i32, moving_time)
-        
     }
 
     /// executes left mouse click
     #[cfg(target_os = "linux")]
     pub fn left_click(&self) -> Result<(), &'static str> {
         self.mouse.mouse_click(mouse::MouseClick::LEFT)
-        
     }
 
     /// executes right mouse click
@@ -677,7 +738,6 @@ impl RustAutoGui {
     pub fn double_click(&self) -> Result<(), &'static str> {
         self.mouse.mouse_click(mouse::MouseClick::LEFT)?;
         self.mouse.mouse_click(mouse::MouseClick::LEFT)
-        
     }
 
     #[cfg(target_os = "linux")]

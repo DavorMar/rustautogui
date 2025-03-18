@@ -4,14 +4,12 @@ loading images from disk, converting image to black-white or RGB, cutting image
 and converting image to vector.
 */
 
-use image::{io::Reader as ImageReader, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgba};
+use image::{io::Reader as ImageReader, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba};
 
 /// Loads image from the provided path and converts to black-white format
 /// Returns image in image::ImageBuffer format
 pub fn load_image_bw(location: &str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, String> {
-    
-    let img = ImageReader::open(location).map_err(|x| x.to_string())?; 
-        
+    let img = ImageReader::open(location).map_err(|x| x.to_string())?;
 
     let img = match img.decode() {
         Ok(x) => x,
@@ -31,13 +29,31 @@ pub fn load_image_rgba(location: &str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>,
 }
 
 /// Does conversion from ImageBuffer RGBA to ImageBuffer Black and White(Luma)
-pub fn convert_image_to_bw(
+pub fn convert_rgba_to_bw(
     image: ImageBuffer<Rgba<u8>, Vec<u8>>,
 ) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, &'static str> {
     let mut grayscale_data: Vec<u8> = Vec::with_capacity(image.len());
     let screen_width = image.width();
     let screen_height = image.height();
     for chunk in image.chunks_exact(4) {
+        let r = chunk[2] as u32;
+        let g = chunk[1] as u32;
+        let b = chunk[0] as u32;
+        // Calculate the grayscale value using the luminance formula
+        let gray_value = ((r * 30 + g * 59 + b * 11) / 100) as u8;
+        grayscale_data.push(gray_value);
+    }
+    GrayImage::from_raw(screen_width as u32, screen_height as u32, grayscale_data)
+        .ok_or("failed to convert image to grayscale")
+}
+
+pub fn convert_rgb_to_bw(
+    image: ImageBuffer<Rgb<u8>, Vec<u8>>,
+) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, &'static str> {
+    let mut grayscale_data: Vec<u8> = Vec::with_capacity(image.len());
+    let screen_width = image.width();
+    let screen_height = image.height();
+    for chunk in image.chunks_exact(3) {
         let r = chunk[2] as u32;
         let g = chunk[1] as u32;
         let b = chunk[0] as u32;

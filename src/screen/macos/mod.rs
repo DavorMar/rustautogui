@@ -158,6 +158,7 @@ impl Screen {
             (self.scaling_factor_x * self.screen_width as f64) as u32,
             (self.scaling_factor_y * self.screen_height as f64) as u32,
             self.pixel_data.clone(),
-        ).ok_or("Could not convert image to rgba")
+        )
+        .ok_or("Could not convert image to rgba")
     }
 }

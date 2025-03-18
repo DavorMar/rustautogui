@@ -208,5 +208,4 @@ pub fn prepare_template_picture(
         template_height,
         padded_size,
     )
-    
 }
