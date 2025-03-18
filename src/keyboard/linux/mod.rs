@@ -147,7 +147,7 @@ impl Keyboard {
             if keycode == 0 {
                 return Err("couldnt input a key");
             }
-            
+
             if shifted {
                 self.send_shifted_key(keycode)?;
             } else {

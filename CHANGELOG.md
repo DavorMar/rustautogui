@@ -3,7 +3,10 @@ All notable changes to this project will be documented in this file.
 
 ## [2.2.0] - 2025-03-
 ### Added / Fixed
-- find_image_and_move_mouse now returns vec of all found locations instead of just top location 
+- fix: find_image_and_move_mouse now returns vec of all found locations instead of just top location 
+- imgtools::convert_image_to_bw was renamed to convert_rgba_to_bw
+- added prepare_template_from_imagebuffer() function
+ 
 
 ## [2.1.1] - 2025-03.16
 ### Fixed
