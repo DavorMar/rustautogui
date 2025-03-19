@@ -7,6 +7,7 @@ use image::{
     DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba,
 };
 use normalized_x_corr::fast_segment_x_corr::prepare_template_picture;
+
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
 
 use std::{env, fs, path::Path, str::FromStr};
@@ -51,6 +52,7 @@ pub enum PreparedData {
             u32,               // padded_size
         ),
     ),
+
     None,
 }
 
@@ -144,6 +146,11 @@ impl RustAutoGui {
         self.suppress_warnings = suppress;
     }
 
+    /// changes debug mode
+    pub fn change_debug_state(&mut self, state: bool) {
+        self.debug = state;
+    }
+
     fn check_if_region_out_of_bound(&mut self) -> Result<(), &'static str> {
         let region_x = self.region.0;
         let region_y = self.region.1;
@@ -170,6 +177,7 @@ impl RustAutoGui {
         Ok(())
     }
 
+    // prepare from imagebuffer, works only on types RGB/RGBA/Luma
     pub fn prepare_template_from_imagebuffer<P, T>(
         &mut self,
         image: ImageBuffer<P, Vec<T>>,
@@ -190,7 +198,8 @@ impl RustAutoGui {
         let dimensions = buff_len / (img_w * img_h);
 
         match dimensions {
-            1 => { // Black and white image (Luma)
+            1 => {
+                // Black and white image (Luma)
                 // convert from Vec<T> to Vec<u8>
                 let raw_img: Vec<u8> = image
                     .as_raw()
@@ -204,7 +213,8 @@ impl RustAutoGui {
                     self.prepare_template_picture(luma_image, region, match_mode, max_segments)?
                 }
             }
-            3 => { // Rgb
+            3 => {
+                // Rgb
                 let raw_img: Vec<u8> = image
                     .as_raw()
                     .into_iter()
@@ -217,7 +227,8 @@ impl RustAutoGui {
                     self.prepare_template_picture(luma_image, region, match_mode, max_segments)?
                 }
             }
-            4 => { // Rgba
+            4 => {
+                // Rgba
                 let raw_img: Vec<u8> = image
                     .as_raw()
                     .into_iter()
@@ -240,6 +251,20 @@ impl RustAutoGui {
         Ok(())
     }
 
+    pub fn prepare_template_from_raw(
+        &mut self,
+        img_raw: &[u8],
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        max_segments: &Option<u32>,
+    ) -> Result<(), String> {
+        let image = image::load_from_memory(img_raw).map_err(|e| e.to_string())?;
+        self.prepare_template_picture(image.to_luma8(), region, match_mode, max_segments)?;
+        Ok(())
+    }
+
+    // main prepare template picture which takes ImageBuffer Luma u8. all the other variants
+    // of load_and prepare call this function
     fn prepare_template_picture(
         &mut self,
         template: ImageBuffer<Luma<u8>, Vec<u8>>,
@@ -414,11 +439,6 @@ impl RustAutoGui {
         // set new Screen::region... fields
         self.screen.screen_region_width = region.2;
         self.screen.screen_region_height = region.3;
-    }
-
-    /// changes debug mode
-    pub fn change_debug_state(&mut self, state: bool) {
-        self.debug = state;
     }
 
     /// Searches for prepared template on screen.
