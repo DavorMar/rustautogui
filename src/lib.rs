@@ -251,6 +251,7 @@ impl RustAutoGui {
         Ok(())
     }
 
+    // only works on encoded images. uses image::load_from_memory() which reads first bytes of image which contain metadata depending on format.
     pub fn prepare_template_from_raw(
         &mut self,
         img_raw: &[u8],
@@ -258,7 +259,11 @@ impl RustAutoGui {
         match_mode: MatchMode,
         max_segments: &Option<u32>,
     ) -> Result<(), String> {
-        let image = image::load_from_memory(img_raw).map_err(|e| e.to_string())?;
+        let image = image::load_from_memory(img_raw).map_err(|e| {
+            let mut err_msg = "Prepare template from raw only works on encoded images. The original message was \n".to_string();
+            err_msg.push_str(e.to_string().as_str());
+            err_msg
+            })?;
         self.prepare_template_picture(image.to_luma8(), region, match_mode, max_segments)?;
         Ok(())
     }
