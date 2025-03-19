@@ -10,7 +10,7 @@ use normalized_x_corr::fast_segment_x_corr::prepare_template_picture;
 
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
 
-use std::{env, fs, path::Path, str::FromStr};
+use std::{collections::HashMap, env, fs, path::Path, str::FromStr};
 
 #[cfg(target_os = "windows")]
 pub use crate::{keyboard::windows::Keyboard, mouse::windows::Mouse, screen::windows::Screen};
@@ -70,7 +70,8 @@ pub enum MatchMode {
 pub struct RustAutoGui {
     // most of the fields are set up in load_and_prepare_template method
     template: Option<ImageBuffer<Luma<u8>, Vec<u8>>>,
-    prepared_data: PreparedData,
+    prepared_data: PreparedData, // used direct load and search
+    prepared_data_stored: HashMap<String, PreparedData>, // used if multiple images need to be preloaded and searched. Good for simultaneous search
     debug: bool,
     template_height: u32,
     template_width: u32,
@@ -99,6 +100,7 @@ impl RustAutoGui {
         Ok(Self {
             template: None,
             prepared_data: PreparedData::None,
+            prepared_data_stored: HashMap::new(),
             debug: debug,
             template_width: 0,
             template_height: 0,
@@ -129,6 +131,7 @@ impl RustAutoGui {
         Ok(Self {
             template: None,
             prepared_data: PreparedData::None,
+            prepared_data_stored: HashMap::new(),
             debug: debug,
             template_width: 0,
             template_height: 0,
@@ -189,70 +192,33 @@ impl RustAutoGui {
         P: Pixel<Subpixel = T> + 'static,
         T: Primitive + ToPrimitive + 'static,
     {
-        let buff_len = image.as_raw().len() as u32;
-        let (img_w, img_h) = image.dimensions();
-        if (&img_w * &img_h) == 0 {
-            let err = "Error: The buffer provided is empty and has no size".to_string();
-            return Err(err);
-        }
-        let dimensions = buff_len / (img_w * img_h);
+        let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
+        let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, &color_scheme)?;
+        self.prepare_template_picture_bw(luma_img, region, match_mode, max_segments, None)?;
+        Ok(())
+    }
 
-        match dimensions {
-            1 => {
-                // Black and white image (Luma)
-                // convert from Vec<T> to Vec<u8>
-                let raw_img: Vec<u8> = image
-                    .as_raw()
-                    .into_iter()
-                    .map(|x| x.to_u8().unwrap_or(0))
-                    .collect();
-                // convert to imagebuffer and prepare template
-                if let Some(luma_image) =
-                    ImageBuffer::<Luma<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img)
-                {
-                    self.prepare_template_picture(luma_image, region, match_mode, max_segments)?
-                }
-            }
-            3 => {
-                // Rgb
-                let raw_img: Vec<u8> = image
-                    .as_raw()
-                    .into_iter()
-                    .map(|x| x.to_u8().unwrap_or(0))
-                    .collect();
-                if let Some(rgb_img) =
-                    ImageBuffer::<Rgb<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img)
-                {
-                    let luma_image = DynamicImage::ImageRgb8(rgb_img).to_luma8();
-                    self.prepare_template_picture(luma_image, region, match_mode, max_segments)?
-                }
-            }
-            4 => {
-                // Rgba
-                let raw_img: Vec<u8> = image
-                    .as_raw()
-                    .into_iter()
-                    .map(|x| x.to_u8().unwrap_or(0))
-                    .collect();
-                if let Some(rgba_img) =
-                    ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img)
-                {
-                    let luma_image = DynamicImage::ImageRgba8(rgba_img).to_luma8();
-                    self.prepare_template_picture(luma_image, region, match_mode, max_segments)?
-                }
-            }
-            _ => {
-                return Err(
-                    "Unknown image format. Load works only for Rgb/Rgba/Luma(BW) formats"
-                        .to_string(),
-                )
-            }
-        }
+
+    pub fn store_template_from_imagebuffer <P, T>(
+        &mut self,
+        image: ImageBuffer<P, Vec<T>>,
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        max_segments: &Option<u32>,
+        hash_value: &str,
+    ) -> Result<(), String>
+    where
+        P: Pixel<Subpixel = T> + 'static,
+        T: Primitive + ToPrimitive + 'static,
+    {
+        let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
+        let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, &color_scheme)?;
+        self.prepare_template_picture_bw(luma_img, region, match_mode, max_segments, Some(hash_value))?;
         Ok(())
     }
 
     // only works on encoded images. uses image::load_from_memory() which reads first bytes of image which contain metadata depending on format.
-    pub fn prepare_template_from_raw(
+    pub fn prepare_template_from_raw_encoded(
         &mut self,
         img_raw: &[u8],
         region: Option<(u32, u32, u32, u32)>,
@@ -260,22 +226,40 @@ impl RustAutoGui {
         max_segments: &Option<u32>,
     ) -> Result<(), String> {
         let image = image::load_from_memory(img_raw).map_err(|e| {
-            let mut err_msg = "Prepare template from raw only works on encoded images. The original message was \n".to_string();
+            let mut err_msg = "Prepare template from raw only works on encoded images. The original error message was \n".to_string();
             err_msg.push_str(e.to_string().as_str());
             err_msg
             })?;
-        self.prepare_template_picture(image.to_luma8(), region, match_mode, max_segments)?;
+        self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, max_segments, None)?;
+        Ok(())
+    }
+
+    pub fn store_template_from_raw_encoded(
+        &mut self,
+        img_raw: &[u8],
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        max_segments: &Option<u32>,
+        hash_value: &str
+    ) -> Result<(), String> {
+        let image = image::load_from_memory(img_raw).map_err(|e| {
+            let mut err_msg = "Prepare template from raw only works on encoded images. The original error message was \n".to_string();
+            err_msg.push_str(e.to_string().as_str());
+            err_msg
+            })?;
+        self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, max_segments, Some(hash_value))?;
         Ok(())
     }
 
     // main prepare template picture which takes ImageBuffer Luma u8. all the other variants
     // of load_and prepare call this function
-    fn prepare_template_picture(
+    pub fn prepare_template_picture_bw(
         &mut self,
         template: ImageBuffer<Luma<u8>, Vec<u8>>,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
         max_segments: &Option<u32>,
+        hash: Option<&str>,
     ) -> Result<(), String> {
         #[cfg(target_os = "macos")]
         //resize and adjust if retina screen is used
@@ -363,7 +347,32 @@ impl RustAutoGui {
     ) -> Result<(), String> {
         #[allow(unused_mut)] // allowed because its needed in macos code below
         let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
-        self.prepare_template_picture(template, region, match_mode, max_segments)
+        self.prepare_template_picture_bw(template, region, match_mode, max_segments, None)
+    }
+
+    pub fn prepare_template_from_path(
+        &mut self,
+        template_path: &str,
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        max_segments: &Option<u32>,
+    ) -> Result<(), String> {
+        #[allow(unused_mut)] // allowed because its needed in macos code below
+        let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+        self.prepare_template_picture_bw(template, region, match_mode, max_segments, None)
+    }
+
+    pub fn store_template_from_path(
+        &mut self,
+        template_path: &str,
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        max_segments: &Option<u32>,
+        hash_value: &str
+    ) -> Result<(), String> {
+        #[allow(unused_mut)] // allowed because its needed in macos code below
+        let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+        self.prepare_template_picture_bw(template, region, match_mode, max_segments, Some(hash_value))
     }
 
     /// change certain settings for prepared template, like region, match_mode or max_segments. If MatchMode is not changed, whole template
