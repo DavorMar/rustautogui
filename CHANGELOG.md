@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 - fix: find_image_and_move_mouse now returns vec of all found locations instead of just top location 
 - imgtools::convert_image_to_bw was renamed to convert_rgba_to_bw
 - added prepare_template_from_imagebuffer() function
+- added prepare_template_from_raw
+- added prepared data storage. Possibility to preload multiple templates and call them by stored alias
  
 
 ## [2.1.1] - 2025-03.16

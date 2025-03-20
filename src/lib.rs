@@ -56,11 +56,29 @@ pub enum PreparedData {
     None,
 }
 
+impl Clone for PreparedData {
+    fn clone(&self) -> Self {
+        match self {
+            PreparedData::Segmented(data) => PreparedData::Segmented(data.clone()),
+            PreparedData::FFT(data) => PreparedData::FFT(data.clone()),
+            PreparedData::None => PreparedData::None,
+        }
+    }
+}
+
 /// Matchmode Segmented correlation and Fourier transform correlation
 #[derive(PartialEq)]
 pub enum MatchMode {
     Segmented,
     FFT,
+}
+impl Clone for MatchMode {
+    fn clone(&self) -> Self {
+        match self {
+            MatchMode::Segmented => MatchMode::Segmented,
+            MatchMode::FFT => MatchMode::Segmented,
+        }
+    }
 }
 
 /// Main struct for Rustautogui
@@ -71,7 +89,7 @@ pub struct RustAutoGui {
     // most of the fields are set up in load_and_prepare_template method
     template: Option<ImageBuffer<Luma<u8>, Vec<u8>>>,
     prepared_data: PreparedData, // used direct load and search
-    prepared_data_stored: HashMap<String, PreparedData>, // used if multiple images need to be preloaded and searched. Good for simultaneous search
+    prepared_data_stored: HashMap<String, (PreparedData, (u32, u32, u32, u32))>, // used if multiple images need to be preloaded and searched. Good for simultaneous search
     debug: bool,
     template_height: u32,
     template_width: u32,
@@ -186,7 +204,7 @@ impl RustAutoGui {
         image: ImageBuffer<P, Vec<T>>,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: &Option<u32>,
+        max_segments: Option<u32>,
     ) -> Result<(), String>
     where
         P: Pixel<Subpixel = T> + 'static,
@@ -198,14 +216,13 @@ impl RustAutoGui {
         Ok(())
     }
 
-
-    pub fn store_template_from_imagebuffer <P, T>(
+    pub fn store_template_from_imagebuffer<P, T>(
         &mut self,
         image: ImageBuffer<P, Vec<T>>,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: &Option<u32>,
-        hash_value: &str,
+        max_segments: Option<u32>,
+        alias: String,
     ) -> Result<(), String>
     where
         P: Pixel<Subpixel = T> + 'static,
@@ -213,7 +230,7 @@ impl RustAutoGui {
     {
         let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
         let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, &color_scheme)?;
-        self.prepare_template_picture_bw(luma_img, region, match_mode, max_segments, Some(hash_value))?;
+        self.prepare_template_picture_bw(luma_img, region, match_mode, max_segments, Some(alias))?;
         Ok(())
     }
 
@@ -223,7 +240,7 @@ impl RustAutoGui {
         img_raw: &[u8],
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: &Option<u32>,
+        max_segments: Option<u32>,
     ) -> Result<(), String> {
         let image = image::load_from_memory(img_raw).map_err(|e| {
             let mut err_msg = "Prepare template from raw only works on encoded images. The original error message was \n".to_string();
@@ -239,15 +256,21 @@ impl RustAutoGui {
         img_raw: &[u8],
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: &Option<u32>,
-        hash_value: &str
+        max_segments: Option<u32>,
+        alias: String,
     ) -> Result<(), String> {
         let image = image::load_from_memory(img_raw).map_err(|e| {
             let mut err_msg = "Prepare template from raw only works on encoded images. The original error message was \n".to_string();
             err_msg.push_str(e.to_string().as_str());
             err_msg
             })?;
-        self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, max_segments, Some(hash_value))?;
+        self.prepare_template_picture_bw(
+            image.to_luma8(),
+            region,
+            match_mode,
+            max_segments,
+            Some(alias),
+        )?;
         Ok(())
     }
 
@@ -258,8 +281,8 @@ impl RustAutoGui {
         template: ImageBuffer<Luma<u8>, Vec<u8>>,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: &Option<u32>,
-        hash: Option<&str>,
+        max_segments: Option<u32>,
+        alias: Option<String>,
     ) -> Result<(), String> {
         #[cfg(target_os = "macos")]
         //resize and adjust if retina screen is used
@@ -272,12 +295,8 @@ impl RustAutoGui {
             );
         }
         let (template_width, template_height) = template.dimensions();
-        // update struct values
-        self.template_width = template_width;
-        self.template_height = template_height;
-        // convert to option and store in struct
-        self.template = Some(template.clone());
-        self.max_segments = *max_segments;
+
+        self.max_segments = max_segments;
         let region = match region {
             Some(region_tuple) => region_tuple,
             None => {
@@ -285,26 +304,22 @@ impl RustAutoGui {
                 (0, 0, screen_width as u32, screen_height as u32)
             }
         };
-        self.region = region;
-        // update screen struct
-        self.screen.screen_region_width = region.2;
-        self.screen.screen_region_height = region.3;
+
         self.check_if_region_out_of_bound()?;
         // do the rest of preparation calculations depending on the matchmode
         // FFT pads the image, does fourier transformations,
         // calculates conjugate and inverses transformation on template
         // Segmented creates vector of picture segments with coordinates, dimensions and average pixel value
-        let template_data = match match_mode {
+        let (template_data, match_mode) = match match_mode {
             MatchMode::FFT => {
                 let prepared_data =
                     PreparedData::FFT(normalized_x_corr::fft_ncc::prepare_template_picture(
                         &template, &region.2, &region.3,
                     ));
-                self.match_mode = Some(MatchMode::FFT);
-                prepared_data
+                let match_mode = Some(MatchMode::FFT);
+                (prepared_data, match_mode)
             }
             MatchMode::Segmented => {
-                self.match_mode = Some(MatchMode::Segmented);
                 let prepared_data: (
                     Vec<(u32, u32, u32, u32, f32)>,
                     Vec<(u32, u32, u32, u32, f32)>,
@@ -325,11 +340,30 @@ impl RustAutoGui {
                 if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
                     return Err(String::from("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"));
                 }
-
-                PreparedData::Segmented(prepared_data)
+                let match_mode = Some(MatchMode::Segmented);
+                (PreparedData::Segmented(prepared_data), match_mode)
             }
         };
-        self.prepared_data = template_data;
+        match alias {
+            Some(name) => {
+                self.prepared_data_stored
+                    .insert(name, (template_data, region));
+            }
+            None => {
+                self.region = region;
+                self.prepared_data = template_data;
+                self.match_mode = match_mode;
+                // update screen struct
+                self.screen.screen_region_width = region.2;
+                self.screen.screen_region_height = region.3;
+                // update struct values
+                self.template_width = template_width;
+                self.template_height = template_height;
+                // convert to option and store in struct
+                self.template = Some(template.clone());
+            }
+        }
+
         return Ok(());
     }
 
@@ -343,7 +377,7 @@ impl RustAutoGui {
         template_path: &str,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: &Option<u32>,
+        max_segments: Option<u32>,
     ) -> Result<(), String> {
         #[allow(unused_mut)] // allowed because its needed in macos code below
         let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
@@ -355,7 +389,7 @@ impl RustAutoGui {
         template_path: &str,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: &Option<u32>,
+        max_segments: Option<u32>,
     ) -> Result<(), String> {
         #[allow(unused_mut)] // allowed because its needed in macos code below
         let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
@@ -367,12 +401,12 @@ impl RustAutoGui {
         template_path: &str,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: &Option<u32>,
-        hash_value: &str
+        max_segments: Option<u32>,
+        alias: String,
     ) -> Result<(), String> {
         #[allow(unused_mut)] // allowed because its needed in macos code below
         let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
-        self.prepare_template_picture_bw(template, region, match_mode, max_segments, Some(hash_value))
+        self.prepare_template_picture_bw(template, region, match_mode, max_segments, Some(alias))
     }
 
     /// change certain settings for prepared template, like region, match_mode or max_segments. If MatchMode is not changed, whole template
@@ -384,7 +418,7 @@ impl RustAutoGui {
         &mut self,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: &Option<u32>,
+        max_segments: Option<u32>,
     ) {
         let template = self.template.clone();
         let template = match template {
@@ -428,7 +462,7 @@ impl RustAutoGui {
             MatchMode::Segmented => {
                 // no need to recalculate if max segments havent changed or if match mode has not changed
                 if self.match_mode == Some(MatchMode::Segmented)
-                    && self.max_segments == *max_segments
+                    && self.max_segments == max_segments
                 {
                     if self.debug {
                         println!("Keeping same template data");
@@ -440,7 +474,7 @@ impl RustAutoGui {
                     let prepared_data = PreparedData::Segmented(
                         normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
                             &template,
-                            &None,
+                            None,
                             &self.debug,
                         ),
                     );
@@ -464,7 +498,8 @@ impl RustAutoGui {
         precision: f32,
     ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
         /// searches for image on screen and returns found locations in vector format
-        let image = self.screen.grab_screen_image_grayscale(&self.region)?;
+        let image: ImageBuffer<Luma<u8>, Vec<u8>> =
+            self.screen.grab_screen_image_grayscale(&self.region)?;
 
         if self.debug {
             let debug_path = Path::new("debug");
@@ -484,14 +519,67 @@ impl RustAutoGui {
                 };
             }
         };
+        self.run_x_corr(image, precision)
+    }
 
+    pub fn find_stored_image_on_screen(
+        &mut self,
+        precision: f32,
+        alias: &String,
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+        let (prepared_data, region) = self
+            .prepared_data_stored
+            .get(alias)
+            .ok_or("No template stored with selected alias")?;
+        // save to reset after finished
+        let starting_data = self.prepared_data.clone();
+        let starting_region = self.region.clone();
+        let starting_match_mode = self.match_mode.clone();
+        let starting_template_height = self.template_height.clone();
+        let starting_template_width = self.template_width.clone();
+
+        self.prepared_data = prepared_data.clone();
+        self.screen.screen_region_width = region.2;
+        self.screen.screen_region_height = region.3;
+        self.region = *region;
+        self.match_mode = match prepared_data {
+            PreparedData::FFT(data) => {
+                self.template_width = data.2;
+                self.template_height = data.3;
+                Some(MatchMode::FFT)
+            }
+            PreparedData::Segmented(data) => {
+                self.template_width = data.2;
+                self.template_height = data.3;
+                Some(MatchMode::Segmented)
+            }
+            PreparedData::None => None,
+        };
+        let points = self.find_image_on_screen(precision)?;
+        // reset to starting info
+        self.prepared_data = starting_data.clone();
+        self.region = starting_region;
+        self.match_mode = starting_match_mode;
+        self.screen.screen_region_width = starting_region.2;
+        self.screen.screen_region_height = starting_region.3;
+        self.template_width = starting_template_width;
+        self.template_height = starting_template_height;
+
+        Ok(points)
+    }
+
+    fn run_x_corr(
+        &mut self,
+        image: ImageBuffer<Luma<u8>, Vec<u8>>,
+        precision: f32,
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
         let found_locations = match &self.prepared_data {
             PreparedData::FFT(data) => {
                 let found_locations = normalized_x_corr::fft_ncc::fft_ncc(&image, &precision, data);
                 found_locations
             },
             PreparedData::Segmented(data) => {
-                let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, &precision, data, &self.debug, "", &self.suppress_warnings);
+                let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, &precision, &data, &self.debug, &self.suppress_warnings);
                 found_locations
             },
             PreparedData::None => {
@@ -521,7 +609,6 @@ impl RustAutoGui {
             }
             return Ok(Some(found_locations));
         } else {
-            let empty_vec: Vec<(u32, u32, f64)> = vec![];
             return Ok(None);
         };
     }
@@ -530,6 +617,56 @@ impl RustAutoGui {
     pub fn save_screenshot(&mut self, path: &str) -> Result<(), String> {
         self.screen.grab_screenshot(path)?;
         Ok(())
+    }
+
+    pub fn find_stored_image_on_screen_and_move_mouse(
+        &mut self,
+        precision: f32,
+        moving_time: f32,
+        alias: &String,
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+        let (prepared_data, region) = self
+            .prepared_data_stored
+            .get(alias)
+            .ok_or("No template stored with selected alias")?;
+        // save to reset after finished
+        let starting_data = self.prepared_data.clone();
+        let starting_region = self.region.clone();
+        let starting_match_mode = self.match_mode.clone();
+        let starting_template_height = self.template_height.clone();
+        let starting_template_width = self.template_width.clone();
+
+        self.prepared_data = prepared_data.clone();
+        self.region = *region;
+        self.screen.screen_region_width = region.2;
+        self.screen.screen_region_height = region.3;
+        self.match_mode = match prepared_data {
+            PreparedData::FFT(data) => {
+                self.template_width = data.2;
+                self.template_height = data.3;
+
+                Some(MatchMode::FFT)
+            }
+            PreparedData::Segmented(data) => {
+                self.template_width = data.2;
+                self.template_height = data.3;
+
+                Some(MatchMode::Segmented)
+            }
+            PreparedData::None => return Err("No prepared data loaded"),
+        };
+        let found_points = self.find_image_on_screen_and_move_mouse(precision, moving_time);
+
+        // reset to starting info
+        self.prepared_data = starting_data;
+        self.region = starting_region;
+        self.match_mode = starting_match_mode;
+        self.screen.screen_region_width = starting_region.2;
+        self.screen.screen_region_height = starting_region.3;
+        self.template_width = starting_template_width;
+        self.template_height = starting_template_height;
+
+        found_points
     }
 
     /// executes find_image_on_screen and moves mouse to the middle of the image.

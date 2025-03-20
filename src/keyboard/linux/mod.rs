@@ -204,6 +204,7 @@ impl Keyboard {
     /// mapping made so  bigger variety of strings can be used when sending string as input.
     /// for instance, instead of neccessity of sending "period", we can send ".". This means when sending a
     /// string like url test.hr we dont need to send test, then send period, then send hr
+    #[allow(unused_variables)]
     fn create_keymap(is_us_layout: bool) -> HashMap<String, (String, bool)> {
         let mut keysym_map: HashMap<String, (String, bool)> = HashMap::new();
         keysym_map.insert(

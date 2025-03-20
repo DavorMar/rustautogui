@@ -59,34 +59,34 @@ where
         1 => {
             // Black and white image (Luma)
             // convert from Vec<T> to Vec<u8>
-            let raw_img: Vec<u8> = image
+            let raw_img: Result<Vec<u8>, &'static str> = image
                 .as_raw()
                 .into_iter()
-                .map(|x| x.to_u8().unwrap_or(0))
+                .map(|x| x.to_u8().ok_or("Pixel conversion failed"))
                 .collect();
 
-            ImageBuffer::<Luma<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img)
+            ImageBuffer::<Luma<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?)
                 .ok_or("failed to convert to Luma".to_string())
         }
         3 => {
             // Rgb
-            let raw_img: Vec<u8> = image
+            let raw_img: Result<Vec<u8>, &'static str> = image
                 .as_raw()
                 .into_iter()
-                .map(|x| x.to_u8().unwrap_or(0))
+                .map(|x| x.to_u8().ok_or("Pixel conversion failed"))
                 .collect();
-            let rgb_img = ImageBuffer::<Rgb<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img)
+            let rgb_img = ImageBuffer::<Rgb<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?)
                 .ok_or("Failed to convert to RGB")?;
             Ok(DynamicImage::ImageRgb8(rgb_img).to_luma8())
         }
         4 => {
             // Rgba
-            let raw_img: Vec<u8> = image
+            let raw_img: Result<Vec<u8>, &'static str> = image
                 .as_raw()
                 .into_iter()
-                .map(|x| x.to_u8().unwrap_or(0))
+                .map(|x| x.to_u8().ok_or("Pixel conversion failed"))
                 .collect();
-            let rgba_img = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img)
+            let rgba_img = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?)
                 .ok_or("Failed to convert to RGBA")?;
             Ok(DynamicImage::ImageRgba8(rgba_img).to_luma8())
         }
