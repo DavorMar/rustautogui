@@ -172,6 +172,7 @@ impl RustAutoGui {
         self.debug = state;
     }
 
+    
     fn check_if_region_out_of_bound(&mut self) -> Result<(), &'static str> {
         let region_x = self.region.0;
         let region_y = self.region.1;
@@ -198,7 +199,22 @@ impl RustAutoGui {
         Ok(())
     }
 
-    // prepare from imagebuffer, works only on types RGB/RGBA/Luma
+////////////////////////////// image functions
+
+    /// Loads template from file on provided path
+    pub fn prepare_template_from_file(
+        &mut self,
+        template_path: &str,
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        max_segments: Option<u32>,
+    ) -> Result<(), String> {
+        #[allow(unused_mut)] // allowed because its needed in macos code below
+        let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+        self.prepare_template_picture_bw(template, region, match_mode, max_segments, None)
+    }
+    
+    /// prepare from imagebuffer, works only on types RGB/RGBA/Luma
     pub fn prepare_template_from_imagebuffer<P, T>(
         &mut self,
         image: ImageBuffer<P, Vec<T>>,
@@ -216,6 +232,38 @@ impl RustAutoGui {
         Ok(())
     }
 
+    /// Only works on encoded images. uses image::load_from_memory() which reads first bytes of image which contain metadata depending on format.
+    pub fn prepare_template_from_raw_encoded(
+        &mut self,
+        img_raw: &[u8],
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        max_segments: Option<u32>,
+    ) -> Result<(), String> {
+        let image = image::load_from_memory(img_raw).map_err(|e| {
+            let mut err_msg = "Prepare template from raw only works on encoded images. The original error message was \n".to_string();
+            err_msg.push_str(e.to_string().as_str());
+            err_msg
+            })?;
+        self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, max_segments, None)?;
+        Ok(())
+    }
+
+    /// Store template data for multiple image search
+    pub fn store_template_from_path(
+        &mut self,
+        template_path: &str,
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        max_segments: Option<u32>,
+        alias: String,
+    ) -> Result<(), String> {
+        #[allow(unused_mut)] // allowed because its needed in macos code below
+        let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+        self.prepare_template_picture_bw(template, region, match_mode, max_segments, Some(alias))
+    }
+    
+    /// Load template from imagebuffer and store prepared template data for multiple image search
     pub fn store_template_from_imagebuffer<P, T>(
         &mut self,
         image: ImageBuffer<P, Vec<T>>,
@@ -234,23 +282,7 @@ impl RustAutoGui {
         Ok(())
     }
 
-    // only works on encoded images. uses image::load_from_memory() which reads first bytes of image which contain metadata depending on format.
-    pub fn prepare_template_from_raw_encoded(
-        &mut self,
-        img_raw: &[u8],
-        region: Option<(u32, u32, u32, u32)>,
-        match_mode: MatchMode,
-        max_segments: Option<u32>,
-    ) -> Result<(), String> {
-        let image = image::load_from_memory(img_raw).map_err(|e| {
-            let mut err_msg = "Prepare template from raw only works on encoded images. The original error message was \n".to_string();
-            err_msg.push_str(e.to_string().as_str());
-            err_msg
-            })?;
-        self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, max_segments, None)?;
-        Ok(())
-    }
-
+    /// Load template from encoded raw bytes and store prepared template data for multiple image search
     pub fn store_template_from_raw_encoded(
         &mut self,
         img_raw: &[u8],
@@ -276,7 +308,7 @@ impl RustAutoGui {
 
     // main prepare template picture which takes ImageBuffer Luma u8. all the other variants
     // of load_and prepare call this function
-    pub fn prepare_template_picture_bw(
+    fn prepare_template_picture_bw(
         &mut self,
         template: ImageBuffer<Luma<u8>, Vec<u8>>,
         region: Option<(u32, u32, u32, u32)>,
@@ -367,50 +399,9 @@ impl RustAutoGui {
         return Ok(());
     }
 
-    /// Loads template image from provided path and sets all the fields across structs as needed. Depending on match_mode, different template
-    /// preparation process is executed. When using FFT, region is also important for zero-pad calculation
-    /// Loading and preparing template is a necessary process before calling find_image_on_screen function
-    ///
-    /// creates vector of data stored under PreparedData enumerator, and stored inside struct field self.prepared_data
-    pub fn load_and_prepare_template(
-        &mut self,
-        template_path: &str,
-        region: Option<(u32, u32, u32, u32)>,
-        match_mode: MatchMode,
-        max_segments: Option<u32>,
-    ) -> Result<(), String> {
-        if !self.suppress_warnings {
-            eprintln!("Warning: load_and_prepare_template will be deprecated. Consider using prepare_template_from_file");
-        }
-        #[allow(unused_mut)] // allowed because its needed in macos code in further functions
-        let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
-        self.prepare_template_picture_bw(template, region, match_mode, max_segments, None)
-    }
+    
+    
 
-    pub fn prepare_template_from_file(
-        &mut self,
-        template_path: &str,
-        region: Option<(u32, u32, u32, u32)>,
-        match_mode: MatchMode,
-        max_segments: Option<u32>,
-    ) -> Result<(), String> {
-        #[allow(unused_mut)] // allowed because its needed in macos code below
-        let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
-        self.prepare_template_picture_bw(template, region, match_mode, max_segments, None)
-    }
-
-    pub fn store_template_from_path(
-        &mut self,
-        template_path: &str,
-        region: Option<(u32, u32, u32, u32)>,
-        match_mode: MatchMode,
-        max_segments: Option<u32>,
-        alias: String,
-    ) -> Result<(), String> {
-        #[allow(unused_mut)] // allowed because its needed in macos code below
-        let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
-        self.prepare_template_picture_bw(template, region, match_mode, max_segments, Some(alias))
-    }
 
     /// change certain settings for prepared template, like region, match_mode or max_segments. If MatchMode is not changed, whole template
     /// recalculation may still be needed if certain other parameters are changed, depending on current MatchMode.
@@ -970,6 +961,26 @@ impl RustAutoGui {
         self.keyboard
             .send_multi_key(&String::from(input1), &String::from(input2), input3)
     }
+
+
+
+
+    /// DEPRECATED
+    pub fn load_and_prepare_template(
+        &mut self,
+        template_path: &str,
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        max_segments: Option<u32>,
+    ) -> Result<(), String> {
+        if !self.suppress_warnings {
+            eprintln!("Warning: load_and_prepare_template will be deprecated. Consider using prepare_template_from_file");
+        }
+        #[allow(unused_mut)] // allowed because its needed in macos code in further functions
+        let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+        self.prepare_template_picture_bw(template, region, match_mode, max_segments, None)
+    }
+
 }
 
 #[cfg(any(target_os = "linux", target_os = "windows"))]

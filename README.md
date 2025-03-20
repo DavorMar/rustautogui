@@ -110,7 +110,13 @@ rustautogui.change_prepared_settings(
 
 ```
 
-
+Matchmodes enum:
+```rust
+pub enum MatchMode {
+    Segmented,
+    FFT,
+}
+```
 
 
 ### Loading multiple images into memory
@@ -131,7 +137,7 @@ Load from Imagebuffer
 rustautogui.store_template_from_imagebuffer( // returns Result<(), String>
    img_buffer, // image:  ImageBuffer<P, Vec<T>> -- Accepts RGB/RGBA/Luma(black and white)
    None,  // region: Option<(u32, u32, u32, u32)> 
-   rustautogui::MatchMode::FFT, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)  
+   rustautogui::MatchMode::Segmented, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)  
    None, // max_segments: Option<u32> 
    "button_image".to_string() // alias: String. Keyword used to select which image to search for
 ).unwrap();
@@ -141,7 +147,7 @@ Load from encoded raw bytes
 rustautogui.store_template_from_raw_encoded( // returns Result<(), String>
    img_raw // img_raw:  &[u8] encoded raw bytes
    None,  // region: Option<(u32, u32, u32, u32)> 
-   rustautogui::MatchMode::FFT, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)  
+   rustautogui::MatchMode::Segmented, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)  
    None, // max_segments: Option<u32> 
    "button_image".to_string() // alias: String. Keyword used to select which image to search for
 ).unwrap();
@@ -232,12 +238,6 @@ find some keyboard commands missing that you need, please open an issue in order
 
 
 
-
-
-
-
-
-
 ## Warnings options:
 
 Rustautogui may display some warnings. In case you want to turn them off, either run:\
@@ -263,6 +263,8 @@ let mut rustautogui = RustAutoGui::new(false).unwrap();
 rustautogui.set_suppress_warnings(true);
 ```
 
+
+
 ## How does crate work:
 
 On windows, api interacts with winapi, through usage of winapi crate, on linux it interacts with x11 api through usage of x11 crate while on macOS it interacts through usage of core-graphics crate. 
@@ -283,3 +285,35 @@ That is why, you should preinitialize template at some moment where speed is not
 - 2.2.0 - loading multiple images, loading images from memory
 
 
+
+## Additional notes
+Data stored in prepared template data 
+```rust
+pub enum PreparedData {
+    Segmented(
+        (
+            Vec<(u32, u32, u32, u32, f32)>, // template_segments_fast
+            Vec<(u32, u32, u32, u32, f32)>, // template_segments_slow
+            u32,                            // template_width
+            u32,                            // template_height
+            f32,                            // segment_sum_squared_deviations_fast
+            f32,                            // segment_sum_squared_deviations_slow
+            f32,                            // expected_corr_fast
+            f32,                            // expected_corr_slow
+            f32,                            // segments_mean_fast
+            f32,                            // segments_mean_slow
+        ),
+    ),
+    FFT(
+        (
+            Vec<Complex<f32>>, // template_conj_freq
+            f32,               // template_sum_squared_deviations
+            u32,               // template_width
+            u32,               // template_height
+            u32,               // padded_size
+        ),
+    ),
+
+    None,
+}
+```
