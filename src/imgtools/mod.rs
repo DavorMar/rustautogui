@@ -113,7 +113,6 @@ pub fn convert_rgba_to_bw(
     Ok(DynamicImage::ImageRgba8(rgba_img).to_luma8())
 }
 
-
 /// Does conversion from ImageBuffer RGBA to ImageBuffer Black and White(Luma)
 pub fn convert_rgba_to_bw_old(
     image: ImageBuffer<Rgba<u8>, Vec<u8>>,

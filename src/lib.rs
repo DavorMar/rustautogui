@@ -81,6 +81,26 @@ impl Clone for MatchMode {
     }
 }
 
+
+struct BackupData {
+    starting_data: PreparedData,
+    starting_region: (u32, u32, u32, u32),
+    starting_match_mode: Option<MatchMode>,
+    starting_template_height: u32,
+    starting_template_width: u32,
+}
+impl BackupData {
+    fn update_rustautogui (self, target: &mut RustAutoGui) {
+        target.prepared_data = self.starting_data.clone();
+        target.region = self.starting_region;
+        target.match_mode = self.starting_match_mode;
+        target.screen.screen_region_width = self.starting_region.2;
+        target.screen.screen_region_height = self.starting_region.3;
+        target.template_width = self.starting_template_width;
+        target.template_height = self.starting_template_height;
+    }
+}
+
 /// Main struct for Rustautogui
 /// Struct gets assigned keyboard, mouse and struct to it implemented functions execute commands from each of assigned substructs
 /// executes also correlation algorithms when doing find_image_on_screen
@@ -376,6 +396,8 @@ impl RustAutoGui {
                 (PreparedData::Segmented(prepared_data), match_mode)
             }
         };
+        // if storing the image , we just save it to Hashmap
+        // if not storing, then we change struct attributes to fit the single loaded image search
         match alias {
             Some(name) => {
                 self.prepared_data_stored
@@ -526,11 +548,14 @@ impl RustAutoGui {
             .get(alias)
             .ok_or("No template stored with selected alias")?;
         // save to reset after finished
-        let starting_data = self.prepared_data.clone();
-        let starting_region = self.region.clone();
-        let starting_match_mode = self.match_mode.clone();
-        let starting_template_height = self.template_height.clone();
-        let starting_template_width = self.template_width.clone();
+        let backup = BackupData {
+            starting_data:  self.prepared_data.clone(),
+            starting_region: self.region.clone(),
+            starting_match_mode: self.match_mode.clone(),
+            starting_template_height: self.template_height.clone(),
+            starting_template_width: self.template_width.clone(),
+
+        };
 
         self.prepared_data = prepared_data.clone();
         self.screen.screen_region_width = region.2;
@@ -551,13 +576,7 @@ impl RustAutoGui {
         };
         let points = self.find_image_on_screen(precision)?;
         // reset to starting info
-        self.prepared_data = starting_data.clone();
-        self.region = starting_region;
-        self.match_mode = starting_match_mode;
-        self.screen.screen_region_width = starting_region.2;
-        self.screen.screen_region_height = starting_region.3;
-        self.template_width = starting_template_width;
-        self.template_height = starting_template_height;
+        backup.update_rustautogui(self);
 
         Ok(points)
     }
@@ -624,11 +643,14 @@ impl RustAutoGui {
             .get(alias)
             .ok_or("No template stored with selected alias")?;
         // save to reset after finished
-        let starting_data = self.prepared_data.clone();
-        let starting_region = self.region.clone();
-        let starting_match_mode = self.match_mode.clone();
-        let starting_template_height = self.template_height.clone();
-        let starting_template_width = self.template_width.clone();
+        let backup = BackupData {
+            starting_data:  self.prepared_data.clone(),
+            starting_region: self.region.clone(),
+            starting_match_mode: self.match_mode.clone(),
+            starting_template_height: self.template_height.clone(),
+            starting_template_width: self.template_width.clone(),
+
+        };
 
         self.prepared_data = prepared_data.clone();
         self.region = *region;
@@ -652,13 +674,7 @@ impl RustAutoGui {
         let found_points = self.find_image_on_screen_and_move_mouse(precision, moving_time);
 
         // reset to starting info
-        self.prepared_data = starting_data;
-        self.region = starting_region;
-        self.match_mode = starting_match_mode;
-        self.screen.screen_region_width = starting_region.2;
-        self.screen.screen_region_height = starting_region.3;
-        self.template_width = starting_template_width;
-        self.template_height = starting_template_height;
+        backup.update_rustautogui(self);
 
         found_points
     }
