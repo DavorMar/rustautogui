@@ -102,9 +102,25 @@ where
 pub fn convert_rgba_to_bw(
     image: ImageBuffer<Rgba<u8>, Vec<u8>>,
 ) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, &'static str> {
+    let (img_w, img_h) = image.dimensions();
+    let raw_img: Result<Vec<u8>, &'static str> = image
+        .as_raw()
+        .into_iter()
+        .map(|x| x.to_u8().ok_or("Pixel conversion failed"))
+        .collect();
+    let rgba_img = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?)
+        .ok_or("Failed to convert to RGBA")?;
+    Ok(DynamicImage::ImageRgba8(rgba_img).to_luma8())
+}
+
+
+/// Does conversion from ImageBuffer RGBA to ImageBuffer Black and White(Luma)
+pub fn convert_rgba_to_bw_old(
+    image: ImageBuffer<Rgba<u8>, Vec<u8>>,
+) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, &'static str> {
     let mut grayscale_data: Vec<u8> = Vec::with_capacity(image.len());
-    let screen_width = image.width();
-    let screen_height = image.height();
+    let image_width = image.width();
+    let image_height = image.height();
     for chunk in image.chunks_exact(4) {
         let r = chunk[2] as u32;
         let g = chunk[1] as u32;
@@ -113,7 +129,7 @@ pub fn convert_rgba_to_bw(
         let gray_value = ((r * 30 + g * 59 + b * 11) / 100) as u8;
         grayscale_data.push(gray_value);
     }
-    GrayImage::from_raw(screen_width as u32, screen_height as u32, grayscale_data)
+    GrayImage::from_raw(image_width as u32, image_height as u32, grayscale_data)
         .ok_or("failed to convert image to grayscale")
 }
 
