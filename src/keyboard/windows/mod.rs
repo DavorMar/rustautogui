@@ -208,7 +208,12 @@ impl Keyboard {
         key_map.insert(String::from("help"), (0x2f, false)); // VK_HELP
         key_map.insert(String::from("win"), (0x5b, false)); // VK_LWIN
         key_map.insert(String::from("winleft"), (0x5b, false)); // VK_LWIN
+        key_map.insert(String::from("win_l"), (0x5b, false)); // VK_LWIN
+        key_map.insert(String::from("super"), (0x5b, false)); // VK_LWIN
+        key_map.insert(String::from("super_l"), (0x5b, false)); // VK_LWIN
         key_map.insert(String::from("winright"), (0x5c, false)); // VK_RWIN
+        key_map.insert(String::from("win_r"), (0x5c, false)); // VK_RWIN
+        key_map.insert(String::from("super_r"), (0x5c, false)); // VK_RWIN
         key_map.insert(String::from("apps"), (0x5d, false)); // VK_APPS
         key_map.insert(String::from("sleep"), (0x5f, false)); // VK_SLEEP
         key_map.insert(String::from("num0"), (0x60, false)); // VK_NUMPAD0

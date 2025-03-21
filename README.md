@@ -130,11 +130,12 @@ Functions  work the same as single image loads, with additional parameter of ali
 
 Load from file
 ```rust
-rustautogui.load_and_prepare_template( // returns Result<(), String>
+rustautogui.store_template_from_file( // returns Result<(), String>
    "template.png", // template_path: &str path to the image file on disk 
    Some((0,0,1000,1000)), // region: Option<(u32, u32, u32, u32)>  region of monitor to search (x, y, width, height)
    rustautogui::MatchMode::Segmented, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)
-   &Some(3000) // max_segments: Option<u32> max segments for Segmented match mode. Can be set to None to automatically calculate
+   &Some(3000), // max_segments: Option<u32> max segments for Segmented match mode. Can be set to None to automatically calculate
+   "button_image".to_string() // alias: String. Keyword used to select which image to search for
 ).unwrap(); 
 ```
 Load from Imagebuffer
@@ -174,8 +175,21 @@ let found_locations: Option<Vec<(u32, u32, f64)>> =  rustautogui.find_image_on_s
 // args: precision , moving_time
 // executes find_image_on_screen() and moves mouse to the center of the highest correlation location
 ```
-IMPORTANT: Difference between linux and windows/macOS when using multiple monitors. On Windows and macOS, search for template image can be done only on the main monitor.
-On Linux, searches can be done on all monitors if multiple are used, with (0,0) starting from the top-left monitor.
+IMPORTANT: Difference between linux and windows/macOS when using multiple monitors. On Windows and macOS, search for template image can be done only on the main monitor. On Linux, searches can be done on all monitors if multiple are used, with (0,0) starting from the top-left monitor.
+
+Loop search with timeout. Searches till image is found or timeout in seconds is hit.
+<br><strong> Warning: timeout of 0 initiates infinite loop</strong>
+```rust
+rustautogui
+        .loop_find_image_on_screen(0.95, 15) // args: precision, timeout
+        .unwrap();
+```
+
+```rust
+rustautogui
+        .loop_find_image_on_screen_and_move_mouse(0.95, 1.0, 15) // args: precision, moving_time and timeout 
+        .unwrap();
+```
 
 ## Multiple stored templates search
 
@@ -189,8 +203,22 @@ rustautogui
 With mouse movement to location
 ```rust
 rustautogui
-      .find_stored_image_on_screen_and_move_mouse(0.9, 1.0, &"test2".to_string()) // precision, move time, alias (&String)
+      .find_stored_image_on_screen_and_move_mouse(0.9, 1.0, &"test2".to_string()) // precision, moving_time, alias (&String)
       .unwrap();
+```
+Loop search 
+<br><strong> Warning: timeout of 0 initiates infinite loop</strong>
+
+```rust
+rustautogui
+        .loop_find_stored_image_on_screen(0.95, 15, &"stars".to_string()) // precision, timeout, alias
+        .unwrap();
+```
+
+```rust
+rustautogui
+        .loop_find_stored_image_on_screen_and_move_mouse(0.95, 1.0, 15, &"stars".to_string()) // precision, moving_time, timeout, alias
+        .unwrap();
 ```
 
 

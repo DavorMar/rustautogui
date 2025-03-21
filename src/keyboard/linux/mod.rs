@@ -344,6 +344,35 @@ impl Keyboard {
         keysym_map.insert(String::from("alt_l"), (String::from("Alt_L"), false));
         keysym_map.insert(String::from("alt"), (String::from("Alt_L"), false));
         keysym_map.insert(String::from("alt_r"), (String::from("Alt_R"), false));
+        keysym_map.insert(String::from("win"), (String::from("Super_L"), false));
+        keysym_map.insert(String::from("win_l"), (String::from("Super_L"), false));
+        keysym_map.insert(String::from("winleft"), (String::from("Super_L"), false));
+        keysym_map.insert(String::from("super_l"), (String::from("Super_L"), false));
+        keysym_map.insert(String::from("win_r"), (String::from("Super_R"), false));
+        keysym_map.insert(String::from("winright"), (String::from("Super_R"), false));
+        keysym_map.insert(String::from("super_r"), (String::from("Super_R"), false));
+
+        keysym_map.insert(String::from("f1"), (String::from("F1"), false));
+        keysym_map.insert(String::from("f2"), (String::from("F2"), false));
+        keysym_map.insert(String::from("f3"), (String::from("F3"), false));
+        keysym_map.insert(String::from("f4"), (String::from("F4"), false));
+        keysym_map.insert(String::from("f5"), (String::from("F5"), false));
+        keysym_map.insert(String::from("f6"), (String::from("F6"), false));
+        keysym_map.insert(String::from("f7"), (String::from("F7"), false));
+        keysym_map.insert(String::from("f8"), (String::from("F8"), false));
+        keysym_map.insert(String::from("f9"), (String::from("F9"), false));
+        keysym_map.insert(String::from("f10"), (String::from("F10"), false));
+        keysym_map.insert(String::from("f11"), (String::from("F11"), false));
+        keysym_map.insert(String::from("f12"), (String::from("F12"), false));
+        keysym_map.insert(String::from("f13"), (String::from("F13"), false));
+        keysym_map.insert(String::from("f14"), (String::from("F14"), false));
+        keysym_map.insert(String::from("f15"), (String::from("F15"), false));
+        keysym_map.insert(String::from("f16"), (String::from("F16"), false));
+        keysym_map.insert(String::from("f17"), (String::from("F17"), false));
+        keysym_map.insert(String::from("f18"), (String::from("F18"), false));
+        keysym_map.insert(String::from("f19"), (String::from("F19"), false));
+        keysym_map.insert(String::from("f20"), (String::from("F20"), false));
+
         // keysym_map.insert(String::from(" "), (String::from("Space"),false));
         keysym_map
     }

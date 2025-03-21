@@ -50,8 +50,8 @@
 | page_down / pgdn | X       | X     | X     |
 | insert           | X       | X     | X     |
 | delete / del     | X       | X     | X     |
-| f1 - f12         | X       | -     | X     |
-| f13 - f20        | X       | -     | X     |
+| f1 - f12         | X       | X     | X     |
+| f13 - f20        | X       | X     | X     |
 | f21 - f24        | X       | -     | -     |
 | control_l        | X       | X     | X     |
 | control_r        | X       | X     | X     |
@@ -70,8 +70,15 @@
 | numlock          | X       | -     | X     |
 | pause            | X       | -     | X     |
 | clear            | X       | -     | -     |
-| win/winleft      | X       | -     | -     |
-| winright         | X       | -     | -     |
+| win              | X       | X     | -     |
+| winleft          | X       | X     | -     |
+| win_l            | X       | X     | -     |
+| winright         | X       | X     | -     |
+| win_r            | X       | X     | -     |
+| super            | X       | X     | -     |
+| super_r          | X       | X     | -     |
+| super            | X       | X     | -     |
+| super_l          | X       | X     | -     |
 | command          | -       | -     | X     | # (⌘)
 | command_l        | -       | -     | X     | # (⌘)
 | command_r        | -       | -     | X     | # (⌘)

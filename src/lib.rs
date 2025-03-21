@@ -81,7 +81,6 @@ impl Clone for MatchMode {
     }
 }
 
-
 struct BackupData {
     starting_data: PreparedData,
     starting_region: (u32, u32, u32, u32),
@@ -90,7 +89,7 @@ struct BackupData {
     starting_template_width: u32,
 }
 impl BackupData {
-    fn update_rustautogui (self, target: &mut RustAutoGui) {
+    fn update_rustautogui(self, target: &mut RustAutoGui) {
         target.prepared_data = self.starting_data.clone();
         target.region = self.starting_region;
         target.match_mode = self.starting_match_mode;
@@ -192,7 +191,16 @@ impl RustAutoGui {
         self.debug = state;
     }
 
-    
+    pub fn get_screen_size(&mut self) -> (i32, i32) {
+        self.screen.dimension()
+    }
+
+    /// saves screenshot and saves it at provided path
+    pub fn save_screenshot(&mut self, path: &str) -> Result<(), String> {
+        self.screen.grab_screenshot(path)?;
+        Ok(())
+    }
+
     fn check_if_region_out_of_bound(&mut self) -> Result<(), &'static str> {
         let region_x = self.region.0;
         let region_y = self.region.1;
@@ -219,7 +227,7 @@ impl RustAutoGui {
         Ok(())
     }
 
-////////////////////////////// image functions
+    ////////////////////////////// image functions
 
     /// Loads template from file on provided path
     pub fn prepare_template_from_file(
@@ -233,7 +241,7 @@ impl RustAutoGui {
         let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, max_segments, None)
     }
-    
+
     /// prepare from imagebuffer, works only on types RGB/RGBA/Luma
     pub fn prepare_template_from_imagebuffer<P, T>(
         &mut self,
@@ -270,7 +278,7 @@ impl RustAutoGui {
     }
 
     /// Store template data for multiple image search
-    pub fn store_template_from_path(
+    pub fn store_template_from_file(
         &mut self,
         template_path: &str,
         region: Option<(u32, u32, u32, u32)>,
@@ -282,7 +290,7 @@ impl RustAutoGui {
         let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, max_segments, Some(alias))
     }
-    
+
     /// Load template from imagebuffer and store prepared template data for multiple image search
     pub fn store_template_from_imagebuffer<P, T>(
         &mut self,
@@ -421,10 +429,6 @@ impl RustAutoGui {
         return Ok(());
     }
 
-    
-    
-
-
     /// change certain settings for prepared template, like region, match_mode or max_segments. If MatchMode is not changed, whole template
     /// recalculation may still be needed if certain other parameters are changed, depending on current MatchMode.
     /// For FFT, changing region starts complete recalculation again, because of change in zero pad image. While changing
@@ -538,6 +542,32 @@ impl RustAutoGui {
         self.run_x_corr(image, precision)
     }
 
+    // loops until image is found and returns found values, or until it times out
+    pub fn loop_find_image_on_screen(
+        &mut self,
+        precision: f32,
+        timeout: u64,
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+        if (timeout == 0) & (!self.suppress_warnings) {
+            eprintln!(
+                "Warning: setting a timeout to 0 on a loop find image initiates an infinite loop"
+            )
+        }
+
+        let timeout_start = std::time::Instant::now();
+        let result = loop {
+            if (timeout_start.elapsed().as_secs() > timeout) & (timeout > 0) {
+                return Err("loop find image timed out. Could not find image");
+            }
+            let result = self.find_image_on_screen(precision);
+            match result.clone()? {
+                Some(_) => break result,
+                None => continue,
+            }
+        };
+        result
+    }
+
     pub fn find_stored_image_on_screen(
         &mut self,
         precision: f32,
@@ -549,12 +579,11 @@ impl RustAutoGui {
             .ok_or("No template stored with selected alias")?;
         // save to reset after finished
         let backup = BackupData {
-            starting_data:  self.prepared_data.clone(),
+            starting_data: self.prepared_data.clone(),
             starting_region: self.region.clone(),
             starting_match_mode: self.match_mode.clone(),
             starting_template_height: self.template_height.clone(),
             starting_template_width: self.template_width.clone(),
-
         };
 
         self.prepared_data = prepared_data.clone();
@@ -579,6 +608,164 @@ impl RustAutoGui {
         backup.update_rustautogui(self);
 
         Ok(points)
+    }
+
+    // loops until stored image is found and returns found values, or until it times out
+    pub fn loop_find_stored_image_on_screen(
+        &mut self,
+        precision: f32,
+        timeout: u64,
+        alias: &String,
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+        if (timeout == 0) & (!self.suppress_warnings) {
+            eprintln!(
+                "Warning: setting a timeout to 0 on a loop find image initiates an infinite loop"
+            )
+        }
+        let timeout_start = std::time::Instant::now();
+        let result = loop {
+            if (timeout_start.elapsed().as_secs() > timeout) & (timeout > 0) {
+                return Err("loop find image timed out. Could not find image");
+            }
+            let result = self.find_stored_image_on_screen(precision, alias);
+            match result.clone()? {
+                Some(_) => break result,
+                None => continue,
+            }
+        };
+        result
+    }
+
+    pub fn find_stored_image_on_screen_and_move_mouse(
+        &mut self,
+        precision: f32,
+        moving_time: f32,
+        alias: &String,
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+        let (prepared_data, region) = self
+            .prepared_data_stored
+            .get(alias)
+            .ok_or("No template stored with selected alias")?;
+        // save to reset after finished
+        let backup = BackupData {
+            starting_data: self.prepared_data.clone(),
+            starting_region: self.region.clone(),
+            starting_match_mode: self.match_mode.clone(),
+            starting_template_height: self.template_height.clone(),
+            starting_template_width: self.template_width.clone(),
+        };
+
+        self.prepared_data = prepared_data.clone();
+        self.region = *region;
+        self.screen.screen_region_width = region.2;
+        self.screen.screen_region_height = region.3;
+        self.match_mode = match prepared_data {
+            PreparedData::FFT(data) => {
+                self.template_width = data.2;
+                self.template_height = data.3;
+
+                Some(MatchMode::FFT)
+            }
+            PreparedData::Segmented(data) => {
+                self.template_width = data.2;
+                self.template_height = data.3;
+
+                Some(MatchMode::Segmented)
+            }
+            PreparedData::None => return Err("No prepared data loaded"),
+        };
+        let found_points = self.find_image_on_screen_and_move_mouse(precision, moving_time);
+
+        // reset to starting info
+        backup.update_rustautogui(self);
+
+        found_points
+    }
+
+    /// loops until stored image is found and moves mouse
+    pub fn loop_find_stored_image_on_screen_and_move_mouse(
+        &mut self,
+        precision: f32,
+        moving_time: f32,
+        timeout: u64,
+        alias: &String,
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+        if (timeout == 0) & (!self.suppress_warnings) {
+            eprintln!(
+                "Warning: setting a timeout to 0 on a loop find image initiates an infinite loop"
+            )
+        }
+        let timeout_start = std::time::Instant::now();
+        let result = loop {
+            if (timeout_start.elapsed().as_secs() > timeout) & (timeout > 0) {
+                return Err("loop find image timed out. Could not find image");
+            }
+            let result =
+                self.find_stored_image_on_screen_and_move_mouse(precision, moving_time, alias);
+            match result.clone()? {
+                Some(_) => break result,
+                None => continue,
+            }
+        };
+        result
+    }
+
+    /// executes find_image_on_screen and moves mouse to the middle of the image.
+    pub fn find_image_on_screen_and_move_mouse(
+        &mut self,
+        precision: f32,
+        moving_time: f32,
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+        /// finds coordinates of the image on the screen and moves mouse to it. Returns None if no image found
+        ///  Best used in loops
+        let found_locations = self.find_image_on_screen(precision)?;
+
+        let locations = match found_locations.clone() {
+            Some(locations) => locations,
+            None => return Ok(None),
+        };
+
+        let locations_adjusted: Vec<(u32, u32, f64)> = locations
+            .clone()
+            .into_iter()
+            .map(|(mut x, mut y, corr)| {
+                x = x + self.region.0 + (self.template_width / 2);
+                y = y + self.region.1 + (self.template_height / 2);
+                (x, y, corr)
+            })
+            .collect();
+
+        let (target_x, target_y, _) = locations_adjusted[0];
+
+        self.move_mouse_to_pos(target_x, target_y, moving_time)?;
+
+        return Ok(Some(locations_adjusted));
+    }
+
+    // loops until image is found and returns found values, or until it times out
+    pub fn loop_find_image_on_screen_and_move_mouse(
+        &mut self,
+        precision: f32,
+        moving_time: f32,
+        timeout: u64,
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+        if (timeout == 0) & (!self.suppress_warnings) {
+            eprintln!(
+                "Warning: setting a timeout to 0 on a loop find image initiates an infinite loop"
+            )
+        }
+        let timeout_start = std::time::Instant::now();
+        let result = loop {
+            if (timeout_start.elapsed().as_secs() > timeout) & (timeout > 0) {
+                return Err("loop find image timed out. Could not find image");
+            }
+            let result = self.find_image_on_screen_and_move_mouse(precision, moving_time);
+            match result.clone()? {
+                Some(_) => break result,
+                None => continue,
+            }
+        };
+        result
     }
 
     fn run_x_corr(
@@ -624,95 +811,6 @@ impl RustAutoGui {
         } else {
             return Ok(None);
         };
-    }
-
-    /// saves screenshot and saves it at provided path
-    pub fn save_screenshot(&mut self, path: &str) -> Result<(), String> {
-        self.screen.grab_screenshot(path)?;
-        Ok(())
-    }
-
-    pub fn find_stored_image_on_screen_and_move_mouse(
-        &mut self,
-        precision: f32,
-        moving_time: f32,
-        alias: &String,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
-        let (prepared_data, region) = self
-            .prepared_data_stored
-            .get(alias)
-            .ok_or("No template stored with selected alias")?;
-        // save to reset after finished
-        let backup = BackupData {
-            starting_data:  self.prepared_data.clone(),
-            starting_region: self.region.clone(),
-            starting_match_mode: self.match_mode.clone(),
-            starting_template_height: self.template_height.clone(),
-            starting_template_width: self.template_width.clone(),
-
-        };
-
-        self.prepared_data = prepared_data.clone();
-        self.region = *region;
-        self.screen.screen_region_width = region.2;
-        self.screen.screen_region_height = region.3;
-        self.match_mode = match prepared_data {
-            PreparedData::FFT(data) => {
-                self.template_width = data.2;
-                self.template_height = data.3;
-
-                Some(MatchMode::FFT)
-            }
-            PreparedData::Segmented(data) => {
-                self.template_width = data.2;
-                self.template_height = data.3;
-
-                Some(MatchMode::Segmented)
-            }
-            PreparedData::None => return Err("No prepared data loaded"),
-        };
-        let found_points = self.find_image_on_screen_and_move_mouse(precision, moving_time);
-
-        // reset to starting info
-        backup.update_rustautogui(self);
-
-        found_points
-    }
-
-    /// executes find_image_on_screen and moves mouse to the middle of the image.
-    pub fn find_image_on_screen_and_move_mouse(
-        &mut self,
-        precision: f32,
-        moving_time: f32,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
-        /// finds coordinates of the image on the screen and moves mouse to it. Returns None if no image found
-        ///  Best used in loops
-        let found_locations = self.find_image_on_screen(precision)?;
-
-        let locations = match found_locations.clone() {
-            Some(locations) => locations,
-            None => return Ok(None),
-        };
-
-        let locations_adjusted: Vec<(u32, u32, f64)> = locations
-            .clone()
-            .into_iter()
-            .map(|(mut x, mut y, corr)| {
-                x = x + self.region.0 + (self.template_width / 2);
-                y = y + self.region.1 + (self.template_height / 2);
-                (x, y, corr)
-            })
-            .collect();
-
-        let (target_x, target_y, _) = locations_adjusted[0];
-
-        self.move_mouse_to_pos(target_x, target_y, moving_time)?;
-
-        return Ok(Some(locations_adjusted));
-    }
-
-    pub fn get_screen_size(&mut self) -> (i32, i32) {
-        self.screen.dimension()
     }
 
     //////////////////// Windows Mouse ////////////////////
@@ -978,9 +1076,6 @@ impl RustAutoGui {
             .send_multi_key(&String::from(input1), &String::from(input2), input3)
     }
 
-
-
-
     /// DEPRECATED
     pub fn load_and_prepare_template(
         &mut self,
@@ -996,7 +1091,6 @@ impl RustAutoGui {
         let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, max_segments, None)
     }
-
 }
 
 #[cfg(any(target_os = "linux", target_os = "windows"))]
