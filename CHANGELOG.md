@@ -11,8 +11,10 @@ All notable changes to this project will be documented in this file.
 - Added Super/Win key commands for Linux
 - Added F1-F20 keys for Linux
 - Added another example
+- Made template search for macOS retina displays more robust. Now 2 variants of template are stored, the provided one and resized one. The search is done for both of them. The reason for this is, it cannot be known if user is providing template image which he got as a snip which needs to be resized, or from a (for instance) downloaded image which does not require resize
 - Fix: find_image_and_move_mouse now returns vec of all found locations instead of just top location 
 - Fix: README code examples fixed
+- Fix: check for out of bounds on windows mouse move fixed
 - imgtools::convert_image_to_bw was renamed to convert_rgba_to_bw
 
 

@@ -7,26 +7,20 @@ use image::{
     DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba,
 };
 use normalized_x_corr::fast_segment_x_corr::prepare_template_picture;
-
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
-
 use std::{collections::HashMap, env, fs, path::Path, str::FromStr};
-
-#[cfg(target_os = "windows")]
-pub use crate::{keyboard::windows::Keyboard, mouse::windows::Mouse, screen::windows::Screen};
 
 #[cfg(target_os = "linux")]
 pub use crate::{keyboard::linux::Keyboard, mouse::linux::Mouse, screen::linux::Screen};
-
 #[cfg(target_os = "macos")]
 pub use crate::{keyboard::macos::Keyboard, mouse::macos::Mouse, screen::macos::Screen};
+#[cfg(target_os = "windows")]
+pub use crate::{keyboard::windows::Keyboard, mouse::windows::Mouse, screen::windows::Screen};
 
 pub mod keyboard;
 pub mod mouse;
 pub mod screen;
 
-const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
-const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
 /// Struct of prepared data for each correlation method used
 /// Segmented consists of two image vectors and associated mean value, sum of squared deviations, sizes
 /// FFT vector consists of template vector converted to frequency domain and conjugated, sum squared deviations, size and padded size
@@ -89,7 +83,6 @@ struct BackupData {
     starting_match_mode: Option<MatchMode>,
     starting_template_height: u32,
     starting_template_width: u32,
-    starting_alias_used: String,
 }
 impl BackupData {
     fn update_rustautogui(self, target: &mut RustAutoGui) {
@@ -100,7 +93,6 @@ impl BackupData {
         target.screen.screen_region_height = self.starting_region.3;
         target.template_width = self.starting_template_width;
         target.template_height = self.starting_template_height;
-        target.alias_used = self.starting_alias_used;
     }
 }
 
@@ -122,7 +114,6 @@ pub struct RustAutoGui {
     match_mode: Option<MatchMode>,
     max_segments: Option<u32>,
     region: (u32, u32, u32, u32),
-    alias_used: String,
     suppress_warnings: bool,
 }
 impl RustAutoGui {
@@ -152,7 +143,6 @@ impl RustAutoGui {
             match_mode: None,
             max_segments: None,
             region: (0, 0, 0, 0),
-            alias_used: DEFAULT_ALIAS.to_string(),
             suppress_warnings: suppress_warnings,
         })
     }
@@ -184,7 +174,6 @@ impl RustAutoGui {
             match_mode: None,
             max_segments: None,
             region: (0, 0, 0, 0),
-            alias_used: "default".to_string(),
             suppress_warnings: suppress_warnings,
         })
     }
@@ -198,6 +187,7 @@ impl RustAutoGui {
         self.debug = state;
     }
 
+    /// returns screen width and height
     pub fn get_screen_size(&mut self) -> (i32, i32) {
         self.screen.dimension()
     }
@@ -208,38 +198,172 @@ impl RustAutoGui {
         Ok(())
     }
 
-    fn check_if_region_out_of_bound(
-        &mut self,
-        template_width: &u32,
-        template_height: &u32,
-        region_x: &u32,
-        region_y: &u32,
-        region_width: &u32,
-        region_height: &u32,
-    ) -> Result<(), &'static str> {
-        
+    // checks if region selected out of screen bounds, if template size > screen size (redundant) 
+    // and if template size > region size
+    fn check_if_region_out_of_bound(&mut self) -> Result<(), &'static str> {
+        let region_x = self.region.0;
+        let region_y = self.region.1;
+        let region_width = self.region.2;
+        let region_height = self.region.3;
 
-        if ((region_x + region_width) > self.screen.screen_width as u32)
-            | ((region_y + region_height) > self.screen.screen_height as u32)
+        if (region_x + region_width > self.screen.screen_width as u32)
+            | (region_y + region_height > self.screen.screen_height as u32)
         {
             return Err("Selected region out of bounds");
         }
 
         // this is a redundant check since this case should be covered by the
         // next region check, but leaving it
-        if (template_width > &(self.screen.screen_width as u32))
-            | (template_height > &(self.screen.screen_height as u32))
+        if (self.template_width > self.screen.screen_width as u32)
+            | (self.template_height > self.screen.screen_height as u32)
         {
             return Err("Selected template is larger than detected screen");
         }
 
-        if (template_width > region_width) | (template_height > region_height) {
+        if (self.template_width > region_width) | (self.template_height > region_height) {
             return Err("Selected template is larger than selected search region. ");
         }
         Ok(())
     }
 
-    ////////////////////////////// image functions
+
+///////////////////////// prepare single template functions //////////////////////////
+
+    // main prepare template picture which takes ImageBuffer Luma u8. all the other variants
+    // of prepare/store funtions call this function
+    #[allow(unused_mut)]
+    fn prepare_template_picture_bw(
+        &mut self,
+        mut template: ImageBuffer<Luma<u8>, Vec<u8>>,
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        max_segments: Option<u32>,
+        alias: Option<String>,
+    ) -> Result<(), String> {
+        // resize and adjust if retina screen is used
+        // prepare additionally backup template for 2 screen size variants
+        // issue comes from retina having digitally doubled the amount of displayed pixels while
+        // API returns screen image with original size
+        // for instance the screen is 1400x800 but if snip of screen is taken, output image will be 2800x1600
+        // for that reason, we cannot be sure which variant of image will be searched for, so image search will search first
+        // for resized variant and if not found, then non scaled variant
+        // since this recursively initiates construction of another backup prepared template for macos
+        // we dont want to back up the backup
+        #[cfg(target_os = "macos")]
+        {
+            if ((self.screen.scaling_factor_x > 1.0) | (self.screen.scaling_factor_y > 1.0))
+                & (match alias.clone() {
+                    Some(a) => {
+                        if a.contains("bckp_tmpl_.#!123!#.") {
+                            false
+                        } else {
+                            true
+                        }
+                    }
+                    None => true,
+                })
+            {
+                let bckp_template = template.clone();
+                let backup_alias = match alias.clone() {
+                    Some(mut a) => {
+                        a.push_str("_bckp_tmpl_.#!123!#.");
+                        a
+                    }
+                    None => "bckp_tmpl_.#!123!#.".to_string(),
+                };
+                self.store_template_from_imagebuffer(
+                    bckp_template,
+                    region,
+                    match_mode.clone(),
+                    max_segments,
+                    backup_alias,
+                )?;
+            };
+        }
+        #[cfg(target_os = "macos")]
+        {
+            template = resize(
+                &template,
+                template.width() / self.screen.scaling_factor_x as u32,
+                template.height() / self.screen.scaling_factor_y as u32,
+                Nearest,
+            );
+        }
+        let (template_width, template_height) = template.dimensions();
+
+        self.max_segments = max_segments;
+        // if no region provided, grab whole screen
+        let region = match region {
+            Some(region_tuple) => region_tuple,
+            None => {
+                let (screen_width, screen_height) = self.screen.dimension();
+                (0, 0, screen_width as u32, screen_height as u32)
+            }
+        };
+        self.check_if_region_out_of_bound()?;
+
+        // do the rest of preparation calculations depending on the matchmode
+        // FFT pads the image, does fourier transformations,
+        // calculates conjugate and inverses transformation on template
+        // Segmented creates vector of picture segments with coordinates, dimensions and average pixel value
+        let (template_data, match_mode) = match match_mode {
+            MatchMode::FFT => {
+                let prepared_data =
+                    PreparedData::FFT(normalized_x_corr::fft_ncc::prepare_template_picture(
+                        &template, &region.2, &region.3,
+                    ));
+                let match_mode = Some(MatchMode::FFT);
+                (prepared_data, match_mode)
+            }
+            MatchMode::Segmented => {
+                let prepared_data: (
+                    Vec<(u32, u32, u32, u32, f32)>,
+                    Vec<(u32, u32, u32, u32, f32)>,
+                    u32,
+                    u32,
+                    f32,
+                    f32,
+                    f32,
+                    f32,
+                    f32,
+                    f32,
+                ) = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
+                    &template,
+                    max_segments,
+                    &self.debug,
+                );
+                // mostly happens due to using too complex image with small max segments value
+                if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
+                    return Err(String::from("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"));
+                }
+                let match_mode = Some(MatchMode::Segmented);
+                (PreparedData::Segmented(prepared_data), match_mode)
+            }
+        };
+
+        // Alias Some -> storing the image , we just save it to Hashmap
+        // Alias None -> not storing, then we change struct attributes to fit the single loaded image search
+        match alias {
+            Some(name) => {
+                self.prepared_data_stored
+                    .insert(name, (template_data, region));
+            }
+            None => {
+                self.region = region;
+                self.prepared_data = template_data;
+                self.match_mode = match_mode;
+                // update screen struct
+                self.screen.screen_region_width = region.2;
+                self.screen.screen_region_height = region.3;
+                // update struct values
+                self.template_width = template_width;
+                self.template_height = template_height;
+                // convert to option and store in struct
+                self.template = Some(template.clone());
+            }
+        }
+        return Ok(());
+    }
 
     /// Loads template from file on provided path
     pub fn prepare_template_from_file(
@@ -288,6 +412,11 @@ impl RustAutoGui {
         Ok(())
     }
 
+
+///////////////////////// store single template functions //////////////////////////
+ 
+
+
     /// Store template data for multiple image search
     pub fn store_template_from_file(
         &mut self,
@@ -297,7 +426,6 @@ impl RustAutoGui {
         max_segments: Option<u32>,
         alias: String,
     ) -> Result<(), String> {
-        RustAutoGui::check_alias_name(&alias)?;
         let template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, max_segments, Some(alias))
     }
@@ -315,7 +443,6 @@ impl RustAutoGui {
         P: Pixel<Subpixel = T> + 'static,
         T: Primitive + ToPrimitive + 'static,
     {
-        RustAutoGui::check_alias_name(&alias)?;
         let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
         let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, &color_scheme)?;
         self.prepare_template_picture_bw(luma_img, region, match_mode, max_segments, Some(alias))?;
@@ -331,7 +458,6 @@ impl RustAutoGui {
         max_segments: Option<u32>,
         alias: String,
     ) -> Result<(), String> {
-        RustAutoGui::check_alias_name(&alias)?;
         let image = image::load_from_memory(img_raw).map_err(|e| {
             let mut err_msg = "Prepare template from raw only works on encoded images. The original error message was \n".to_string();
             err_msg.push_str(e.to_string().as_str());
@@ -347,169 +473,7 @@ impl RustAutoGui {
         Ok(())
     }
 
-    fn check_alias_name(alias:&String) -> Result<(), String> {
-        
-        if (alias.contains(DEFAULT_ALIAS)) | (alias.contains(DEFAULT_BCKP_ALIAS)) {
-            return Err("Please do not use built in default alias names".to_string())
-        }
-            
-        Ok(())
-    }
-    // main prepare template picture which takes ImageBuffer Luma u8. all the other variants
-    // of load_and prepare call this function
-    fn prepare_template_picture_bw(
-        &mut self,
-        mut template: ImageBuffer<Luma<u8>, Vec<u8>>,
-        region: Option<(u32, u32, u32, u32)>,
-        match_mode: MatchMode,
-        max_segments: Option<u32>,
-        alias: Option<String>,
-    ) -> Result<(), String> {
-        // resize and adjust if retina screen is used
-        // prepare additionally backup template for 2 screen size variants
-        // issue comes from retina having digitally doubled the amount of displayed pixels while
-        // API returns screen image with original size
-        // for instance the screen is 1400x800 but if snip of screen is taken, output image will be 2800x1600
-        // for that reason, we cannot be sure which variant of image will be searched for, so image search will search first
-        // for resized variant and if not found, then non scaled variant
-        
-        #[cfg(target_os = "macos")]
-        // since this recursively initiates construction of another backup prepared template for macos
-        // we dont want to back up the backup
-        {
-            if ((self.screen.scaling_factor_x > 1.0) | (self.screen.scaling_factor_y > 1.0))
-                & (match alias.clone() {
-                    Some(a) => {
-                        if a.contains(DEFAULT_BCKP_ALIAS) {
-                            false
-                        } else {
-                            true
-                        }
-                    }
-                    None => true,
-                })
-            {
-                let bckp_template = template.clone();
-                let backup_alias = match alias.clone() {
-                    Some(mut a) => {
-                        a.push('_');
-                        a.push_str(DEFAULT_BCKP_ALIAS);
-                        a
-                    }
-                    None => DEFAULT_BCKP_ALIAS.to_string(),
-                };
-                // store the backup template that doesnt have resize
-                // later on when doing template matching, itll first try to match
-                // resized one, and if it doesnt work then it tries the original from backup
-                self.store_template_from_imagebuffer(
-                    bckp_template,
-                    region,
-                    match_mode.clone(),
-                    max_segments,
-                    backup_alias,
-                )?;
-            };
-        }
-        // do the resize, unless its already the backup that we are storing when we dont want resize
-        #[cfg(target_os = "macos")]
-        {
-            match alias.clone() {
-                Some(a) => {
-                    if a.contains(DEFAULT_BCKP_ALIAS) {
-                        ()
-                    } else {
-                        template = resize(
-                            &template,
-                            template.width() / self.screen.scaling_factor_x as u32,
-                            template.height() / self.screen.scaling_factor_y as u32,
-                            Nearest,
-                        );
-                    }
-                }
-                None => {
-                    template = resize(
-                        &template,
-                        template.width() / self.screen.scaling_factor_x as u32,
-                        template.height() / self.screen.scaling_factor_y as u32,
-                        Nearest,
-                    );
-                }
-            }
-        }
-        let (template_width, template_height) = template.dimensions();
-
-        self.max_segments = max_segments;
-        let region = match region {
-            Some(region_tuple) => region_tuple,
-            None => {
-                let (screen_width, screen_height) = self.screen.dimension();
-                (0, 0, screen_width as u32, screen_height as u32)
-            }
-        };
-
-        self.check_if_region_out_of_bound(&template_width, &template_height, &region.0, &region.1,  &region.2, &region.3)?;
-        // do the rest of preparation calculations depending on the matchmode
-        // FFT pads the image, does fourier transformations,
-        // calculates conjugate and inverses transformation on template
-        // Segmented creates vector of picture segments with coordinates, dimensions and average pixel value
-        let (template_data, match_mode) = match match_mode {
-            MatchMode::FFT => {
-                let prepared_data =
-                    PreparedData::FFT(normalized_x_corr::fft_ncc::prepare_template_picture(
-                        &template, &region.2, &region.3,
-                    ));
-                let match_mode = Some(MatchMode::FFT);
-                (prepared_data, match_mode)
-            }
-            MatchMode::Segmented => {
-                let prepared_data: (
-                    Vec<(u32, u32, u32, u32, f32)>,
-                    Vec<(u32, u32, u32, u32, f32)>,
-                    u32,
-                    u32,
-                    f32,
-                    f32,
-                    f32,
-                    f32,
-                    f32,
-                    f32,
-                ) = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
-                    &template,
-                    max_segments,
-                    &self.debug,
-                );
-                // mostly happens due to using too complex image with small max segments value
-                if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
-                    return Err(String::from("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"));
-                }
-                let match_mode = Some(MatchMode::Segmented);
-                (PreparedData::Segmented(prepared_data), match_mode)
-            }
-        };
-        // if storing the image , we just save it to Hashmap
-        // if not storing, then we change struct attributes to fit the single loaded image search
-        match alias {
-            Some(name) => {
-                self.prepared_data_stored
-                    .insert(name, (template_data, region));
-            }
-            None => {
-                self.region = region;
-                self.prepared_data = template_data;
-                self.match_mode = match_mode;
-                // update screen struct
-                self.screen.screen_region_width = region.2;
-                self.screen.screen_region_height = region.3;
-                // update struct values
-                self.template_width = template_width;
-                self.template_height = template_height;
-                // convert to option and store in struct
-                self.template = Some(template.clone());
-            }
-        }
-
-        return Ok(());
-    }
+    
 
     /// change certain settings for prepared template, like region, match_mode or max_segments. If MatchMode is not changed, whole template
     /// recalculation may still be needed if certain other parameters are changed, depending on current MatchMode.
@@ -598,6 +562,7 @@ impl RustAutoGui {
     pub fn find_image_on_screen(
         &mut self,
         precision: f32,
+        alias: Option<&String>,
     ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
         /// searches for image on screen and returns found locations in vector format
         let image: ImageBuffer<Luma<u8>, Vec<u8>> =
@@ -622,43 +587,35 @@ impl RustAutoGui {
             }
         };
 
-        // if using mac, and if retina display detected, we want to first try to find
-        // scaled down variant, and if nothing is found the we do the search from backup
-        // image which is not scaled down
         #[cfg(target_os = "macos")]
         {
-            // if retina display detected and if we are not already running search for backup
             if ((self.screen.scaling_factor_x > 1.0) | (self.screen.scaling_factor_y > 1.0))
-                & (!self.alias_used.contains(DEFAULT_BCKP_ALIAS))
+                & (match alias.clone() {
+                    Some(a) => {
+                        if a.contains("bckp_tmpl_.#!123!#.") {
+                            false
+                        } else {
+                            true
+                        }
+                    }
+                    None => true,
+                })
             {
-                // try the first match
                 let first_match = self.run_x_corr(image, precision)?;
 
-                // if its just a single image search, then we just need to grab
-                // it from the has under default backup name
-                // if its aliased stored search, then we need to extract the backup
-                // of selected aliased image with has "alias_DEFAULT BACKUP NAME"
-                let mut bckp_alias = String::new();
-
-                // if its not a single image search, create a alias_backup hash
-                if self.alias_used != DEFAULT_ALIAS.to_string() {
-                    bckp_alias.push_str(self.alias_used.as_str());
-                    bckp_alias.push('_');
-                }
-                bckp_alias.push_str(DEFAULT_BCKP_ALIAS);
                 match first_match {
                     Some(result) => return Ok(Some(result)),
                     None => {
-                        // this recursively searches again for backup
-                        return self.find_stored_image_on_screen(precision, &bckp_alias);
+                        return self.find_stored_image_on_screen(
+                            precision,
+                            &"bckp_tmpl_.#!123!#.".to_string(),
+                        )
                     }
                 }
             } else {
-                // if its not retina or if the backup is already activated and searched for
                 return self.run_x_corr(image, precision);
             }
         }
-        // if not mac just run normally, no backups needed
         #[cfg(not(target_os = "macos"))]
         self.run_x_corr(image, precision)
     }
@@ -680,7 +637,7 @@ impl RustAutoGui {
             if (timeout_start.elapsed().as_secs() > timeout) & (timeout > 0) {
                 return Err("loop find image timed out. Could not find image");
             }
-            let result = self.find_image_on_screen(precision);
+            let result = self.find_image_on_screen(precision, None);
             match result.clone()? {
                 Some(_) => break result,
                 None => continue,
@@ -705,9 +662,8 @@ impl RustAutoGui {
             starting_match_mode: self.match_mode.clone(),
             starting_template_height: self.template_height.clone(),
             starting_template_width: self.template_width.clone(),
-            starting_alias_used: self.alias_used.clone(),
         };
-        self.alias_used = alias.clone();
+
         self.prepared_data = prepared_data.clone();
         self.screen.screen_region_width = region.2;
         self.screen.screen_region_height = region.3;
@@ -725,7 +681,7 @@ impl RustAutoGui {
             }
             PreparedData::None => None,
         };
-        let points = self.find_image_on_screen(precision)?;
+        let points = self.find_image_on_screen(precision, Some(alias))?;
         // reset to starting info
         backup.update_rustautogui(self);
 
@@ -775,9 +731,8 @@ impl RustAutoGui {
             starting_match_mode: self.match_mode.clone(),
             starting_template_height: self.template_height.clone(),
             starting_template_width: self.template_width.clone(),
-            starting_alias_used: self.alias_used.clone(),
         };
-        self.alias_used = alias.clone();
+
         self.prepared_data = prepared_data.clone();
         self.region = *region;
         self.screen.screen_region_width = region.2;
@@ -841,7 +796,7 @@ impl RustAutoGui {
     ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
         /// finds coordinates of the image on the screen and moves mouse to it. Returns None if no image found
         ///  Best used in loops
-        let found_locations = self.find_image_on_screen(precision)?;
+        let found_locations = self.find_image_on_screen(precision, None)?;
 
         let locations = match found_locations.clone() {
             Some(locations) => locations,
@@ -852,12 +807,8 @@ impl RustAutoGui {
             .clone()
             .into_iter()
             .map(|(mut x, mut y, corr)| {
-                x = x
-                    + self.region.0
-                    + ((self.template_width / 2) * self.screen.scaling_factor_x as u32);
-                y = y
-                    + self.region.1
-                    + ((self.template_height / 2) * self.screen.scaling_factor_y as u32);
+                x = x + self.region.0 + (self.template_width / 2);
+                y = y + self.region.1 + (self.template_height / 2);
                 (x, y, corr)
             })
             .collect();
@@ -940,234 +891,144 @@ impl RustAutoGui {
         };
     }
 
-    //////////////////// Windows Mouse ////////////////////
+    //////////////////////////////// MOUSE ////////////////////////////////////////
 
     /// moves mouse to x, y pixel coordinate
-    #[cfg(target_os = "windows")]
     pub fn move_mouse_to_pos(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str> {
-        Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time);
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
             return Err("Out of screen boundaries");
         }
-        Ok(())
+
+        #[cfg(target_os = "windows")]
+        {
+            Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time);
+            Ok(())
+        }
+        #[cfg(target_os = "linux")]
+        return self
+            .mouse
+            .move_mouse_to_pos(x as i32, y as i32, moving_time);
+        #[cfg(target_os = "macos")]
+        return Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time);
     }
 
     /// moves mouse to x, y pixel coordinate
-    #[cfg(target_os = "windows")]
     pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str> {
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
             return Err("Out of screen boundaries");
         }
-        Mouse::drag_mouse(x as i32, y as i32, moving_time);
 
-        Ok(())
+        #[cfg(target_os = "windows")]
+        {
+            Mouse::drag_mouse(x as i32, y as i32, moving_time);
+
+            Ok(())
+        }
+        #[cfg(target_os = "macos")]
+        {
+            if moving_time < 0.5 {
+                if !self.suppress_warnings {
+                    eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
+                }
+            }
+            return Mouse::drag_mouse(x as i32, y as i32, moving_time);
+        }
+        #[cfg(target_os = "linux")]
+        {
+            if moving_time < 0.5 {
+                if !self.suppress_warnings {
+                    eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
+                }
+            }
+            return self.mouse.drag_mouse(x as i32, y as i32, moving_time);
+        }
     }
 
-    /// executes left mouse click
-    #[cfg(target_os = "windows")]
-    pub fn left_click(&self) -> Result<(), ()> {
-        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
-        Ok(())
-    }
-
-    /// executes middle mouse click
-    #[cfg(target_os = "windows")]
-    pub fn middle_click(&self) -> Result<(), ()> {
-        mouse::platform::Mouse::mouse_click(mouse::MouseClick::MIDDLE);
-        Ok(())
+    /// executes left mouse click    
+    pub fn left_click(&self) -> Result<(), &'static str> {
+        #[cfg(target_os = "linux")]
+        return self.mouse.mouse_click(mouse::MouseClick::LEFT);
+        #[cfg(target_os = "windows")]
+        return Ok(mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT));
+        #[cfg(target_os = "macos")]
+        return mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
     }
 
     /// executes right mouse click
-    #[cfg(target_os = "windows")]
-    pub fn right_click(&self) -> Result<(), ()> {
-        mouse::platform::Mouse::mouse_click(mouse::MouseClick::RIGHT);
-        Ok(())
+    pub fn right_click(&self) -> Result<(), &'static str> {
+        #[cfg(target_os = "linux")]
+        return self.mouse.mouse_click(mouse::MouseClick::RIGHT);
+        #[cfg(target_os = "macos")]
+        return mouse::platform::Mouse::mouse_click(mouse::MouseClick::RIGHT);
+        #[cfg(target_os = "windows")]
+        return Ok(mouse::platform::Mouse::mouse_click(
+            mouse::MouseClick::RIGHT,
+        ));
+    }
+
+    /// executes middle mouse click
+    pub fn middle_click(&self) -> Result<(), &'static str> {
+        #[cfg(target_os = "linux")]
+        return self.mouse.mouse_click(mouse::MouseClick::MIDDLE);
+        #[cfg(target_os = "windows")]
+        return Ok(mouse::platform::Mouse::mouse_click(
+            mouse::MouseClick::MIDDLE,
+        ));
+        #[cfg(target_os = "macos")]
+        return mouse::platform::Mouse::mouse_click(mouse::MouseClick::MIDDLE);
     }
 
     /// executes double left mouse click
-    #[cfg(target_os = "windows")]
-    pub fn double_click(&self) -> Result<(), ()> {
-        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
-        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
-        Ok(())
-    }
-
-    #[cfg(target_os = "windows")]
-    pub fn scroll_up(&self) -> Result<(), ()> {
-        mouse::platform::Mouse::scroll(mouse::MouseScroll::UP);
-        Ok(())
-    }
-
-    #[cfg(target_os = "windows")]
-    pub fn scroll_down(&self) -> Result<(), ()> {
-        mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN);
-        Ok(())
-    }
-
-    #[cfg(target_os = "windows")]
-    pub fn scroll_left(&self) -> Result<(), ()> {
-        mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT);
-        Ok(())
-    }
-
-    #[cfg(target_os = "windows")]
-    pub fn scroll_right(&self) -> Result<(), ()> {
-        mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT);
-        Ok(())
-    }
-
-    //////////////////// MacOS Mouse ////////////////////
-
-    /// moves mouse to x, y pixel coordinate
-    #[cfg(target_os = "macos")]
-    pub fn move_mouse_to_pos(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str> {
-        if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
-            return Err("Out of screen boundaries");
-        }
-        Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time)?;
-        Ok(())
-    }
-
-    #[cfg(target_os = "macos")]
-    pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str> {
-        if moving_time < 0.5 {
-            if !self.suppress_warnings {
-                eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
-            }
-        }
-        if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
-            return Err("Out of screen boundaries");
-        }
-        Mouse::drag_mouse(x as i32, y as i32, moving_time)?;
-
-        Ok(())
-    }
-
-    /// executes left mouse click
-    #[cfg(target_os = "macos")]
-    pub fn left_click(&self) -> Result<(), &'static str> {
-        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT)?;
-        Ok(())
-    }
-
-    /// executes right mouse click
-    #[cfg(target_os = "macos")]
-    pub fn right_click(&self) -> Result<(), &'static str> {
-        mouse::platform::Mouse::mouse_click(mouse::MouseClick::RIGHT)?;
-        Ok(())
-    }
-
-    /// executes middle mouse click
-    #[cfg(target_os = "macos")]
-    pub fn middle_click(&self) -> Result<(), &'static str> {
-        mouse::platform::Mouse::mouse_click(mouse::MouseClick::MIDDLE)?;
-        Ok(())
-    }
-
-    /// executes double mouse click
-    #[cfg(target_os = "macos")]
     pub fn double_click(&self) -> Result<(), &'static str> {
-        mouse::platform::Mouse::double_click()?;
-        Ok(())
+        #[cfg(target_os = "linux")]
+        {
+            self.mouse.mouse_click(mouse::MouseClick::LEFT)?;
+            return self.mouse.mouse_click(mouse::MouseClick::LEFT);
+        }
+        #[cfg(target_os = "windows")]
+        {
+            mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
+            mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
+            return Ok(());
+        }
+        #[cfg(target_os = "macos")]
+        return mouse::platform::Mouse::double_click();
     }
 
-    #[cfg(target_os = "macos")]
     pub fn scroll_up(&self) -> Result<(), &'static str> {
-        mouse::platform::Mouse::scroll(mouse::MouseScroll::UP)?;
-        Ok(())
+        #[cfg(target_os = "linux")]
+        return Ok(self.mouse.scroll(mouse::MouseScroll::UP));
+        #[cfg(target_os = "windows")]
+        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::UP));
+        #[cfg(target_os = "macos")]
+        return mouse::platform::Mouse::scroll(mouse::MouseScroll::UP);
     }
 
-    #[cfg(target_os = "macos")]
     pub fn scroll_down(&self) -> Result<(), &'static str> {
-        mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN)?;
-        Ok(())
+        #[cfg(target_os = "linux")]
+        return Ok(self.mouse.scroll(mouse::MouseScroll::DOWN));
+        #[cfg(target_os = "windows")]
+        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN));
+        #[cfg(target_os = "macos")]
+        return mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN);
     }
 
-    #[cfg(target_os = "macos")]
     pub fn scroll_left(&self) -> Result<(), &'static str> {
-        mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT)?;
-        Ok(())
+        #[cfg(target_os = "linux")]
+        return Ok(self.mouse.scroll(mouse::MouseScroll::LEFT));
+        #[cfg(target_os = "windows")]
+        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT));
+        #[cfg(target_os = "macos")]
+        return mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT);
     }
 
-    #[cfg(target_os = "macos")]
     pub fn scroll_right(&self) -> Result<(), &'static str> {
-        mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT)?;
-        Ok(())
-    }
-
-    //////////////////// Linux Mouse ////////////////////
-
-    /// moves mouse to x, y pixel coordinate
-    #[cfg(target_os = "linux")]
-    pub fn move_mouse_to_pos(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str> {
-        if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
-            return Err("Out of screen boundaries");
-        }
-        self.mouse
-            .move_mouse_to_pos(x as i32, y as i32, moving_time)
-    }
-
-    /// moves mouse to x, y pixel coordinate
-    #[cfg(target_os = "linux")]
-    pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str> {
-        if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
-            return Err("Out of screen boundaries");
-        }
-        if moving_time < 0.5 {
-            if !self.suppress_warnings {
-                eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
-            }
-        }
-        self.mouse.drag_mouse(x as i32, y as i32, moving_time)
-    }
-
-    /// executes left mouse click
-    #[cfg(target_os = "linux")]
-    pub fn left_click(&self) -> Result<(), &'static str> {
-        self.mouse.mouse_click(mouse::MouseClick::LEFT)
-    }
-
-    /// executes right mouse click
-    #[cfg(target_os = "linux")]
-    pub fn right_click(&self) -> Result<(), &'static str> {
-        self.mouse.mouse_click(mouse::MouseClick::RIGHT)
-    }
-
-    /// executes middle mouse click
-    #[cfg(target_os = "linux")]
-    pub fn middle_click(&self) -> Result<(), &'static str> {
-        self.mouse.mouse_click(mouse::MouseClick::MIDDLE)
-    }
-
-    /// executes double left mouse click
-    #[cfg(target_os = "linux")]
-    pub fn double_click(&self) -> Result<(), &'static str> {
-        self.mouse.mouse_click(mouse::MouseClick::LEFT)?;
-        self.mouse.mouse_click(mouse::MouseClick::LEFT)
-    }
-
-    #[cfg(target_os = "linux")]
-    pub fn scroll_up(&self) -> Result<(), ()> {
-        self.mouse.scroll(mouse::MouseScroll::UP);
-        Ok(())
-    }
-
-    #[cfg(target_os = "linux")]
-    pub fn scroll_down(&self) -> Result<(), ()> {
-        self.mouse.scroll(mouse::MouseScroll::DOWN);
-        Ok(())
-    }
-
-    #[cfg(target_os = "linux")]
-    pub fn scroll_left(&self) -> Result<(), ()> {
-        self.mouse.scroll(mouse::MouseScroll::LEFT);
-        Ok(())
-    }
-
-    #[cfg(target_os = "linux")]
-    pub fn scroll_right(&self) -> Result<(), ()> {
-        self.mouse.scroll(mouse::MouseScroll::RIGHT);
-        Ok(())
+        #[cfg(target_os = "linux")]
+        return Ok(self.mouse.scroll(mouse::MouseScroll::RIGHT));
+        #[cfg(target_os = "windows")]
+        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT));
+        #[cfg(target_os = "macos")]
+        return mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT);
     }
 
     //////////////////// Keyboard ////////////////////
