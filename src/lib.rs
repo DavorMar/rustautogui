@@ -615,7 +615,7 @@ impl RustAutoGui {
                     },
                     None => "bckp_tmpl_.#!123!#.".to_string()
                 };
-                println!("First match not found");
+                
                 match first_match {
                     Some(result) => return Ok(Some(result)),
                     None => {
