@@ -344,7 +344,40 @@ impl RustAutoGui {
         alias: Option<String>,
     ) -> Result<(), String> {
         
-        //resize and adjust if retina screen is used
+        // resize and adjust if retina screen is used
+        // prepare additionally backup template for 2 screen size variants
+        // issue comes from retina having digitally doubled the amount of displayed pixels while
+        // API returns screen image with original size
+        // for instance the screen is 1400x800 but if snip of screen is taken, output image will be 2800x1600
+        // for that reason, we cannot be sure which variant of image will be searched for, so image search will search first 
+        // for resized variant and if not found, then non scaled variant
+        #[cfg(target_os = "macos")]
+        // since this recursively initiates construction of another backup prepared template for macos 
+        // we dont want to back up the backup
+        {
+            if ((self.screen.scaling_factor_x > 1.0) | (self.screen.scaling_factor_y > 1.0)) & (
+                match alias.clone() {
+                    Some(a) => {
+                        if a.contains("bckp_tmpl_.#!123!#.") {
+                            false
+                        } else {
+                            true
+                        }
+                    },
+                    None => true
+                }
+            ) {
+                let bckp_template = template.clone();
+                let backup_alias = match alias.clone() {
+                    Some(mut a) => {
+                        a.push_str("_bckp_tmpl_.#!123!#.");
+                        a
+                    },
+                    None => "bckp_tmpl_.#!123!#.".to_string(),
+                };
+                self.store_template_from_imagebuffer(bckp_template, region, match_mode.clone(), max_segments, backup_alias)?;
+            };
+        }
         #[cfg(target_os = "macos")]
         {
             template = resize(
@@ -516,6 +549,7 @@ impl RustAutoGui {
     pub fn find_image_on_screen(
         &mut self,
         precision: f32,
+        alias: Option<&String>,
     ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
         /// searches for image on screen and returns found locations in vector format
         let image: ImageBuffer<Luma<u8>, Vec<u8>> =
@@ -539,6 +573,37 @@ impl RustAutoGui {
                 };
             }
         };
+        
+
+        #[cfg(target_os = "macos")]
+        {   
+            if ((self.screen.scaling_factor_x > 1.0) | (self.screen.scaling_factor_y > 1.0)) & (
+                match alias.clone() {
+                    Some(a) => {
+                        if a.contains("bckp_tmpl_.#!123!#.") {
+                            false
+                        } else {
+                            true
+                        }
+                    },
+                    None => true
+                }
+            ) {
+                let first_match = self.run_x_corr(image, precision)?;    
+                match first_match {
+                    Some(result) => return Ok(Some(result)),
+                    None => {
+                        return self.find_stored_image_on_screen(precision, &"bckp_tmpl_.#!123!#.".to_string())
+                    }
+
+                }
+            } else {
+                return self.run_x_corr(image, precision)
+            }
+            
+            
+        }
+        #[cfg(not(target_os = "macos"))]
         self.run_x_corr(image, precision)
     }
 
@@ -559,7 +624,7 @@ impl RustAutoGui {
             if (timeout_start.elapsed().as_secs() > timeout) & (timeout > 0) {
                 return Err("loop find image timed out. Could not find image");
             }
-            let result = self.find_image_on_screen(precision);
+            let result = self.find_image_on_screen(precision, None);
             match result.clone()? {
                 Some(_) => break result,
                 None => continue,
@@ -603,7 +668,7 @@ impl RustAutoGui {
             }
             PreparedData::None => None,
         };
-        let points = self.find_image_on_screen(precision)?;
+        let points = self.find_image_on_screen(precision, Some(alias))?;
         // reset to starting info
         backup.update_rustautogui(self);
 
@@ -718,7 +783,7 @@ impl RustAutoGui {
     ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
         /// finds coordinates of the image on the screen and moves mouse to it. Returns None if no image found
         ///  Best used in loops
-        let found_locations = self.find_image_on_screen(precision)?;
+        let found_locations = self.find_image_on_screen(precision,None)?;
 
         let locations = match found_locations.clone() {
             Some(locations) => locations,
