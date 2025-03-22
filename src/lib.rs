@@ -344,8 +344,11 @@ impl RustAutoGui {
         max_segments: Option<u32>,
         alias: Option<String>,
     ) -> Result<(), String> {
-        #[cfg(target_os = "macos")]
+        
         //resize and adjust if retina screen is used
+        #[allow(unused_mut)]
+        let mut template = template;
+        #[cfg(target_os = "macos")]
         {
             template = resize(
                 &template,
