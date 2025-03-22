@@ -12,7 +12,7 @@ fn main() {
 
     {
         // load the image searching for. Region is Option<(startx, starty, width, height)> of search. Matchmode FFT or Segmented (not implemented before 1.0 version), max segments, only important for Segmented match mode
-        gui.load_and_prepare_template(
+        gui.prepare_template_from_file(
             "test.png",
             Some((0, 0, 500, 300)),
             rustautogui::MatchMode::FFT,
@@ -33,7 +33,7 @@ fn main() {
     }
 
     // or segmented variant with no region
-    gui.load_and_prepare_template("test.png", None, rustautogui::MatchMode::FFT, Some(5000))
+    gui.prepare_template_from_file("test.png", None, rustautogui::MatchMode::FFT, Some(5000))
         .unwrap();
 
     // change prepare template settings, like region, matchmode or max segments

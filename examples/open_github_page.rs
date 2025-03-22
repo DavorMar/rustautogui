@@ -25,7 +25,8 @@ fn main() {
             "stars".to_string(),
         )
         .unwrap();
-
+    
+    // just for example doing single prepare, but you would want to store it also
     // load, process and store image of terms
     rustautogui
         .prepare_template_from_file(
