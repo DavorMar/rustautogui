@@ -87,6 +87,7 @@ struct BackupData {
     starting_match_mode: Option<MatchMode>,
     starting_template_height: u32,
     starting_template_width: u32,
+    starting_alias_used: String,
 }
 impl BackupData {
     fn update_rustautogui(self, target: &mut RustAutoGui) {
@@ -97,6 +98,7 @@ impl BackupData {
         target.screen.screen_region_height = self.starting_region.3;
         target.template_width = self.starting_template_width;
         target.template_height = self.starting_template_height;
+        target.alias_used = self.starting_alias_used;
     }
 }
 
@@ -118,6 +120,7 @@ pub struct RustAutoGui {
     match_mode: Option<MatchMode>,
     max_segments: Option<u32>,
     region: (u32, u32, u32, u32),
+    alias_used: String,
     suppress_warnings: bool,
 }
 impl RustAutoGui {
@@ -147,6 +150,7 @@ impl RustAutoGui {
             match_mode: None,
             max_segments: None,
             region: (0, 0, 0, 0),
+            alias_used: "default_rsgui_!#123#!".to_string(),
             suppress_warnings: suppress_warnings,
         })
     }
@@ -178,6 +182,7 @@ impl RustAutoGui {
             match_mode: None,
             max_segments: None,
             region: (0, 0, 0, 0),
+            alias_used: "default".to_string(),
             suppress_warnings: suppress_warnings,
         })
     }
@@ -567,7 +572,6 @@ impl RustAutoGui {
     pub fn find_image_on_screen(
         &mut self,
         precision: f32,
-        alias: Option<String>,
     ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
         /// searches for image on screen and returns found locations in vector format
         let image: ImageBuffer<Luma<u8>, Vec<u8>> =
@@ -596,26 +600,18 @@ impl RustAutoGui {
         #[cfg(target_os = "macos")]
         {   
             if ((self.screen.scaling_factor_x > 1.0) | (self.screen.scaling_factor_y > 1.0)) & (
-                match alias.clone() {
-                    Some(a) => {
-                        if a.contains("bckp_tmpl_.#!123!#.") {
-                            false
-                        } else {
-                            true
-                        }
-                    },
-                    None => true
-                }
+                !self.alias_used.contains("bckp_tmpl_.#!123!#.") 
             ) {
                 let first_match = self.run_x_corr(image, precision)?;    
-                let bckp_alias = match alias.clone() {
-                    Some(mut a) => {
-                        a.push_str("_bckp_tmpl_.#!123!#.");
-                        a
-                    },
-                    None => "bckp_tmpl_.#!123!#.".to_string()
-                };
+                let mut bckp_alias = String::new();
                 
+                if self.alias_used != "default_rsgui_!#123#!".to_string() {
+                    bckp_alias.push_str(self.alias_used.as_str());
+                    bckp_alias.push_str("_bckp_tmpl_.#!123!#.");    
+                } else {
+                    bckp_alias.push_str("bckp_tmpl_.#!123!#.");
+                }
+
                 match first_match {
                     Some(result) => return Ok(Some(result)),
                     None => {
@@ -650,7 +646,7 @@ impl RustAutoGui {
             if (timeout_start.elapsed().as_secs() > timeout) & (timeout > 0) {
                 return Err("loop find image timed out. Could not find image");
             }
-            let result = self.find_image_on_screen(precision, None);
+            let result = self.find_image_on_screen(precision);
             match result.clone()? {
                 Some(_) => break result,
                 None => continue,
@@ -675,8 +671,9 @@ impl RustAutoGui {
             starting_match_mode: self.match_mode.clone(),
             starting_template_height: self.template_height.clone(),
             starting_template_width: self.template_width.clone(),
+            starting_alias_used: self.alias_used.clone(),
         };
-
+        self.alias_used = alias.clone();
         self.prepared_data = prepared_data.clone();
         self.screen.screen_region_width = region.2;
         self.screen.screen_region_height = region.3;
@@ -694,7 +691,7 @@ impl RustAutoGui {
             }
             PreparedData::None => None,
         };
-        let points = self.find_image_on_screen(precision, Some(alias.clone()))?;
+        let points = self.find_image_on_screen(precision)?;
         // reset to starting info
         backup.update_rustautogui(self);
 
@@ -744,8 +741,9 @@ impl RustAutoGui {
             starting_match_mode: self.match_mode.clone(),
             starting_template_height: self.template_height.clone(),
             starting_template_width: self.template_width.clone(),
+            starting_alias_used: self.alias_used.clone(),
         };
-
+        self.alias_used = alias.clone();
         self.prepared_data = prepared_data.clone();
         self.region = *region;
         self.screen.screen_region_width = region.2;
@@ -809,7 +807,7 @@ impl RustAutoGui {
     ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
         /// finds coordinates of the image on the screen and moves mouse to it. Returns None if no image found
         ///  Best used in loops
-        let found_locations = self.find_image_on_screen(precision,None)?;
+        let found_locations = self.find_image_on_screen(precision)?;
 
         let locations = match found_locations.clone() {
             Some(locations) => locations,
