@@ -1,8 +1,5 @@
 extern crate winapi;
-use std::collections::HashMap;
-use std::mem::size_of;
-use std::thread::sleep;
-use std::time::Duration;
+use std::{collections::HashMap, mem::size_of, thread::sleep, time::Duration};
 use winapi::um::winuser::{MapVirtualKeyW, MAPVK_VK_TO_VSC};
 use winapi::um::winuser::{
     SendInput, INPUT, INPUT_KEYBOARD, KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, VK_CONTROL, VK_MENU,
@@ -83,41 +80,35 @@ impl Keyboard {
     /// executes press down of shift key, press down and press up for desired key, then press up of shift key
     pub fn send_shifted_key(scan_code: u16) {
         unsafe {
-            Keyboard::key_down(0x10);
+            Keyboard::key_down(0x10); // shift press
             sleep(Duration::from_micros(50));
             // send key
             Keyboard::send_key(scan_code);
             sleep(Duration::from_micros(50));
-            // release shift
-            Keyboard::key_up(0x10);
+
+            Keyboard::key_up(0x10); // shift release
             sleep(Duration::from_micros(50));
         }
     }
 
-    /// function used when sending input as string
+    /// Function used when sending input as string. All characters need to be part of the key map, described in Keyboard_commands.md
+    /// For each character in a string, Keyboard::send_key() is executed. If the character requires a shift key,
+    /// Keyboard::send_shifted_key is executed
     pub fn send_char(&self, key: &char) -> Result<(), &'static str> {
         let char_string = String::from(*key);
-        let value = match self.keymap.get(&char_string) {
-            Some(x) => x,
-            None => return Err("wrong keyboard char"),
-        };
-        let shifted = value.1;
-        let value = value.0;
+        let (value, shifted) = self.keymap.get(&char_string).ok_or("wrong keyboard char")?;
 
-        if shifted {
-            Keyboard::send_shifted_key(value);
+        if *shifted {
+            Keyboard::send_shifted_key(*value);
         } else {
-            Keyboard::send_key(value);
+            Keyboard::send_key(*value);
         }
         Ok(())
     }
 
-    /// function used when sending commands like "return" or "escape"
+    /// Function used when sending commands like "return" or "escape"
     pub fn send_command(&self, key: &String) -> Result<(), &'static str> {
-        let value = match self.keymap.get(key) {
-            Some(x) => x,
-            None => return Err("wrong keyboard char"),
-        };
+        let value = self.keymap.get(key).ok_or("wrong keyboard char")?;
         let value = value.0;
 
         Keyboard::send_key(value);
@@ -130,31 +121,19 @@ impl Keyboard {
         key_2: &String,
         key_3: Option<String>,
     ) -> Result<(), &'static str> {
-        let value1 = match self.keymap.get(key_1) {
-            Some(x) => x,
-            None => return Err("wrong keyboard char"),
-        };
-        let value2 = match self.keymap.get(key_2) {
-            Some(x) => x,
-            None => return Err("wrong keyboard char"),
-        };
-
-        let value1 = value1.0;
-        let value2 = value2.0;
+        let value1 = self.keymap.get(key_1).ok_or("wrong keyboard char")?.0;
+        let value2 = self.keymap.get(key_2).ok_or("wrong keyboard char")?.0;
 
         let mut third_key = false;
         let value3 = match key_3 {
             Some(value) => {
                 third_key = true;
-                let value3 = match self.keymap.get(&value) {
-                    Some(x) => x,
-                    None => return Err("wrong keyboard char"),
-                };
-                value3
+                let value3 = self.keymap.get(&value).ok_or("wrong keyboard char")?;
+                value3.0
             }
-            None => &(0, false),
+            None => 0,
         };
-        let value3 = value3.0;
+
         unsafe {
             Keyboard::key_down(value1);
             Keyboard::key_down(value2);
@@ -229,7 +208,12 @@ impl Keyboard {
         key_map.insert(String::from("help"), (0x2f, false)); // VK_HELP
         key_map.insert(String::from("win"), (0x5b, false)); // VK_LWIN
         key_map.insert(String::from("winleft"), (0x5b, false)); // VK_LWIN
+        key_map.insert(String::from("win_l"), (0x5b, false)); // VK_LWIN
+        key_map.insert(String::from("super"), (0x5b, false)); // VK_LWIN
+        key_map.insert(String::from("super_l"), (0x5b, false)); // VK_LWIN
         key_map.insert(String::from("winright"), (0x5c, false)); // VK_RWIN
+        key_map.insert(String::from("win_r"), (0x5c, false)); // VK_RWIN
+        key_map.insert(String::from("super_r"), (0x5c, false)); // VK_RWIN
         key_map.insert(String::from("apps"), (0x5d, false)); // VK_APPS
         key_map.insert(String::from("sleep"), (0x5f, false)); // VK_SLEEP
         key_map.insert(String::from("num0"), (0x60, false)); // VK_NUMPAD0

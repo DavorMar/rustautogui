@@ -4,15 +4,16 @@ loading images from disk, converting image to black-white or RGB, cutting image
 and converting image to vector.
 */
 
-use image::{io::Reader as ImageReader, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgba};
+use image::{
+    io::Reader as ImageReader, DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb,
+    Rgba,
+};
 
+use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
 /// Loads image from the provided path and converts to black-white format
 /// Returns image in image::ImageBuffer format
 pub fn load_image_bw(location: &str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, String> {
-    let img = match ImageReader::open(location) {
-        Ok(x) => x,
-        Err(y) => return Err(y.to_string()),
-    };
+    let img = ImageReader::open(location).map_err(|x| x.to_string())?;
 
     let img = match img.decode() {
         Ok(x) => x,
@@ -26,27 +27,99 @@ pub fn load_image_bw(location: &str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, S
 /// Loads image from the provided path and converts to RGBA format
 /// Returns image in image::ImageBuffer format
 pub fn load_image_rgba(location: &str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, String> {
-    let img = match ImageReader::open(location) {
-        Ok(x) => x,
-        Err(y) => return Err(y.to_string()),
-    };
+    let img = ImageReader::open(location).map_err(|x| x.to_string())?;
+    let img = img.decode().map_err(|y| y.to_string())?;
+    Ok(img.to_rgba8()) // return rgba image
+}
 
-    let img = match img.decode() {
-        Ok(x) => x,
-        Err(y) => return Err(y.to_string()),
-    };
+pub fn check_imagebuffer_color_scheme<P, T>(image: &ImageBuffer<P, Vec<T>>) -> Result<u32, String>
+where
+    P: Pixel<Subpixel = T> + 'static,
+    T: Primitive + ToPrimitive + 'static,
+{
+    let buff_len = image.as_raw().len() as u32;
+    let (img_w, img_h) = image.dimensions();
+    if (&img_w * &img_h) == 0 {
+        let err = "Error: The buffer provided is empty and has no size".to_string();
+        return Err(err);
+    }
+    Ok(buff_len / (img_w * img_h))
+}
 
-    let rgba_image: ImageBuffer<Rgba<u8>, Vec<u8>> = img.to_rgba8();
-    Ok(rgba_image)
+pub fn convert_t_imgbuffer_to_luma<P, T>(
+    image: &ImageBuffer<P, Vec<T>>,
+    color_scheme: &u32,
+) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, String>
+where
+    P: Pixel<Subpixel = T> + 'static,
+    T: Primitive + ToPrimitive + 'static,
+{
+    let (img_w, img_h) = image.dimensions();
+    match color_scheme {
+        1 => {
+            // Black and white image (Luma)
+            // convert from Vec<T> to Vec<u8>
+            let raw_img: Result<Vec<u8>, &'static str> = image
+                .as_raw()
+                .into_iter()
+                .map(|x| x.to_u8().ok_or("Pixel conversion failed"))
+                .collect();
+
+            ImageBuffer::<Luma<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?)
+                .ok_or("failed to convert to Luma".to_string())
+        }
+        3 => {
+            // Rgb
+            let raw_img: Result<Vec<u8>, &'static str> = image
+                .as_raw()
+                .into_iter()
+                .map(|x| x.to_u8().ok_or("Pixel conversion failed"))
+                .collect();
+            let rgb_img = ImageBuffer::<Rgb<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?)
+                .ok_or("Failed to convert to RGB")?;
+            Ok(DynamicImage::ImageRgb8(rgb_img).to_luma8())
+        }
+        4 => {
+            // Rgba
+            let raw_img: Result<Vec<u8>, &'static str> = image
+                .as_raw()
+                .into_iter()
+                .map(|x| x.to_u8().ok_or("Pixel conversion failed"))
+                .collect();
+            let rgba_img = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?)
+                .ok_or("Failed to convert to RGBA")?;
+            Ok(DynamicImage::ImageRgba8(rgba_img).to_luma8())
+        }
+        _ => {
+            return Err(
+                "Unknown image format. Load works only for Rgb/Rgba/Luma(BW) formats".to_string(),
+            )
+        }
+    }
 }
 
 /// Does conversion from ImageBuffer RGBA to ImageBuffer Black and White(Luma)
-pub fn convert_image_to_bw(
+pub fn convert_rgba_to_bw(
     image: ImageBuffer<Rgba<u8>, Vec<u8>>,
 ) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, &'static str> {
-    let mut grayscale_data: Vec<u8> = Vec::with_capacity(image.len() as usize);
-    let screen_width = image.width();
-    let screen_height = image.height();
+    let (img_w, img_h) = image.dimensions();
+    let raw_img: Result<Vec<u8>, &'static str> = image
+        .as_raw()
+        .into_iter()
+        .map(|x| x.to_u8().ok_or("Pixel conversion failed"))
+        .collect();
+    let rgba_img = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?)
+        .ok_or("Failed to convert to RGBA")?;
+    Ok(DynamicImage::ImageRgba8(rgba_img).to_luma8())
+}
+
+/// Does conversion from ImageBuffer RGBA to ImageBuffer Black and White(Luma)
+pub fn convert_rgba_to_bw_old(
+    image: ImageBuffer<Rgba<u8>, Vec<u8>>,
+) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, &'static str> {
+    let mut grayscale_data: Vec<u8> = Vec::with_capacity(image.len());
+    let image_width = image.width();
+    let image_height = image.height();
     for chunk in image.chunks_exact(4) {
         let r = chunk[2] as u32;
         let g = chunk[1] as u32;
@@ -55,11 +128,8 @@ pub fn convert_image_to_bw(
         let gray_value = ((r * 30 + g * 59 + b * 11) / 100) as u8;
         grayscale_data.push(gray_value);
     }
-    let grayscale = GrayImage::from_raw(screen_width as u32, screen_height as u32, grayscale_data);
-    match grayscale {
-        Some(x) => return Ok(x),
-        None => return Err("failed to convert image to grayscale"),
-    }
+    GrayImage::from_raw(image_width as u32, image_height as u32, grayscale_data)
+        .ok_or("failed to convert image to grayscale")
 }
 
 /// Cuts Region of image. Inputs are top left x , y pixel coordinates on image,

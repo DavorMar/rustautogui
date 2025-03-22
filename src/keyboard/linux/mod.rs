@@ -11,6 +11,7 @@ pub struct Keyboard {
 impl Keyboard {
     /// create new keyboard instance. Display object is needed as argument
     pub fn new(screen: *mut _XDisplay) -> Self {
+        // for future development
         let is_us_layout: bool = Self::is_us_layout();
 
         let keymap = Keyboard::create_keymap(is_us_layout);
@@ -58,6 +59,7 @@ impl Keyboard {
     //     }
     // }
 
+    // currently not developed further
     fn is_us_layout() -> bool {
         let output = Command::new("setxkbmap")
             .arg("-query")
@@ -93,12 +95,10 @@ impl Keyboard {
     fn send_shifted_key(&self, scan_code: u32) -> Result<(), &'static str> {
         unsafe {
             let mut keysym_to_keycode2 = HashMap::new();
-            let key_cstring = CString::new("Shift_L".to_string());
-            let key_cstring = match key_cstring {
-                Ok(x) => x,
+            let key_cstring = match CString::new("Shift_L".to_string()) {
+                Ok(x) => x.as_ptr(),
                 Err(_) => return Err("failed grabbing shift key"),
             };
-            let key_cstring = key_cstring.as_ptr();
 
             let keysym = XStringToKeysym(key_cstring);
             if !keysym_to_keycode2.contains_key(&keysym) {
@@ -113,6 +113,7 @@ impl Keyboard {
         Ok(())
     }
 
+    /// grabs the value from structs keymap, then converts String to Keysim, and then keysim to Keycode.
     unsafe fn get_keycode(&self, key: &String) -> Result<(u32, bool), &'static str> {
         let value = self.keymap.get(key);
 
@@ -121,10 +122,7 @@ impl Keyboard {
             Some(x) => {
                 let shifted = x.1;
                 let key_cstring = CString::new(x.0.clone());
-                let key_cstring = match key_cstring {
-                    Ok(x) => x,
-                    Err(_) => return Err("failed to grab key value"),
-                };
+                let key_cstring = key_cstring.map_err(|_| "failed to grab key value")?;
                 let key_cstring = key_cstring.as_ptr();
                 (XStringToKeysym(key_cstring), shifted)
             }
@@ -145,12 +143,10 @@ impl Keyboard {
     pub fn send_char(&self, key: &char) -> Result<(), &'static str> {
         unsafe {
             let char_string: String = String::from(*key);
-            let keycode = self.get_keycode(&char_string)?;
-            if keycode == (0, false) {
+            let (keycode, shifted) = self.get_keycode(&char_string)?;
+            if keycode == 0 {
                 return Err("couldnt input a key");
             }
-            let shifted = keycode.1;
-            let keycode = keycode.0;
 
             if shifted {
                 self.send_shifted_key(keycode)?;
@@ -178,10 +174,8 @@ impl Keyboard {
     ) -> Result<(), &'static str> {
         unsafe {
             let value1 = self.get_keycode(&key_1)?;
-            println!("got value 1");
 
             let value2 = self.get_keycode(&key_2)?;
-            println!("got value 2");
             let mut third_key = false;
             let value3 = match key_3 {
                 Some(value) => {
@@ -190,7 +184,7 @@ impl Keyboard {
                     let value3 = self.get_keycode(&value)?;
                     value3
                 }
-                None => (0, false),
+                None => (0, false), // this value should never be executed
             };
 
             self.press_key(value1.0);
@@ -210,6 +204,7 @@ impl Keyboard {
     /// mapping made so  bigger variety of strings can be used when sending string as input.
     /// for instance, instead of neccessity of sending "period", we can send ".". This means when sending a
     /// string like url test.hr we dont need to send test, then send period, then send hr
+    #[allow(unused_variables)]
     fn create_keymap(is_us_layout: bool) -> HashMap<String, (String, bool)> {
         let mut keysym_map: HashMap<String, (String, bool)> = HashMap::new();
         keysym_map.insert(
@@ -349,6 +344,35 @@ impl Keyboard {
         keysym_map.insert(String::from("alt_l"), (String::from("Alt_L"), false));
         keysym_map.insert(String::from("alt"), (String::from("Alt_L"), false));
         keysym_map.insert(String::from("alt_r"), (String::from("Alt_R"), false));
+        keysym_map.insert(String::from("win"), (String::from("Super_L"), false));
+        keysym_map.insert(String::from("win_l"), (String::from("Super_L"), false));
+        keysym_map.insert(String::from("winleft"), (String::from("Super_L"), false));
+        keysym_map.insert(String::from("super_l"), (String::from("Super_L"), false));
+        keysym_map.insert(String::from("win_r"), (String::from("Super_R"), false));
+        keysym_map.insert(String::from("winright"), (String::from("Super_R"), false));
+        keysym_map.insert(String::from("super_r"), (String::from("Super_R"), false));
+
+        keysym_map.insert(String::from("f1"), (String::from("F1"), false));
+        keysym_map.insert(String::from("f2"), (String::from("F2"), false));
+        keysym_map.insert(String::from("f3"), (String::from("F3"), false));
+        keysym_map.insert(String::from("f4"), (String::from("F4"), false));
+        keysym_map.insert(String::from("f5"), (String::from("F5"), false));
+        keysym_map.insert(String::from("f6"), (String::from("F6"), false));
+        keysym_map.insert(String::from("f7"), (String::from("F7"), false));
+        keysym_map.insert(String::from("f8"), (String::from("F8"), false));
+        keysym_map.insert(String::from("f9"), (String::from("F9"), false));
+        keysym_map.insert(String::from("f10"), (String::from("F10"), false));
+        keysym_map.insert(String::from("f11"), (String::from("F11"), false));
+        keysym_map.insert(String::from("f12"), (String::from("F12"), false));
+        keysym_map.insert(String::from("f13"), (String::from("F13"), false));
+        keysym_map.insert(String::from("f14"), (String::from("F14"), false));
+        keysym_map.insert(String::from("f15"), (String::from("F15"), false));
+        keysym_map.insert(String::from("f16"), (String::from("F16"), false));
+        keysym_map.insert(String::from("f17"), (String::from("F17"), false));
+        keysym_map.insert(String::from("f18"), (String::from("F18"), false));
+        keysym_map.insert(String::from("f19"), (String::from("F19"), false));
+        keysym_map.insert(String::from("f20"), (String::from("F20"), false));
+
         // keysym_map.insert(String::from(" "), (String::from("Space"),false));
         keysym_map
     }

@@ -1,6 +1,25 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [2.2.0] - 2025-03-
+### Added / Fixed
+- Added ability to store multiple images (stored in Hashmap in struct) and give them alias. Can be stored from path, Imagebuffer or encoded u8 vec
+- Added corresponsing find_stored_image_on_screen() and find_stored_image_on_screen_and_move_mouse() which additional take alias parameter
+- added prepare_template_from_imagebuffer() which accepts Imagebuffers RGB, RGBa and Luma(black and white)
+- Added prepare_template_from_raw_encoded() which can load from encoded u8 vec
+- Added search for image with implemented loop
+- Added Super/Win key commands for Linux
+- Added F1-F20 keys for Linux
+- Added another example
+- Fix: find_image_and_move_mouse now returns vec of all found locations instead of just top location 
+- Fix: README code examples fixed
+- imgtools::convert_image_to_bw was renamed to convert_rgba_to_bw
+
+
+
+
+ 
+
 ## [2.1.1] - 2025-03.16
 ### Fixed
 - added some missing keys for keyboard

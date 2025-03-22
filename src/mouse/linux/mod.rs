@@ -34,9 +34,9 @@ impl Mouse {
         let distance_x = x - start_location.0;
         let distance_y = y - start_location.1;
         loop {
-            let duration = start.elapsed();
+            let duration = start.elapsed().as_secs_f32();
 
-            let time_passed_percentage = duration.as_secs_f32() / moving_time;
+            let time_passed_percentage = duration / moving_time;
             if time_passed_percentage > 10.0 {
                 continue;
             }
@@ -87,8 +87,7 @@ impl Mouse {
             XTestFakeButtonEvent(self.screen, 1, 1, CurrentTime);
             XFlush(self.screen);
         }
-        let sleep_time = Duration::from_millis(50);
-        thread::sleep(sleep_time);
+        thread::sleep(Duration::from_millis(50));
         self.move_mouse_to_pos(x, y, moving_time)?;
         unsafe {
             // Release the mouse button

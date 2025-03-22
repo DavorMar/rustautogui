@@ -37,7 +37,6 @@ pub fn fast_ncc_template_match(
         f32,
     ),
     debug: &bool,
-    image_name: &str,
     suppress_warnings: &bool,
 ) -> Vec<(u32, u32, f64)> {
     /// Process:
@@ -70,18 +69,14 @@ pub fn fast_ncc_template_match(
             matches. Either use FFT match mode or increase number of segments(unless None as value is already selected)")
     }
     if *debug {
-        let mut fast_name = String::new();
-        fast_name = fast_name + "debug/fast_" + image_name + ".png";
-        let fast_name = fast_name.as_str();
+        let fast_name = "debug/fast.png";
         save_template_segmented_images(
             &template_segments_fast,
             &template_width,
             &template_height,
             fast_name,
         );
-        let mut slow_name = String::new();
-        slow_name = slow_name + "debug/slow_" + image_name + ".png";
-        let slow_name = slow_name.as_str();
+        let slow_name = "debug/slow.png";
         save_template_segmented_images(
             &template_segments_slow,
             &template_width,
@@ -139,6 +134,7 @@ fn save_template_segmented_images(
         ImageBuffer::new(*template_width, *template_height);
     let mut rng = rand::thread_rng();
     let debug_path = Path::new("debug");
+    // not returning error , just printing it because debug mode shouldnt cause crashes here
     if !debug_path.exists() {
         let error_catch = fs::create_dir_all(debug_path);
         match error_catch {
@@ -192,7 +188,7 @@ fn save_template_segmented_images(
 
     match error_catch {
         Ok(_) => (),
-        Err(_) => (),
+        Err(_) => println!("Failed to save image"),
     }
 }
 
@@ -256,9 +252,7 @@ fn fast_correlation_calculation(
 
     let mut corr: f32 = (nominator * nominator) / denominator;
 
-    if corr > 2.0 || corr.is_nan() {
-        if corr > 1.0 {}
-
+    if corr > 1.0 || corr.is_nan() {
         corr = -100.0;
         return corr as f64;
     }
@@ -291,7 +285,7 @@ fn fast_correlation_calculation(
 
         corr = (nominator * nominator) / denominator;
     }
-    if corr > 10.0 || corr.is_nan() {
+    if corr > 1.0 || corr.is_nan() {
         corr = -100.0;
         return corr as f64;
     }
@@ -301,7 +295,7 @@ fn fast_correlation_calculation(
 
 pub fn prepare_template_picture(
     template: &ImageBuffer<Luma<u8>, Vec<u8>>,
-    max_segments: &Option<u32>,
+    max_segments: Option<u32>,
     debug: &bool,
 ) -> (
     Vec<(u32, u32, u32, u32, f32)>,
@@ -368,7 +362,7 @@ pub fn prepare_template_picture(
 
     let max_segments = match max_segments {
         Some(x) => x,
-        None => &std::u32::MAX,
+        None => std::u32::MAX,
     };
 
     // create fast segmented image
@@ -381,7 +375,7 @@ pub fn prepare_template_picture(
         &template,
         &fast_threshold,
         &mean_template_value,
-        max_segments,
+        &max_segments,
     );
     // create slow segmented image
     let (
@@ -393,7 +387,7 @@ pub fn prepare_template_picture(
         &template,
         &slow_threshold,
         &mean_template_value,
-        max_segments,
+        &max_segments,
     );
 
     // merge pictures segments
