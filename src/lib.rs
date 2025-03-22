@@ -380,12 +380,30 @@ impl RustAutoGui {
         }
         #[cfg(target_os = "macos")]
         {
-            template = resize(
-                &template,
-                template.width() / self.screen.scaling_factor_x as u32,
-                template.height() / self.screen.scaling_factor_y as u32,
-                Nearest,
-            );
+            match alias.clone() {
+                Some(a) => {
+                    if a.contains("bckp_tmpl_.#!123!#.") {
+                        ()
+                    } else {
+                        template = resize(
+                            &template,
+                            template.width() / self.screen.scaling_factor_x as u32,
+                            template.height() / self.screen.scaling_factor_y as u32,
+                            Nearest,
+                        );
+                    } 
+
+                },
+                None => {
+                    template = resize(
+                        &template,
+                        template.width() / self.screen.scaling_factor_x as u32,
+                        template.height() / self.screen.scaling_factor_y as u32,
+                        Nearest,
+                    );
+                } 
+            }
+            
         }
         let (template_width, template_height) = template.dimensions();
 
@@ -549,7 +567,7 @@ impl RustAutoGui {
     pub fn find_image_on_screen(
         &mut self,
         precision: f32,
-        alias: Option<&String>,
+        alias: Option<String>,
     ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
         /// searches for image on screen and returns found locations in vector format
         let image: ImageBuffer<Luma<u8>, Vec<u8>> =
@@ -590,10 +608,18 @@ impl RustAutoGui {
                 }
             ) {
                 let first_match = self.run_x_corr(image, precision)?;    
+                let bckp_alias = match alias.clone() {
+                    Some(mut a) => {
+                        a.push_str("_bckp_tmpl_.#!123!#.");
+                        a
+                    },
+                    None => "bckp_tmpl_.#!123!#.".to_string()
+                };
+                println!("First match not found");
                 match first_match {
                     Some(result) => return Ok(Some(result)),
                     None => {
-                        return self.find_stored_image_on_screen(precision, &"bckp_tmpl_.#!123!#.".to_string())
+                        return self.find_stored_image_on_screen(precision, &bckp_alias)
                     }
 
                 }
@@ -668,7 +694,7 @@ impl RustAutoGui {
             }
             PreparedData::None => None,
         };
-        let points = self.find_image_on_screen(precision, Some(alias))?;
+        let points = self.find_image_on_screen(precision, Some(alias.clone()))?;
         // reset to starting info
         backup.update_rustautogui(self);
 
@@ -794,8 +820,8 @@ impl RustAutoGui {
             .clone()
             .into_iter()
             .map(|(mut x, mut y, corr)| {
-                x = x + self.region.0 + (self.template_width / 2);
-                y = y + self.region.1 + (self.template_height / 2);
+                x = x + self.region.0 + ((self.template_width / 2) * self.screen.scaling_factor_x as u32);
+                y = y + self.region.1 + ((self.template_height / 2) * self.screen.scaling_factor_y as u32);
                 (x, y, corr)
             })
             .collect();
