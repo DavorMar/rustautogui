@@ -237,8 +237,8 @@ impl RustAutoGui {
         match_mode: MatchMode,
         max_segments: Option<u32>,
     ) -> Result<(), String> {
-        #[allow(unused_mut)] // allowed because its needed in macos code below
-        let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+
+        let template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, max_segments, None)
     }
 
@@ -286,8 +286,7 @@ impl RustAutoGui {
         max_segments: Option<u32>,
         alias: String,
     ) -> Result<(), String> {
-        #[allow(unused_mut)] // allowed because its needed in macos code below
-        let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+        let template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, max_segments, Some(alias))
     }
 
@@ -338,7 +337,7 @@ impl RustAutoGui {
     // of load_and prepare call this function
     fn prepare_template_picture_bw(
         &mut self,
-        template: ImageBuffer<Luma<u8>, Vec<u8>>,
+        mut template: ImageBuffer<Luma<u8>, Vec<u8>>,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
         max_segments: Option<u32>,
@@ -346,8 +345,6 @@ impl RustAutoGui {
     ) -> Result<(), String> {
         
         //resize and adjust if retina screen is used
-        #[allow(unused_mut)]
-        let mut template = template;
         #[cfg(target_os = "macos")]
         {
             template = resize(
@@ -1090,8 +1087,7 @@ impl RustAutoGui {
         if !self.suppress_warnings {
             eprintln!("Warning: load_and_prepare_template will be deprecated. Consider using prepare_template_from_file");
         }
-        #[allow(unused_mut)] // allowed because its needed in macos code in further functions
-        let mut template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+        let template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, max_segments, None)
     }
 }
