@@ -1,25 +1,29 @@
 #![allow(unused_doc_comments, unused_imports)]
 pub mod imgtools;
 pub mod normalized_x_corr;
+mod keyboard;
+mod mouse;
+mod screen;
 
-use image::{
-    imageops::{resize, FilterType::Nearest},
-    DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba,
-};
-use normalized_x_corr::fast_segment_x_corr::prepare_template_picture;
-use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
-use std::{collections::HashMap, env, fs, path::Path, str::FromStr};
 
-#[cfg(target_os = "linux")]
-pub use crate::{keyboard::linux::Keyboard, mouse::linux::Mouse, screen::linux::Screen};
-#[cfg(target_os = "macos")]
-pub use crate::{keyboard::macos::Keyboard, mouse::macos::Mouse, screen::macos::Screen};
-#[cfg(target_os = "windows")]
-pub use crate::{keyboard::windows::Keyboard, mouse::windows::Mouse, screen::windows::Screen};
+mod imports {
+    pub use image::{
+        imageops::{resize, FilterType::Nearest},
+        DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba,
+    };
+    pub use crate::normalized_x_corr::fast_segment_x_corr::prepare_template_picture;
+    pub use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
+    pub use std::{collections::HashMap, env, fs, path::Path, str::FromStr};
+    #[cfg(target_os = "linux")]
+    pub use crate::{keyboard::linux::Keyboard, mouse::linux::Mouse, screen::linux::Screen};
+    #[cfg(target_os = "macos")]
+    pub use crate::{keyboard::macos::Keyboard, mouse::macos::Mouse, screen::macos::Screen};
+    #[cfg(target_os = "windows")]
+    pub use crate::{keyboard::windows::Keyboard, mouse::windows::Mouse, screen::windows::Screen};
+}
 
-pub mod keyboard;
-pub mod mouse;
-pub mod screen;
+pub use mouse::mouse_position::print_mouse_position;
+
 
 
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
@@ -27,7 +31,7 @@ const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
 /// Struct of prepared data for each correlation method used
 /// Segmented consists of two image vectors and associated mean value, sum of squared deviations, sizes
 /// FFT vector consists of template vector converted to frequency domain and conjugated, sum squared deviations, size and padded size
-pub enum PreparedData {
+enum PreparedData {
     Segmented(
         (
             Vec<(u32, u32, u32, u32, f32)>, // template_segments_fast
@@ -44,7 +48,7 @@ pub enum PreparedData {
     ),
     FFT(
         (
-            Vec<Complex<f32>>, // template_conj_freq
+            Vec<imports::Complex<f32>>, // template_conj_freq
             f32,               // template_sum_squared_deviations
             u32,               // template_width
             u32,               // template_height
@@ -101,21 +105,23 @@ impl BackupData {
     }
 }
 
+
+
 /// Main struct for Rustautogui
 /// Struct gets assigned keyboard, mouse and struct to it implemented functions execute commands from each of assigned substructs
 /// executes also correlation algorithms when doing find_image_on_screen
 #[allow(dead_code)]
 pub struct RustAutoGui {
     // most of the fields are set up in load_and_prepare_template method
-    template: Option<ImageBuffer<Luma<u8>, Vec<u8>>>,
+    template: Option<imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>>,
     prepared_data: PreparedData, // used direct load and search
-    prepared_data_stored: HashMap<String, (PreparedData, (u32, u32, u32, u32))>, // used if multiple images need to be preloaded and searched. Good for simultaneous search
+    prepared_data_stored: imports::HashMap<String, (PreparedData, (u32, u32, u32, u32))>, // used if multiple images need to be preloaded and searched. Good for simultaneous search
     debug: bool,
     template_height: u32,
     template_width: u32,
-    keyboard: Keyboard,
-    mouse: Mouse,
-    screen: Screen,
+    keyboard: imports::Keyboard,
+    mouse: imports::Mouse,
+    screen: imports::Screen,
     match_mode: Option<MatchMode>,
     max_segments: Option<u32>,
     region: (u32, u32, u32, u32),
@@ -129,17 +135,17 @@ impl RustAutoGui {
     pub fn new(debug: bool) -> Result<Self, &'static str> {
         // initiation of screen, keyboard and mouse
         // on windows there is no need to share display pointer accross other structs
-        let screen = Screen::new()?;
-        let keyboard = Keyboard::new();
-        let mouse_struct: Mouse = Mouse::new();
+        let screen = imports::Screen::new()?;
+        let keyboard = imports::Keyboard::new();
+        let mouse_struct: imports::Mouse = imports::Mouse::new();
         // check for env variable to suppress warnings, otherwise set default false value
-        let suppress_warnings = env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
+        let suppress_warnings = imports::env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
             .map(|val| val == "1" || val.eq_ignore_ascii_case("true"))
             .unwrap_or(false); // Default: warnings are NOT suppressed
         Ok(Self {
             template: None,
             prepared_data: PreparedData::None,
-            prepared_data_stored: HashMap::new(),
+            prepared_data_stored: imports::HashMap::new(),
             debug: debug,
             template_width: 0,
             template_height: 0,
@@ -247,7 +253,7 @@ impl RustAutoGui {
     #[allow(unused_mut)]
     fn prepare_template_picture_bw(
         &mut self,
-        mut template: ImageBuffer<Luma<u8>, Vec<u8>>,
+        mut template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
         max_segments: Option<u32>,
@@ -429,21 +435,21 @@ impl RustAutoGui {
         match_mode: MatchMode,
         max_segments: Option<u32>,
     ) -> Result<(), String> {
-        let template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+        let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, max_segments, None)
     }
 
     /// prepare from imagebuffer, works only on types RGB/RGBA/Luma
     pub fn prepare_template_from_imagebuffer<P, T>(
         &mut self,
-        image: ImageBuffer<P, Vec<T>>,
+        image: imports::ImageBuffer<P, Vec<T>>,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
         max_segments: Option<u32>,
     ) -> Result<(), String>
     where
-        P: Pixel<Subpixel = T> + 'static,
-        T: Primitive + ToPrimitive + 'static,
+        P: imports::Pixel<Subpixel = T> + 'static,
+        T: imports::Primitive + imports::ToPrimitive + 'static,
     {
         let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
         let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, &color_scheme)?;
@@ -483,22 +489,22 @@ impl RustAutoGui {
         alias: String,
     ) -> Result<(), String> {
         RustAutoGui::check_alias_name(&alias)?;
-        let template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+        let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, max_segments, Some(alias))
     }
 
     /// Load template from imagebuffer and store prepared template data for multiple image search
     pub fn store_template_from_imagebuffer<P, T>(
         &mut self,
-        image: ImageBuffer<P, Vec<T>>,
+        image: imports::ImageBuffer<P, Vec<T>>,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
         max_segments: Option<u32>,
         alias: String,
     ) -> Result<(), String>
     where
-        P: Pixel<Subpixel = T> + 'static,
-        T: Primitive + ToPrimitive + 'static,
+        P: imports::Pixel<Subpixel = T> + 'static,
+        T: imports::Primitive + imports::ToPrimitive + 'static,
     {
         RustAutoGui::check_alias_name(&alias)?;
         let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
@@ -623,13 +629,13 @@ impl RustAutoGui {
         precision: f32,
     ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
         /// searches for image on screen and returns found locations in vector format
-        let image: ImageBuffer<Luma<u8>, Vec<u8>> =
+        let image: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
             self.screen.grab_screen_image_grayscale(&self.region)?;
 
         if self.debug {
-            let debug_path = Path::new("debug");
+            let debug_path = imports::Path::new("debug");
             if !debug_path.exists() {
-                match fs::create_dir_all(debug_path) {
+                match imports::fs::create_dir_all(debug_path) {
                     Ok(_) => {
                         println!("Created a debug folder in your root for saving segmented template images");
                         match image.save("debug/screen_capture.png") {
@@ -914,7 +920,7 @@ impl RustAutoGui {
 
     fn run_x_corr(
         &mut self,
-        image: ImageBuffer<Luma<u8>, Vec<u8>>,
+        image: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>,
         precision: f32,
     ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
         let found_locations = match &self.prepared_data {
@@ -967,7 +973,7 @@ impl RustAutoGui {
 
         #[cfg(target_os = "windows")]
         {
-            Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time);
+            imports::Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time);
             Ok(())
         }
         #[cfg(target_os = "linux")]
@@ -986,7 +992,7 @@ impl RustAutoGui {
 
         #[cfg(target_os = "windows")]
         {
-            Mouse::drag_mouse(x as i32, y as i32, moving_time);
+            imports::Mouse::drag_mouse(x as i32, y as i32, moving_time);
 
             Ok(())
         }
@@ -1141,7 +1147,7 @@ impl RustAutoGui {
         if !self.suppress_warnings {
             eprintln!("Warning: load_and_prepare_template will be deprecated. Consider using prepare_template_from_file");
         }
-        let template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+        let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, max_segments, None)
     }
 }

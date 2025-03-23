@@ -71,10 +71,10 @@ rustautogui.prepare_template_from_file( // returns Result<(), String>
    "template.png", // template_path: &str path to the image file on disk 
    Some((0,0,1000,1000)), // region: Option<(u32, u32, u32, u32)>  region of monitor to search (x, y, width, height)
    rustautogui::MatchMode::Segmented, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)
-   &Some(3000) // max_segments: Option<u32> max segments for Segmented match mode. Can be set to None to automatically calculate
+   Some(3000) // max_segments: Option<u32> max segments for Segmented match mode. Can be set to None to automatically calculate
 ).unwrap(); 
 ```
-From ImageBuffer<RGB/RGBA/Luma>
+From ImageBuffer<RGB/RGBA/Luma<u8>>
 ```rust
 rustautogui.prepare_template_from_imagebuffer( // returns Result<(), String>
    img_buffer, // image:  ImageBuffer<P, Vec<T>> -- Accepts RGB/RGBA/Luma(black and white)
@@ -102,7 +102,7 @@ Changing template settings
 rustautogui.change_prepared_settings(
    Some((0,0,1000,1000)), //region: Option<(u32, u32, u32, u32)>
    rustautogui::MatchMode::Segmented, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)  
-   &None // max_segments: Option<u32>
+   None // max_segments: Option<u32>
 );
 
 ```
@@ -134,7 +134,7 @@ rustautogui.store_template_from_file( // returns Result<(), String>
    "template.png", // template_path: &str path to the image file on disk 
    Some((0,0,1000,1000)), // region: Option<(u32, u32, u32, u32)>  region of monitor to search (x, y, width, height)
    rustautogui::MatchMode::Segmented, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)
-   &Some(3000), // max_segments: Option<u32> max segments for Segmented match mode. Can be set to None to automatically calculate
+   Some(3000), // max_segments: Option<u32> max segments for Segmented match mode. Can be set to None to automatically calculate
    "button_image".to_string() // alias: String. Keyword used to select which image to search for
 ).unwrap(); 
 ```
@@ -220,6 +220,12 @@ rustautogui
         .loop_find_stored_image_on_screen_and_move_mouse(0.95, 1.0, 15, &"stars".to_string()) // precision, moving_time, timeout, alias
         .unwrap();
 ```
+
+### MacOS retina display issues:
+Macos retina display functions by digitally doubling the amount of displayed pixels. The original screen size registered by OS is, 
+for instance, 1400x800. Retina display doubles it to 2800x1600. If a user provides a screengrab, the image will be saved with doubled the amount
+of pixels, where it then fails to match template since screen provided by OS api is not doubled. It can also not be known if user is providing template from a screen grab, or an image thats coming from some other source. For that reason, every template is saved in its original format,
+and also resized by half. The template search first searches for resized template, and if it fails then it tries with original. For that reason, users on macOS will experience slower search times than users on other operating systems. 
 
 
 ## General functions

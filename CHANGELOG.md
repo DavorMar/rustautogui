@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - Fix: README code examples fixed
 - Fix: check for out of bounds on windows mouse move fixed
 - imgtools::convert_image_to_bw was renamed to convert_rgba_to_bw
+- cleaned up and moved lots of things to private. Only available modules to public now are RustAutoGui, MatchMode, imgtools, normalized_x_corr and function print_mouse_position()
 
 
 
