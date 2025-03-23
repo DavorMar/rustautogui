@@ -21,6 +21,9 @@ pub mod keyboard;
 pub mod mouse;
 pub mod screen;
 
+
+const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
+const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
 /// Struct of prepared data for each correlation method used
 /// Segmented consists of two image vectors and associated mean value, sum of squared deviations, sizes
 /// FFT vector consists of template vector converted to frequency domain and conjugated, sum squared deviations, size and padded size
@@ -83,6 +86,7 @@ struct BackupData {
     starting_match_mode: Option<MatchMode>,
     starting_template_height: u32,
     starting_template_width: u32,
+    starting_alias_used: String,
 }
 impl BackupData {
     fn update_rustautogui(self, target: &mut RustAutoGui) {
@@ -93,6 +97,7 @@ impl BackupData {
         target.screen.screen_region_height = self.starting_region.3;
         target.template_width = self.starting_template_width;
         target.template_height = self.starting_template_height;
+        target.alias_used = self.starting_alias_used;
     }
 }
 
@@ -115,6 +120,7 @@ pub struct RustAutoGui {
     max_segments: Option<u32>,
     region: (u32, u32, u32, u32),
     suppress_warnings: bool,
+    alias_used: String,
 }
 impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
@@ -144,6 +150,7 @@ impl RustAutoGui {
             max_segments: None,
             region: (0, 0, 0, 0),
             suppress_warnings: suppress_warnings,
+            alias_used: DEFAULT_ALIAS.to_string(),
         })
     }
 
@@ -175,6 +182,7 @@ impl RustAutoGui {
             max_segments: None,
             region: (0, 0, 0, 0),
             suppress_warnings: suppress_warnings,
+            alias_used: DEFAULT_ALIAS.to_string(),
         })
     }
 
@@ -200,11 +208,16 @@ impl RustAutoGui {
 
     // checks if region selected out of screen bounds, if template size > screen size (redundant) 
     // and if template size > region size
-    fn check_if_region_out_of_bound(&mut self) -> Result<(), &'static str> {
-        let region_x = self.region.0;
-        let region_y = self.region.1;
-        let region_width = self.region.2;
-        let region_height = self.region.3;
+    fn check_if_region_out_of_bound(
+        &mut self,
+        template_width: &u32,
+        template_height: &u32,
+        region_x: &u32,
+        region_y: &u32,
+        region_width: &u32,
+        region_height: &u32,
+    ) -> Result<(), &'static str> {
+
 
         if (region_x + region_width > self.screen.screen_width as u32)
             | (region_y + region_height > self.screen.screen_height as u32)
@@ -214,13 +227,13 @@ impl RustAutoGui {
 
         // this is a redundant check since this case should be covered by the
         // next region check, but leaving it
-        if (self.template_width > self.screen.screen_width as u32)
-            | (self.template_height > self.screen.screen_height as u32)
+        if (template_width > &(self.screen.screen_width as u32))
+            | (template_height > &(self.screen.screen_height as u32))
         {
             return Err("Selected template is larger than detected screen");
         }
 
-        if (self.template_width > region_width) | (self.template_height > region_height) {
+        if (template_width > region_width) | (template_height > region_height) {
             return Err("Selected template is larger than selected search region. ");
         }
         Ok(())
@@ -251,43 +264,29 @@ impl RustAutoGui {
         // we dont want to back up the backup
         #[cfg(target_os = "macos")]
         {
-            if ((self.screen.scaling_factor_x > 1.0) | (self.screen.scaling_factor_y > 1.0))
-                & (match alias.clone() {
-                    Some(a) => {
-                        if a.contains("bckp_tmpl_.#!123!#.") {
-                            false
-                        } else {
-                            true
-                        }
+            self.prepare_macos_backup(max_segments, &match_mode, template.clone(), region, &alias)?;
+            match alias.clone() {
+                Some(a) => {
+                    if a.contains(DEFAULT_BCKP_ALIAS) {
+                        ()
+                    } else {
+                        template = resize(
+                            &template,
+                            template.width() / self.screen.scaling_factor_x as u32,
+                            template.height() / self.screen.scaling_factor_y as u32,
+                            Nearest,
+                        );
                     }
-                    None => true,
-                })
-            {
-                let bckp_template = template.clone();
-                let backup_alias = match alias.clone() {
-                    Some(mut a) => {
-                        a.push_str("_bckp_tmpl_.#!123!#.");
-                        a
-                    }
-                    None => "bckp_tmpl_.#!123!#.".to_string(),
-                };
-                self.store_template_from_imagebuffer(
-                    bckp_template,
-                    region,
-                    match_mode.clone(),
-                    max_segments,
-                    backup_alias,
-                )?;
-            };
-        }
-        #[cfg(target_os = "macos")]
-        {
-            template = resize(
-                &template,
-                template.width() / self.screen.scaling_factor_x as u32,
-                template.height() / self.screen.scaling_factor_y as u32,
-                Nearest,
-            );
+                }
+                None => {
+                    template = resize(
+                        &template,
+                        template.width() / self.screen.scaling_factor_x as u32,
+                        template.height() / self.screen.scaling_factor_y as u32,
+                        Nearest,
+                    );
+                }
+            }
         }
         let (template_width, template_height) = template.dimensions();
 
@@ -300,7 +299,7 @@ impl RustAutoGui {
                 (0, 0, screen_width as u32, screen_height as u32)
             }
         };
-        self.check_if_region_out_of_bound()?;
+        self.check_if_region_out_of_bound(&template_width, &template_height, &region.0, &region.1, &region.2, &region.3)?;
 
         // do the rest of preparation calculations depending on the matchmode
         // FFT pads the image, does fourier transformations,
@@ -365,6 +364,63 @@ impl RustAutoGui {
         return Ok(());
     }
 
+
+    // prepares also unscaled variant of image if retina display is on
+    // since it is recursively calling again preparation of template with another alias
+    // checks are made on alias_name to not run infinitely preparations of backups of backups
+    #[cfg(target_os = "macos")]
+    fn prepare_macos_backup(&mut self,max_segments: Option<u32>, match_mode: &MatchMode, template: ImageBuffer<Luma<u8>, Vec<u8>>, region: Option<(u32, u32, u32, u32)>, alias: &Option<String>) -> Result<(), String> {
+        {
+            if ((self.screen.scaling_factor_x > 1.0) | (self.screen.scaling_factor_y > 1.0))
+                & (match alias.clone() {
+                    Some(a) => {
+                        if a.contains(DEFAULT_BCKP_ALIAS) {
+                            false
+                        } else {
+                            true
+                        }
+                    }
+                    None => true,
+                })
+            // if conditions are met, prepare the backup
+            {
+                let bckp_template = template.clone();
+                // matching alias to see is it regular single template load
+                // or storing template with alias
+                // where names for backups differ
+                let backup_alias = match alias.clone() {
+                    Some(mut a) => {
+                        a.push('_');
+                        a.push_str(DEFAULT_BCKP_ALIAS);
+                        a
+                    }
+                    None => DEFAULT_BCKP_ALIAS.to_string(),
+                };
+                // store the backup template that doesnt have resize
+                // later on when doing template matching, itll first try to match
+                // resized one, and if it doesnt work then it tries the original from backup
+                self.store_template_from_imagebuffer(
+                    bckp_template,
+                    region,
+                    match_mode.clone(),
+                    max_segments,
+                    backup_alias,
+                )?;
+            };
+        }
+        
+        Ok(())
+    }
+
+    fn check_alias_name(alias:&String) -> Result<(), String> {
+        
+        if (alias.contains(DEFAULT_ALIAS)) | (alias.contains(DEFAULT_BCKP_ALIAS)) {
+            return Err("Please do not use built in default alias names".to_string())
+        }
+            
+        Ok(())
+    }
+
     /// Loads template from file on provided path
     pub fn prepare_template_from_file(
         &mut self,
@@ -426,6 +482,7 @@ impl RustAutoGui {
         max_segments: Option<u32>,
         alias: String,
     ) -> Result<(), String> {
+        RustAutoGui::check_alias_name(&alias)?;
         let template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, max_segments, Some(alias))
     }
@@ -443,6 +500,7 @@ impl RustAutoGui {
         P: Pixel<Subpixel = T> + 'static,
         T: Primitive + ToPrimitive + 'static,
     {
+        RustAutoGui::check_alias_name(&alias)?;
         let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
         let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, &color_scheme)?;
         self.prepare_template_picture_bw(luma_img, region, match_mode, max_segments, Some(alias))?;
@@ -458,6 +516,7 @@ impl RustAutoGui {
         max_segments: Option<u32>,
         alias: String,
     ) -> Result<(), String> {
+        RustAutoGui::check_alias_name(&alias)?;
         let image = image::load_from_memory(img_raw).map_err(|e| {
             let mut err_msg = "Prepare template from raw only works on encoded images. The original error message was \n".to_string();
             err_msg.push_str(e.to_string().as_str());
@@ -562,7 +621,6 @@ impl RustAutoGui {
     pub fn find_image_on_screen(
         &mut self,
         precision: f32,
-        alias: Option<&String>,
     ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
         /// searches for image on screen and returns found locations in vector format
         let image: ImageBuffer<Luma<u8>, Vec<u8>> =
@@ -588,36 +646,41 @@ impl RustAutoGui {
         };
 
         #[cfg(target_os = "macos")]
-        {
-            if ((self.screen.scaling_factor_x > 1.0) | (self.screen.scaling_factor_y > 1.0))
-                & (match alias.clone() {
-                    Some(a) => {
-                        if a.contains("bckp_tmpl_.#!123!#.") {
-                            false
-                        } else {
-                            true
-                        }
-                    }
-                    None => true,
-                })
-            {
-                let first_match = self.run_x_corr(image, precision)?;
-
-                match first_match {
-                    Some(result) => return Ok(Some(result)),
-                    None => {
-                        return self.find_stored_image_on_screen(
-                            precision,
-                            &"bckp_tmpl_.#!123!#.".to_string(),
-                        )
-                    }
-                }
-            } else {
-                return self.run_x_corr(image, precision);
-            }
-        }
+        return self.run_macos_xcorr_with_backup(image, precision);
         #[cfg(not(target_os = "macos"))]
-        self.run_x_corr(image, precision)
+        return self.run_x_corr(image, precision);
+    }
+
+
+    // for macOS with retina display, two runs are made. One for resized template
+    // and if not found , then second for normal sized template
+    // since the function recursively calls find_stored_image_on_screen -> run_macos_xcorr_with_backup
+    // covers are made to not run it for backup aswell
+    #[cfg(target_os = "macos")]
+    fn run_macos_xcorr_with_backup (&mut self, image: ImageBuffer<Luma<u8>, Vec<u8>>, precision: f32) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+        let first_match = self.run_x_corr(image, precision);
+        // if retina and if this is not already a recursively ran backup
+        if ((self.screen.scaling_factor_x > 1.0) | (self.screen.scaling_factor_y > 1.0))
+            & (!self.alias_used.contains(DEFAULT_BCKP_ALIAS))
+            
+        {
+            match first_match? {
+                Some(result) => return Ok(Some(result)),
+                None => {
+                    let mut bckp_alias = String::new();
+
+                    // if its not a single image search, create a alias_backup hash
+                    if self.alias_used != DEFAULT_ALIAS.to_string() {
+                        bckp_alias.push_str(self.alias_used.as_str());
+                        bckp_alias.push('_');
+                    }
+                    bckp_alias.push_str(DEFAULT_BCKP_ALIAS);
+                    // this recursively searches again for backup
+                    return self.find_stored_image_on_screen(precision, &bckp_alias);
+                }
+            }
+        } 
+        first_match
     }
 
     // loops until image is found and returns found values, or until it times out
@@ -637,7 +700,7 @@ impl RustAutoGui {
             if (timeout_start.elapsed().as_secs() > timeout) & (timeout > 0) {
                 return Err("loop find image timed out. Could not find image");
             }
-            let result = self.find_image_on_screen(precision, None);
+            let result = self.find_image_on_screen(precision);
             match result.clone()? {
                 Some(_) => break result,
                 None => continue,
@@ -662,8 +725,10 @@ impl RustAutoGui {
             starting_match_mode: self.match_mode.clone(),
             starting_template_height: self.template_height.clone(),
             starting_template_width: self.template_width.clone(),
+            starting_alias_used: self.alias_used.clone(),
         };
 
+        self.alias_used = alias.clone();
         self.prepared_data = prepared_data.clone();
         self.screen.screen_region_width = region.2;
         self.screen.screen_region_height = region.3;
@@ -681,7 +746,7 @@ impl RustAutoGui {
             }
             PreparedData::None => None,
         };
-        let points = self.find_image_on_screen(precision, Some(alias))?;
+        let points = self.find_image_on_screen(precision)?;
         // reset to starting info
         backup.update_rustautogui(self);
 
@@ -731,8 +796,9 @@ impl RustAutoGui {
             starting_match_mode: self.match_mode.clone(),
             starting_template_height: self.template_height.clone(),
             starting_template_width: self.template_width.clone(),
+            starting_alias_used: self.alias_used.clone(),
         };
-
+        self.alias_used = alias.clone();
         self.prepared_data = prepared_data.clone();
         self.region = *region;
         self.screen.screen_region_width = region.2;
@@ -796,7 +862,7 @@ impl RustAutoGui {
     ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
         /// finds coordinates of the image on the screen and moves mouse to it. Returns None if no image found
         ///  Best used in loops
-        let found_locations = self.find_image_on_screen(precision, None)?;
+        let found_locations = self.find_image_on_screen(precision)?;
 
         let locations = match found_locations.clone() {
             Some(locations) => locations,
