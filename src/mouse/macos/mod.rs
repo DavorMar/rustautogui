@@ -6,7 +6,7 @@ use std::{
 use core_graphics::event::{
     CGEvent, CGEventTapLocation, CGEventType, CGMouseButton, ScrollEventUnit,
 };
-
+use crate::AutoGuiError;
 use crate::mouse::{MouseClick, MouseScroll};
 use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 use core_graphics::geometry::CGPoint;

@@ -8,7 +8,7 @@
 
 use crate::normalized_x_corr::{compute_integral_images, sum_region};
 
-extern crate rayon;
+
 
 use crate::imgtools;
 use image::{ImageBuffer, Luma};

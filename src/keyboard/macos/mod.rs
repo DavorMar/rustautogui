@@ -6,6 +6,8 @@ use std::collections::HashMap;
 use std::thread::sleep;
 use std::time::Duration;
 
+use crate::AutoGuiError;
+
 pub struct Keyboard {
     keymap: HashMap<String, (u16, bool)>,
 }
@@ -16,10 +18,10 @@ impl Keyboard {
         Self { keymap: keymap }
     }
 
-    fn press_key(&self, keycode: CGKeyCode) -> Result<(), &'static str> {
+    fn press_key(&self, keycode: CGKeyCode) -> Result<(), AutoGuiError> {
         let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
         let gc_event_source =
-            gc_event_source.map_err(|_| "Error creating CGEventSource on mouse movement")?;
+            gc_event_source.map_err(|_| Autogui::OSFailure("failed to create CGEvent for key press"))?;
         let event = CGEvent::new_keyboard_event(gc_event_source, keycode, true)
             .map_err(|_| "Failed creatomg CGKeyboard event")?;
         event.post(CGEventTapLocation::HID);
@@ -67,8 +69,8 @@ impl Keyboard {
         Ok(())
     }
 
-    pub fn send_command(&self, key: &String) -> Result<(), &'static str> {
-        let value = self.keymap.get(key).ok_or("Wrong keyboard command")?;
+    pub fn send_command(&self, key: &String) -> Autogui {
+        let value = self.keymap.get(key).ok_or(AutoGuiError::UnSupportedKey(format!("{} key is not supported", key)))?;
         self.send_key(value.0)?;
         Ok(())
     }
@@ -78,16 +80,16 @@ impl Keyboard {
         key_1: &String,
         key_2: &String,
         key_3: Option<String>,
-    ) -> Result<(), &'static str> {
+    ) -> AutoGuiError {
         let value1 = self
             .keymap
             .get(key_1)
-            .ok_or("False first input in multi key command")?
+            .ok_or(AutoGuiError::UnSupportedKey(format!("{} key is not supported", key_1)))?
             .0;
         let value2 = self
             .keymap
             .get(key_2)
-            .ok_or("False second input in multi key command")?
+            .ok_or(AutoGuiError::UnSupportedKey(format!("{} key is not supported", key_2)))?
             .0;
 
         let mut third_key = false;
@@ -97,7 +99,7 @@ impl Keyboard {
                 let value3 = self
                     .keymap
                     .get(&value)
-                    .ok_or("False first input in multi key command")?
+                    .ok_or(AutoGuiError::UnSupportedKey(format!("{} key is not supported", value)))?
                     .0;
                 value3
             }

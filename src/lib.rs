@@ -13,7 +13,7 @@ mod imports {
     };
     pub use crate::normalized_x_corr::fast_segment_x_corr::prepare_template_picture;
     pub use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
-    pub use std::{collections::HashMap, env, fs, path::Path, str::FromStr};
+    pub use std::{collections::HashMap, env, fs, path::Path, str::FromStr, fmt};
     #[cfg(target_os = "linux")]
     pub use crate::{keyboard::linux::Keyboard, mouse::linux::Mouse, screen::linux::Screen};
     #[cfg(target_os = "macos")]
@@ -22,6 +22,10 @@ mod imports {
     pub use crate::{keyboard::windows::Keyboard, mouse::windows::Mouse, screen::windows::Screen};
 }
 
+use core::fmt;
+use std::fs::write;
+
+use image::{error::{LimitError, LimitErrorKind}, ImageError};
 pub use mouse::mouse_position::print_mouse_position;
 
 
@@ -104,7 +108,87 @@ impl BackupData {
         target.alias_used = self.starting_alias_used;
     }
 }
+#[derive(Debug)]
+enum AutoGuiError {
+    OSFailure(String),
+    UnSupportedKey(String),
+    IoError(std::io::Error), 
+    AliasError(String),
+    OutOfBoundsError(String),
+    ImageError(ImageError),
+    ImgError(String),
+    
+}
 
+
+
+impl From<image::ImageError> for AutoGuiError {
+    fn from(err: image::ImageError) -> Self {
+        AutoGuiError::ImageError(err)
+    }
+}
+
+impl From<std::io::Error> for AutoGuiError {
+    fn from(err: std::io::Error) -> Self {
+        AutoGuiError::IoError(err)
+    }
+}
+
+impl AutoGuiError {
+    fn to_string(&self) -> String {
+        let mut err_msg = String::new();
+        let err = match self {
+            AutoGuiError::OSFailure(err)=> {
+                err_msg.push_str("OS Error: ");
+                err_msg.push_str(err);
+            },
+            AutoGuiError::UnSupportedKey(err)=> {
+                err_msg.push_str("Un Supported Key Error: ");
+                err_msg.push_str(err);
+            },
+            AutoGuiError::IoError(err)=> {
+                err_msg.push_str("std IO Error: ");
+                err_msg.push_str(err.to_string().as_str());
+            },
+            AutoGuiError::AliasError(err)=> {
+                err_msg.push_str("Alias Error: ");
+                err_msg.push_str(err);
+            },
+            AutoGuiError::OutOfBoundsError(err)=> {
+                err_msg.push_str("Out of bounds Error: ");
+                err_msg.push_str(err);
+            },
+            AutoGuiError::ImageError(err)=> {
+                err_msg.push_str("image crate ImageError: ");
+                err_msg.push_str(err.to_string().as_str());
+            },
+            AutoGuiError::ImgError(err)=> {
+                err_msg.push_str("ImgError: ");
+                err_msg.push_str(err);
+            },
+        };
+        err_msg
+    }
+}
+
+
+impl fmt::Display for AutoGuiError {
+    
+    fn fmt(&self, f: &mut imports::fmt::Formatter) -> fmt::Result {
+        match self {
+            AutoGuiError::OSFailure(err)=> write!(f, "OS Failure: {}", err),
+            AutoGuiError::UnSupportedKey(err)=> write!(f, "Key not supported: {}", err),
+            AutoGuiError::IoError(err)=> write!(f, "IO Error: {}", err),
+            AutoGuiError::AliasError(err)=> write!(f, "Alias Error: {}", err),
+            AutoGuiError::OutOfBoundsError(err)=> write!(f, "Out of bounds error: {}", err),
+            AutoGuiError::ImageError(err)=> write!(f, "Image Error: {}", err),
+            AutoGuiError::ImgError(err) => write!(f, "Image Error: {}", err),
+            
+        }
+    }
+    
+}
+impl std::error::Error for AutoGuiError {}
 
 
 /// Main struct for Rustautogui

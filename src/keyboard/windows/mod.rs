@@ -1,14 +1,17 @@
-extern crate winapi;
 use std::{collections::HashMap, mem::size_of, thread::sleep, time::Duration};
+use winapi::um::wingdi::SRCAND;
 use winapi::um::winuser::{MapVirtualKeyW, MAPVK_VK_TO_VSC};
 use winapi::um::winuser::{
     SendInput, INPUT, INPUT_KEYBOARD, KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, VK_CONTROL, VK_MENU,
     VK_SHIFT,
 };
+use crate::AutoGuiError;
+use crate::keyboard::get_keymap_key;
 
 /// main struct for interacting with keyboard. Keymap is generated upon intialization.
+
 pub struct Keyboard {
-    keymap: HashMap<String, (u16, bool)>,
+    pub keymap: HashMap<String, (u16, bool)>,
 }
 impl Keyboard {
     /// create new keyboard instance.
@@ -17,10 +20,11 @@ impl Keyboard {
         Keyboard { keymap: keyset }
     }
 
-    unsafe fn key_down(scan_code: u16) {
+    unsafe fn key_down(scan_code: &u16) {
         let mut input: INPUT = std::mem::zeroed();
         input.type_ = INPUT_KEYBOARD;
-        {
+        {   
+            let scan_code = *scan_code;
             let ki = input.u.ki_mut();
             if scan_code == VK_SHIFT as u16
                 || scan_code == VK_CONTROL as u16
@@ -43,10 +47,11 @@ impl Keyboard {
         SendInput(1, &mut input, size_of::<INPUT>() as i32);
     }
 
-    unsafe fn key_up(scan_code: u16) {
+    unsafe fn key_up(scan_code: &u16) {
         let mut input: INPUT = std::mem::zeroed();
         input.type_ = INPUT_KEYBOARD;
-        {
+        {   
+            let scan_code = *scan_code;
             let ki = input.u.ki_mut();
             if scan_code == VK_SHIFT as u16
                 || scan_code == VK_CONTROL as u16
@@ -70,7 +75,7 @@ impl Keyboard {
     }
 
     /// executes press down of a key, then press up.
-    pub fn send_key(scan_code: u16) {
+    pub fn send_key(scan_code: &u16) {
         unsafe {
             Keyboard::key_down(scan_code);
             Keyboard::key_up(scan_code);
@@ -78,15 +83,15 @@ impl Keyboard {
     }
 
     /// executes press down of shift key, press down and press up for desired key, then press up of shift key
-    pub fn send_shifted_key(scan_code: u16) {
+    pub fn send_shifted_key(scan_code: &u16) {
         unsafe {
-            Keyboard::key_down(0x10); // shift press
+            Keyboard::key_down(&0x10); // shift press
             sleep(Duration::from_micros(50));
             // send key
             Keyboard::send_key(scan_code);
             sleep(Duration::from_micros(50));
 
-            Keyboard::key_up(0x10); // shift release
+            Keyboard::key_up(&0x10); // shift release
             sleep(Duration::from_micros(50));
         }
     }
@@ -94,23 +99,21 @@ impl Keyboard {
     /// Function used when sending input as string. All characters need to be part of the key map, described in Keyboard_commands.md
     /// For each character in a string, Keyboard::send_key() is executed. If the character requires a shift key,
     /// Keyboard::send_shifted_key is executed
-    pub fn send_char(&self, key: &char) -> Result<(), &'static str> {
+    pub fn send_char(&self, key: &char) -> Result<(), AutoGuiError> {
         let char_string = String::from(*key);
-        let (value, shifted) = self.keymap.get(&char_string).ok_or("wrong keyboard char")?;
+        let (value, shifted) = get_keymap_key(&self, &char_string)?;
 
         if *shifted {
-            Keyboard::send_shifted_key(*value);
+            Keyboard::send_shifted_key(value);
         } else {
-            Keyboard::send_key(*value);
+            Keyboard::send_key(value);
         }
         Ok(())
     }
 
     /// Function used when sending commands like "return" or "escape"
-    pub fn send_command(&self, key: &String) -> Result<(), &'static str> {
-        let value = self.keymap.get(key).ok_or("wrong keyboard char")?;
-        let value = value.0;
-
+    pub fn send_command(&self, key: &String) -> Result<(), AutoGuiError> {
+        let (value, _) = get_keymap_key(&self, key)?;
         Keyboard::send_key(value);
         Ok(())
     }
@@ -120,29 +123,29 @@ impl Keyboard {
         key_1: &String,
         key_2: &String,
         key_3: Option<String>,
-    ) -> Result<(), &'static str> {
-        let value1 = self.keymap.get(key_1).ok_or("wrong keyboard char")?.0;
-        let value2 = self.keymap.get(key_2).ok_or("wrong keyboard char")?.0;
+    ) -> Result<(), AutoGuiError> {
+        let (value_1, _) = get_keymap_key(&self, key_1)?;
+        let (value_2, _) = get_keymap_key(&self, key_2)?;
 
         let mut third_key = false;
-        let value3 = match key_3 {
+        let value_3 = match key_3 {
             Some(value) => {
                 third_key = true;
-                let value3 = self.keymap.get(&value).ok_or("wrong keyboard char")?;
-                value3.0
+                let (value_, _) = get_keymap_key(&self, &value)?;
+                value_
             }
-            None => 0,
+            None => &0,
         };
 
         unsafe {
-            Keyboard::key_down(value1);
-            Keyboard::key_down(value2);
+            Keyboard::key_down(value_1);
+            Keyboard::key_down(value_2);
             if third_key {
-                Keyboard::key_down(value3);
-                Keyboard::key_up(value3);
+                Keyboard::key_down(value_3);
+                Keyboard::key_up(value_3);
             }
-            Keyboard::key_up(value2);
-            Keyboard::key_up(value1);
+            Keyboard::key_up(value_2);
+            Keyboard::key_up(value_1);
         }
         return Ok(());
     }

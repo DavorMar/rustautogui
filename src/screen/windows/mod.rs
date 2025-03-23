@@ -12,7 +12,7 @@ use winapi::um::wingdi::{
 };
 use winapi::um::winuser::{GetDC, ReleaseDC};
 
-use crate::imgtools;
+use crate::{imgtools, AutoGuiError};
 
 #[derive(Debug, Clone)]
 pub struct Screen {
@@ -28,7 +28,7 @@ pub struct Screen {
 
 impl Screen {
     ///Creates struct that holds information about screen
-    pub fn new() -> Result<Self, &'static str> {
+    pub fn new() -> Result<Self, AutoGuiError> {
         unsafe {
             let screen_width: i32 = winapi::um::winuser::GetSystemMetrics(0);
             let screen_height = winapi::um::winuser::GetSystemMetrics(1);
@@ -72,7 +72,7 @@ impl Screen {
     pub fn grab_screen_image(
         &mut self,
         region: (u32, u32, u32, u32),
-    ) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, &'static str> {
+    ) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
         let (x, y, width, height) = region;
         self.screen_region_width = width;
         self.screen_region_height = height;
@@ -88,7 +88,7 @@ impl Screen {
     pub fn grab_screen_image_grayscale(
         &mut self,
         region: &(u32, u32, u32, u32),
-    ) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, &'static str> {
+    ) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
         let (x, y, width, height) = region;
         self.screen_region_width = *width;
         self.screen_region_height = *height;
@@ -101,16 +101,10 @@ impl Screen {
     }
 
     /// grabs screen image and saves file at provided
-    pub fn grab_screenshot(&mut self, image_path: &str) -> Result<(), String> {
+    pub fn grab_screenshot(&mut self, image_path: &str) -> Result<(), AutoGuiError> {
         self.capture_screen();
         let image = self.convert_bitmap_to_rgba()?;
-        match image.save(image_path) {
-            Ok(_) => return Ok(()),
-            Err(x) => {
-                let error_msg = x.to_string();
-                return Err(error_msg);
-            }
-        };
+        Ok(image.save(image_path)?)
     }
 
     fn capture_screen(&mut self) {
@@ -170,7 +164,7 @@ impl Screen {
         }
     }
 
-    fn convert_bitmap_to_grayscale(&self) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, &'static str> {
+    fn convert_bitmap_to_grayscale(&self) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
         let mut grayscale_data =
             Vec::with_capacity((self.screen_width * self.screen_height) as usize);
         for chunk in self.pixel_data.chunks_exact(4) {
@@ -187,15 +181,15 @@ impl Screen {
             self.screen_height as u32,
             grayscale_data,
         )
-        .ok_or("could not convert image to grayscale")
+        .ok_or(AutoGuiError::ImgError("could not convert image to grayscale".to_string()))
     }
 
-    fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, &'static str> {
+    fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
         ImageBuffer::from_raw(
             self.screen_width as u32,
             self.screen_height as u32,
             self.pixel_data.clone(),
         )
-        .ok_or("failed to convert to RGBA")
+        .ok_or(AutoGuiError::ImgError("failed to convert to RGBA".to_string()))
     }
 }

@@ -257,9 +257,9 @@ rustautogui.drag_mouse(500, 500, 1.0).unwrap(); // executes left click down, mov
 Below is a helper function to determine coordinates on screen, helpful when determining region or mouse move target when developing
 - Before 0.3.0 this function popped up window, now it just prints. This was changed to reduce dependencies.
 ```rust
-use rustautogui::mouse;
+use rustautogui::print_mouse_position;
 fn main() {
-   mouse::mouse_position::print_mouse_position().unwrap();
+   print_mouse_position().unwrap();
 }
 ```
 

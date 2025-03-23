@@ -1,6 +1,7 @@
 use std::{collections::HashMap, ffi::CString, process::Command, thread, time::Duration};
 use x11::xlib::*;
 use x11::xtest::*;
+use crate::AutoGuiError;
 
 /// main struct for interacting with keyboard. Keymap is generated upon intialization.
 /// screen is stored from Screen struct, where pointer for same screen object is used across the code
@@ -92,7 +93,7 @@ impl Keyboard {
     }
 
     /// execute send_key function but press Shift key before, and release it after
-    fn send_shifted_key(&self, scan_code: u32) -> Result<(), &'static str> {
+    fn send_shifted_key(&self, scan_code: u32) -> Result<(), AutoGuiError> {
         unsafe {
             let mut keysym_to_keycode2 = HashMap::new();
             let key_cstring = match CString::new("Shift_L".to_string()) {
@@ -114,7 +115,7 @@ impl Keyboard {
     }
 
     /// grabs the value from structs keymap, then converts String to Keysim, and then keysim to Keycode.
-    unsafe fn get_keycode(&self, key: &String) -> Result<(u32, bool), &'static str> {
+    unsafe fn get_keycode(&self, key: &String) -> AutoGuiError {
         let value = self.keymap.get(key);
 
         let mut keysym_to_keycode = HashMap::new();
@@ -122,14 +123,14 @@ impl Keyboard {
             Some(x) => {
                 let shifted = x.1;
                 let key_cstring = CString::new(x.0.clone());
-                let key_cstring = key_cstring.map_err(|_| "failed to grab key value")?;
+                let key_cstring = key_cstring.map_err(|_| AutoGuiError::OSFailure("Failed to convert string value to key cstring. "))?;
                 let key_cstring = key_cstring.as_ptr();
                 (XStringToKeysym(key_cstring), shifted)
             }
-            None => return Err("failed to grab keystring"),
+            None => return AutoGuiError::UnSupportedKey(format!("{} key is not supported", key)),
         };
         if keysym == 0 {
-            return Err("failed to grab keystring");
+            return AutoGuiError::OSFailure("Failed to convert xstring to keysym. Keysym received is 0");
         }
         if !keysym_to_keycode.contains_key(&keysym) {
             let keycode = XKeysymToKeycode(self.screen, keysym) as u32;
@@ -140,7 +141,7 @@ impl Keyboard {
     }
 
     /// top level send character function that converts char to keycode and executes send key
-    pub fn send_char(&self, key: &char) -> Result<(), &'static str> {
+    pub fn send_char(&self, key: &char) -> AutoGuiError {
         unsafe {
             let char_string: String = String::from(*key);
             let (keycode, shifted) = self.get_keycode(&char_string)?;

@@ -1,4 +1,4 @@
-extern crate rayon;
+
 
 pub mod fast_segment_x_corr;
 pub mod fft_ncc;
