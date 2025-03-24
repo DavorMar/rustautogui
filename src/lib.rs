@@ -108,67 +108,24 @@ impl BackupData {
         target.alias_used = self.starting_alias_used;
     }
 }
+
+
+
+
+
+
+
+//////////////////////////ERRORS////////////////////////////////////
+
 #[derive(Debug)]
-enum AutoGuiError {
+pub enum AutoGuiError {
     OSFailure(String),
     UnSupportedKey(String),
     IoError(std::io::Error), 
     AliasError(String),
     OutOfBoundsError(String),
-    ImageError(ImageError),
-    ImgError(String),
-    
-}
-
-
-
-impl From<image::ImageError> for AutoGuiError {
-    fn from(err: image::ImageError) -> Self {
-        AutoGuiError::ImageError(err)
-    }
-}
-
-impl From<std::io::Error> for AutoGuiError {
-    fn from(err: std::io::Error) -> Self {
-        AutoGuiError::IoError(err)
-    }
-}
-
-impl AutoGuiError {
-    fn to_string(&self) -> String {
-        let mut err_msg = String::new();
-        let err = match self {
-            AutoGuiError::OSFailure(err)=> {
-                err_msg.push_str("OS Error: ");
-                err_msg.push_str(err);
-            },
-            AutoGuiError::UnSupportedKey(err)=> {
-                err_msg.push_str("Un Supported Key Error: ");
-                err_msg.push_str(err);
-            },
-            AutoGuiError::IoError(err)=> {
-                err_msg.push_str("std IO Error: ");
-                err_msg.push_str(err.to_string().as_str());
-            },
-            AutoGuiError::AliasError(err)=> {
-                err_msg.push_str("Alias Error: ");
-                err_msg.push_str(err);
-            },
-            AutoGuiError::OutOfBoundsError(err)=> {
-                err_msg.push_str("Out of bounds Error: ");
-                err_msg.push_str(err);
-            },
-            AutoGuiError::ImageError(err)=> {
-                err_msg.push_str("image crate ImageError: ");
-                err_msg.push_str(err.to_string().as_str());
-            },
-            AutoGuiError::ImgError(err)=> {
-                err_msg.push_str("ImgError: ");
-                err_msg.push_str(err);
-            },
-        };
-        err_msg
-    }
+    ImageError(ImageProcessingError),
+    ImgError(String),  
 }
 
 
@@ -183,12 +140,69 @@ impl fmt::Display for AutoGuiError {
             AutoGuiError::OutOfBoundsError(err)=> write!(f, "Out of bounds error: {}", err),
             AutoGuiError::ImageError(err)=> write!(f, "Image Error: {}", err),
             AutoGuiError::ImgError(err) => write!(f, "Image Error: {}", err),
-            
         }
     }
     
 }
+
+impl From<image::ImageError> for AutoGuiError {
+    fn from(err: image::ImageError) -> Self {
+        AutoGuiError::ImageError(ImageProcessingError::External(err))
+    }
+}
+
+impl From<ImageProcessingError> for AutoGuiError {
+    fn from(err: ImageProcessingError) -> Self {
+        AutoGuiError::ImageError(err)
+    }
+}
+
+impl From<std::io::Error> for AutoGuiError {
+    fn from(err: std::io::Error) -> Self {
+        AutoGuiError::IoError(err)
+    }
+}
+
+
+
+#[derive(Debug)]
+pub enum ImageProcessingError{
+    External(image::ImageError),
+    Custom(String),
+}
+
+impl ImageProcessingError {
+    fn new(msg: &str) -> Self {
+        Self::Custom(msg.to_string())
+    }
+}
+
+
+impl fmt::Display for ImageProcessingError {
+    fn fmt(&self, f: &mut imports::fmt::Formatter) -> fmt::Result {
+        match self {
+            ImageProcessingError::External(err) => write!(f, "{}", err),
+            ImageProcessingError::Custom(err) => write!(f, "{}", err),
+        }
+    }
+}
+
+
 impl std::error::Error for AutoGuiError {}
+impl std::error::Error for ImageProcessingError {}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 /// Main struct for Rustautogui
@@ -216,7 +230,7 @@ impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
     /// all the other struct fields are initiated as 0 or None
     #[cfg(any(target_os = "windows", target_os = "macos"))]
-    pub fn new(debug: bool) -> Result<Self, &'static str> {
+    pub fn new(debug: bool) -> Result<Self, AutoGuiError> {
         // initiation of screen, keyboard and mouse
         // on windows there is no need to share display pointer accross other structs
         let screen = imports::Screen::new()?;
@@ -291,7 +305,7 @@ impl RustAutoGui {
     }
 
     /// saves screenshot and saves it at provided path
-    pub fn save_screenshot(&mut self, path: &str) -> Result<(), String> {
+    pub fn save_screenshot(&mut self, path: &str) -> Result<(), AutoGuiError> {
         self.screen.grab_screenshot(path)?;
         Ok(())
     }
@@ -306,13 +320,13 @@ impl RustAutoGui {
         region_y: &u32,
         region_width: &u32,
         region_height: &u32,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), AutoGuiError> {
 
 
         if (region_x + region_width > self.screen.screen_width as u32)
             | (region_y + region_height > self.screen.screen_height as u32)
         {
-            return Err("Selected region out of bounds");
+            return Err(AutoGuiError::OutOfBoundsError("Region size larger than screen size".to_string()));
         }
 
         // this is a redundant check since this case should be covered by the
@@ -320,11 +334,11 @@ impl RustAutoGui {
         if (template_width > &(self.screen.screen_width as u32))
             | (template_height > &(self.screen.screen_height as u32))
         {
-            return Err("Selected template is larger than detected screen");
+            return Err(AutoGuiError::OutOfBoundsError("Template size larger than screen size".to_string()));
         }
 
         if (template_width > region_width) | (template_height > region_height) {
-            return Err("Selected template is larger than selected search region. ");
+            return Err(AutoGuiError::OutOfBoundsError("Template size larger than region size".to_string()));
         }
         Ok(())
     }
@@ -342,7 +356,7 @@ impl RustAutoGui {
         match_mode: MatchMode,
         max_segments: Option<u32>,
         alias: Option<String>,
-    ) -> Result<(), String> {
+    ) -> Result<(), AutoGuiError> {
         // resize and adjust if retina screen is used
         // prepare additionally backup template for 2 screen size variants
         // issue comes from retina having digitally doubled the amount of displayed pixels while
@@ -423,7 +437,7 @@ impl RustAutoGui {
                 );
                 // mostly happens due to using too complex image with small max segments value
                 if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
-                    return Err(String::from("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"));
+                    Err(ImageProcessingError::new("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"))?;
                 }
                 let match_mode = Some(MatchMode::Segmented);
                 (PreparedData::Segmented(prepared_data), match_mode)
@@ -502,10 +516,10 @@ impl RustAutoGui {
         Ok(())
     }
 
-    fn check_alias_name(alias:&String) -> Result<(), String> {
+    fn check_alias_name(alias:&String) -> Result<(), ImageProcessingError> {
         
         if (alias.contains(DEFAULT_ALIAS)) | (alias.contains(DEFAULT_BCKP_ALIAS)) {
-            return Err("Please do not use built in default alias names".to_string())
+            return Err(ImageProcessingError::new("Please do not use built in default alias names"));
         }
             
         Ok(())
@@ -518,7 +532,7 @@ impl RustAutoGui {
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
         max_segments: Option<u32>,
-    ) -> Result<(), String> {
+    ) -> Result<(), AutoGuiError> {
         let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, max_segments, None)
     }
@@ -530,7 +544,7 @@ impl RustAutoGui {
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
         max_segments: Option<u32>,
-    ) -> Result<(), String>
+    ) -> Result<(), AutoGuiError>
     where
         P: imports::Pixel<Subpixel = T> + 'static,
         T: imports::Primitive + imports::ToPrimitive + 'static,
@@ -548,14 +562,10 @@ impl RustAutoGui {
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
         max_segments: Option<u32>,
-    ) -> Result<(), String> {
-        let image = image::load_from_memory(img_raw).map_err(|e| {
-            let mut err_msg = "Prepare template from raw only works on encoded images. The original error message was \n".to_string();
-            err_msg.push_str(e.to_string().as_str());
-            err_msg
-            })?;
-        self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, max_segments, None)?;
-        Ok(())
+    ) -> Result<(), AutoGuiError> {
+        let image = image::load_from_memory(img_raw)?;
+        self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, max_segments, None)
+        
     }
 
 
@@ -571,7 +581,7 @@ impl RustAutoGui {
         match_mode: MatchMode,
         max_segments: Option<u32>,
         alias: String,
-    ) -> Result<(), String> {
+    ) -> Result<(), AutoGuiError> {
         RustAutoGui::check_alias_name(&alias)?;
         let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, max_segments, Some(alias))
@@ -585,7 +595,7 @@ impl RustAutoGui {
         match_mode: MatchMode,
         max_segments: Option<u32>,
         alias: String,
-    ) -> Result<(), String>
+    ) -> Result<(), AutoGuiError>
     where
         P: imports::Pixel<Subpixel = T> + 'static,
         T: imports::Primitive + imports::ToPrimitive + 'static,
@@ -593,8 +603,8 @@ impl RustAutoGui {
         RustAutoGui::check_alias_name(&alias)?;
         let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
         let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, &color_scheme)?;
-        self.prepare_template_picture_bw(luma_img, region, match_mode, max_segments, Some(alias))?;
-        Ok(())
+        self.prepare_template_picture_bw(luma_img, region, match_mode, max_segments, Some(alias))
+        
     }
 
     /// Load template from encoded raw bytes and store prepared template data for multiple image search
@@ -605,13 +615,9 @@ impl RustAutoGui {
         match_mode: MatchMode,
         max_segments: Option<u32>,
         alias: String,
-    ) -> Result<(), String> {
+    ) -> Result<(), AutoGuiError> {
         RustAutoGui::check_alias_name(&alias)?;
-        let image = image::load_from_memory(img_raw).map_err(|e| {
-            let mut err_msg = "Prepare template from raw only works on encoded images. The original error message was \n".to_string();
-            err_msg.push_str(e.to_string().as_str());
-            err_msg
-            })?;
+        let image = image::load_from_memory(img_raw)?;
         self.prepare_template_picture_bw(
             image.to_luma8(),
             region,
@@ -711,7 +717,7 @@ impl RustAutoGui {
     pub fn find_image_on_screen(
         &mut self,
         precision: f32,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
         /// searches for image on screen and returns found locations in vector format
         let image: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
             self.screen.grab_screen_image_grayscale(&self.region)?;
@@ -778,7 +784,7 @@ impl RustAutoGui {
         &mut self,
         precision: f32,
         timeout: u64,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
         if (timeout == 0) & (!self.suppress_warnings) {
             eprintln!(
                 "Warning: setting a timeout to 0 on a loop find image initiates an infinite loop"
@@ -786,28 +792,28 @@ impl RustAutoGui {
         }
 
         let timeout_start = std::time::Instant::now();
-        let result = loop {
+        loop {
             if (timeout_start.elapsed().as_secs() > timeout) & (timeout > 0) {
-                return Err("loop find image timed out. Could not find image");
+                Err(ImageProcessingError::new("loop find image timed out. Could not find image"))?;
             }
-            let result = self.find_image_on_screen(precision);
-            match result.clone()? {
-                Some(_) => break result,
+            let result = self.find_image_on_screen(precision)?;
+            match result {
+                Some(r) => return Ok(Some(r)),
                 None => continue,
             }
         };
-        result
+        
     }
 
     pub fn find_stored_image_on_screen(
         &mut self,
         precision: f32,
         alias: &String,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
         let (prepared_data, region) = self
             .prepared_data_stored
             .get(alias)
-            .ok_or("No template stored with selected alias")?;
+            .ok_or(AutoGuiError::AliasError("No template stored with selected alias".to_string()))?;
         // save to reset after finished
         let backup = BackupData {
             starting_data: self.prepared_data.clone(),
@@ -849,24 +855,24 @@ impl RustAutoGui {
         precision: f32,
         timeout: u64,
         alias: &String,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
         if (timeout == 0) & (!self.suppress_warnings) {
             eprintln!(
                 "Warning: setting a timeout to 0 on a loop find image initiates an infinite loop"
             )
         }
         let timeout_start = std::time::Instant::now();
-        let result = loop {
+        loop {
             if (timeout_start.elapsed().as_secs() > timeout) & (timeout > 0) {
-                return Err("loop find image timed out. Could not find image");
+                Err(ImageProcessingError::new("loop find image timed out. Could not find image"))?;
             }
-            let result = self.find_stored_image_on_screen(precision, alias);
-            match result.clone()? {
-                Some(_) => break result,
+            let result = self.find_stored_image_on_screen(precision, alias)?;
+            match result {
+                Some(r) => return Ok(Some(r)),
                 None => continue,
             }
         };
-        result
+        
     }
 
     pub fn find_stored_image_on_screen_and_move_mouse(
@@ -874,11 +880,11 @@ impl RustAutoGui {
         precision: f32,
         moving_time: f32,
         alias: &String,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
         let (prepared_data, region) = self
             .prepared_data_stored
             .get(alias)
-            .ok_or("No template stored with selected alias")?;
+            .ok_or(AutoGuiError::AliasError("No template stored with selected alias".to_string()))?;
         // save to reset after finished
         let backup = BackupData {
             starting_data: self.prepared_data.clone(),
@@ -906,7 +912,7 @@ impl RustAutoGui {
 
                 Some(MatchMode::Segmented)
             }
-            PreparedData::None => return Err("No prepared data loaded"),
+            PreparedData::None => Err(ImageProcessingError::new("No prepared data loaded"))?,
         };
         let found_points = self.find_image_on_screen_and_move_mouse(precision, moving_time);
 
@@ -923,25 +929,25 @@ impl RustAutoGui {
         moving_time: f32,
         timeout: u64,
         alias: &String,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
         if (timeout == 0) & (!self.suppress_warnings) {
             eprintln!(
                 "Warning: setting a timeout to 0 on a loop find image initiates an infinite loop"
             )
         }
         let timeout_start = std::time::Instant::now();
-        let result = loop {
+        loop {
             if (timeout_start.elapsed().as_secs() > timeout) & (timeout > 0) {
-                return Err("loop find image timed out. Could not find image");
+                Err(ImageProcessingError::new("loop find image timed out. Could not find image"))?;
             }
             let result =
-                self.find_stored_image_on_screen_and_move_mouse(precision, moving_time, alias);
-            match result.clone()? {
-                Some(_) => break result,
+                self.find_stored_image_on_screen_and_move_mouse(precision, moving_time, alias)?;
+            match result {
+                Some(r) => return Ok(Some(r)),
                 None => continue,
             }
         };
-        result
+        
     }
 
     /// executes find_image_on_screen and moves mouse to the middle of the image.
@@ -949,7 +955,7 @@ impl RustAutoGui {
         &mut self,
         precision: f32,
         moving_time: f32,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
         /// finds coordinates of the image on the screen and moves mouse to it. Returns None if no image found
         ///  Best used in loops
         let found_locations = self.find_image_on_screen(precision)?;
@@ -982,31 +988,31 @@ impl RustAutoGui {
         precision: f32,
         moving_time: f32,
         timeout: u64,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
         if (timeout == 0) & (!self.suppress_warnings) {
             eprintln!(
                 "Warning: setting a timeout to 0 on a loop find image initiates an infinite loop"
             )
         }
         let timeout_start = std::time::Instant::now();
-        let result = loop {
+        loop {
             if (timeout_start.elapsed().as_secs() > timeout) & (timeout > 0) {
-                return Err("loop find image timed out. Could not find image");
+                Err(ImageProcessingError::new("loop find image timed out. Could not find image"))?;
             }
-            let result = self.find_image_on_screen_and_move_mouse(precision, moving_time);
-            match result.clone()? {
-                Some(_) => break result,
+            let result = self.find_image_on_screen_and_move_mouse(precision, moving_time)?;
+            match result {
+                Some(e) => return Ok(Some(e)),
                 None => continue,
             }
         };
-        result
+        
     }
 
     fn run_x_corr(
         &mut self,
         image: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>,
         precision: f32,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, &'static str> {
+    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
         let found_locations = match &self.prepared_data {
             PreparedData::FFT(data) => {
                 let found_locations = normalized_x_corr::fft_ncc::fft_ncc(&image, &precision, data);
@@ -1017,7 +1023,7 @@ impl RustAutoGui {
                 found_locations
             },
             PreparedData::None => {
-                return Err("No template chosen and no template data prepared. Please run load_and_prepare_template before searching image on screen ")
+                Err(ImageProcessingError::new("No template chosen and no template data prepared. Please run load_and_prepare_template before searching image on screen"))?
             },
 
         };
@@ -1050,9 +1056,9 @@ impl RustAutoGui {
     //////////////////////////////// MOUSE ////////////////////////////////////////
 
     /// moves mouse to x, y pixel coordinate
-    pub fn move_mouse_to_pos(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str> {
+    pub fn move_mouse_to_pos(&self, x: u32, y: u32, moving_time: f32) -> Result<(), AutoGuiError> {
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
-            return Err("Out of screen boundaries");
+            return Err(AutoGuiError::OutOfBoundsError("Mouse movement out of screen boundaries".to_string()));
         }
 
         #[cfg(target_os = "windows")]
@@ -1151,7 +1157,7 @@ impl RustAutoGui {
         return mouse::platform::Mouse::double_click();
     }
 
-    pub fn scroll_up(&self) -> Result<(), &'static str> {
+    pub fn scroll_up(&self) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
         return Ok(self.mouse.scroll(mouse::MouseScroll::UP));
         #[cfg(target_os = "windows")]
@@ -1160,7 +1166,7 @@ impl RustAutoGui {
         return mouse::platform::Mouse::scroll(mouse::MouseScroll::UP);
     }
 
-    pub fn scroll_down(&self) -> Result<(), &'static str> {
+    pub fn scroll_down(&self) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
         return Ok(self.mouse.scroll(mouse::MouseScroll::DOWN));
         #[cfg(target_os = "windows")]
@@ -1169,7 +1175,7 @@ impl RustAutoGui {
         return mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN);
     }
 
-    pub fn scroll_left(&self) -> Result<(), &'static str> {
+    pub fn scroll_left(&self) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
         return Ok(self.mouse.scroll(mouse::MouseScroll::LEFT));
         #[cfg(target_os = "windows")]
@@ -1178,7 +1184,7 @@ impl RustAutoGui {
         return mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT);
     }
 
-    pub fn scroll_right(&self) -> Result<(), &'static str> {
+    pub fn scroll_right(&self) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
         return Ok(self.mouse.scroll(mouse::MouseScroll::RIGHT));
         #[cfg(target_os = "windows")]
@@ -1190,7 +1196,7 @@ impl RustAutoGui {
     //////////////////// Keyboard ////////////////////
 
     /// accepts string and mimics keyboard key presses for each character in string
-    pub fn keyboard_input(&self, input: &str) -> Result<(), &'static str> {
+    pub fn keyboard_input(&self, input: &str) -> Result<(), AutoGuiError> {
         let input_string = String::from(input);
         for letter in input_string.chars() {
             self.keyboard.send_char(&letter)?;
@@ -1199,7 +1205,7 @@ impl RustAutoGui {
     }
 
     /// executes keyboard command like "return" or "escape"
-    pub fn keyboard_command(&self, input: &str) -> Result<(), &'static str> {
+    pub fn keyboard_command(&self, input: &str) -> Result<(), AutoGuiError> {
         let input_string = String::from(input);
         // return automatically the result of send_command function
         self.keyboard.send_command(&input_string)
@@ -1210,7 +1216,7 @@ impl RustAutoGui {
         input1: &str,
         input2: &str,
         input3: Option<&str>,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), AutoGuiError> {
         let input3 = match input3 {
             Some(x) => Some(String::from(x)),
             None => None,
@@ -1227,7 +1233,7 @@ impl RustAutoGui {
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
         max_segments: Option<u32>,
-    ) -> Result<(), String> {
+    ) -> Result<(), AutoGuiError> {
         if !self.suppress_warnings {
             eprintln!("Warning: load_and_prepare_template will be deprecated. Consider using prepare_template_from_file");
         }
