@@ -55,6 +55,7 @@ impl Screen {
         return (self.screen_width, self.screen_height);
     }
 
+    #[allow(dead_code)]
     pub fn region_dimension(&self) -> (u32, u32) {
         return (self.screen_region_width, self.screen_region_height);
     }
@@ -68,6 +69,7 @@ impl Screen {
         }
     }
 
+    #[allow(dead_code)]
     /// captures screen and returns Imagebuffer in RGBA cropped for the selected region
     pub fn grab_screen_image(
         &mut self,
