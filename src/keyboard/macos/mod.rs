@@ -8,57 +8,61 @@ use std::time::Duration;
 
 use crate::AutoGuiError;
 
+use super::get_keymap_key;
+
 pub struct Keyboard {
-    keymap: HashMap<String, (u16, bool)>,
+    pub keymap: HashMap<String, (u16, bool)>,
 }
 impl Keyboard {
     pub fn new() -> Self {
         let keymap: HashMap<String, (u16, bool)> = Keyboard::create_keymap();
 
-        Self { keymap: keymap }
+        Self { keymap }
     }
 
     fn press_key(&self, keycode: CGKeyCode) -> Result<(), AutoGuiError> {
         let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState);
-        let gc_event_source =
-            gc_event_source.map_err(|_| Autogui::OSFailure("failed to create CGEvent for key press"))?;
+        let gc_event_source = gc_event_source.map_err(|_| {
+            AutoGuiError::OSFailure("failed to create CGEvent for key press".to_string())
+        })?;
         let event = CGEvent::new_keyboard_event(gc_event_source, keycode, true)
-            .map_err(|_| "Failed creatomg CGKeyboard event")?;
+            .map_err(|_| AutoGuiError::OSFailure("Failed creating CGKeyboard event".to_string()))?;
         event.post(CGEventTapLocation::HID);
         sleep(Duration::from_millis(50));
         Ok(())
     }
 
-    fn release_key(&self, keycode: CGKeyCode) -> Result<(), &'static str> {
-        let gc_event_source = CGEventSource::new(CGEventSourceStateID::HIDSystemState)
-            .map_err(|_| "Error creating CGEventSource on mouse movement")?;
-        let event = CGEvent::new_keyboard_event(gc_event_source, keycode, false)
-            .map_err(|_| "Failed to create release key CGkeyboard event")?;
+    fn release_key(&self, keycode: CGKeyCode) -> Result<(), AutoGuiError> {
+        let gc_event_source =
+            CGEventSource::new(CGEventSourceStateID::HIDSystemState).map_err(|_| {
+                AutoGuiError::OSFailure(
+                    "Error creating CGEventSource on mouse movement".to_string(),
+                )
+            })?;
+        let event = CGEvent::new_keyboard_event(gc_event_source, keycode, false).map_err(|_| {
+            AutoGuiError::OSFailure("Failed to create release key CGkeyboard event".to_string())
+        })?;
         event.post(CGEventTapLocation::HID);
         sleep(Duration::from_millis(50));
         Ok(())
     }
 
-    fn send_key(&self, keycode: CGKeyCode) -> Result<(), &'static str> {
+    fn send_key(&self, keycode: CGKeyCode) -> Result<(), AutoGuiError> {
         self.press_key(keycode)?;
         self.release_key(keycode)?;
         Ok(())
     }
 
-    fn send_shifted_key(&self, keycode: CGKeyCode) -> Result<(), &'static str> {
+    fn send_shifted_key(&self, keycode: CGKeyCode) -> Result<(), AutoGuiError> {
         self.press_key(KeyCode::SHIFT)?;
         self.send_key(keycode)?;
         self.release_key(KeyCode::SHIFT)?;
         Ok(())
     }
 
-    pub fn send_char(&self, key: &char) -> Result<(), &'static str> {
+    pub fn send_char(&self, key: &char) -> Result<(), AutoGuiError> {
         let char_string = String::from(*key);
-        let value = self
-            .keymap
-            .get(&char_string)
-            .ok_or("Wrong keyboard key input")?;
-
+        let value = get_keymap_key(self, &char_string)?;
         let shifted = value.1;
         let value = value.0;
         if shifted {
@@ -69,8 +73,9 @@ impl Keyboard {
         Ok(())
     }
 
-    pub fn send_command(&self, key: &String) -> Autogui {
-        let value = self.keymap.get(key).ok_or(AutoGuiError::UnSupportedKey(format!("{} key is not supported", key)))?;
+    pub fn send_command(&self, key: &String) -> Result<(), AutoGuiError> {
+        let value = crate::keyboard::get_keymap_key(self, key)?;
+
         self.send_key(value.0)?;
         Ok(())
     }
@@ -80,16 +85,22 @@ impl Keyboard {
         key_1: &String,
         key_2: &String,
         key_3: Option<String>,
-    ) -> AutoGuiError {
+    ) -> Result<(), AutoGuiError> {
         let value1 = self
             .keymap
             .get(key_1)
-            .ok_or(AutoGuiError::UnSupportedKey(format!("{} key is not supported", key_1)))?
+            .ok_or(AutoGuiError::UnSupportedKey(format!(
+                "{} key is not supported",
+                key_1
+            )))?
             .0;
         let value2 = self
             .keymap
             .get(key_2)
-            .ok_or(AutoGuiError::UnSupportedKey(format!("{} key is not supported", key_2)))?
+            .ok_or(AutoGuiError::UnSupportedKey(format!(
+                "{} key is not supported",
+                key_2
+            )))?
             .0;
 
         let mut third_key = false;
@@ -99,7 +110,10 @@ impl Keyboard {
                 let value3 = self
                     .keymap
                     .get(&value)
-                    .ok_or(AutoGuiError::UnSupportedKey(format!("{} key is not supported", value)))?
+                    .ok_or(AutoGuiError::UnSupportedKey(format!(
+                        "{} key is not supported",
+                        value
+                    )))?
                     .0;
                 value3
             }

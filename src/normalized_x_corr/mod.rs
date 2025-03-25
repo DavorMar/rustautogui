@@ -1,5 +1,3 @@
-
-
 pub mod fast_segment_x_corr;
 pub mod fft_ncc;
 pub mod slow_ncc;

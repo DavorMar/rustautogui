@@ -181,7 +181,9 @@ impl Screen {
             self.screen_height as u32,
             grayscale_data,
         )
-        .ok_or(AutoGuiError::ImgError("could not convert image to grayscale".to_string()))
+        .ok_or(AutoGuiError::ImgError(
+            "could not convert image to grayscale".to_string(),
+        ))
     }
 
     fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
@@ -190,6 +192,8 @@ impl Screen {
             self.screen_height as u32,
             self.pixel_data.clone(),
         )
-        .ok_or(AutoGuiError::ImgError("failed to convert to RGBA".to_string()))
+        .ok_or(AutoGuiError::ImgError(
+            "failed to convert to RGBA".to_string(),
+        ))
     }
 }

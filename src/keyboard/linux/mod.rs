@@ -1,8 +1,8 @@
+use crate::keyboard::get_keymap_key;
+use crate::AutoGuiError;
 use std::{collections::HashMap, ffi::CString, process::Command, thread, time::Duration};
 use x11::xlib::*;
 use x11::xtest::*;
-use crate::AutoGuiError;
-use crate::keyboard::get_keymap_key;
 /// main struct for interacting with keyboard. Keymap is generated upon intialization.
 /// screen is stored from Screen struct, where pointer for same screen object is used across the code
 pub struct Keyboard {
@@ -113,7 +113,7 @@ impl Keyboard {
     }
 
     /// grabs the value from structs keymap, then converts String to Keysim, and then keysim to Keycode.
-    unsafe fn get_keycode(&self, key: &String) -> Result<(u32, &bool),AutoGuiError> {
+    unsafe fn get_keycode(&self, key: &String) -> Result<(u32, &bool), AutoGuiError> {
         let (value, shifted) = get_keymap_key(self, key)?;
 
         let mut keysym_to_keycode = HashMap::new();
@@ -121,9 +121,11 @@ impl Keyboard {
         let key_cstring = key_cstring.as_ptr();
 
         let keysym = XStringToKeysym(key_cstring);
-        
+
         if keysym == 0 {
-            return Err(AutoGuiError::OSFailure("Failed to convert xstring to keysym. Keysym received is 0".to_string()));
+            return Err(AutoGuiError::OSFailure(
+                "Failed to convert xstring to keysym. Keysym received is 0".to_string(),
+            ));
         }
         if !keysym_to_keycode.contains_key(&keysym) {
             let keycode = XKeysymToKeycode(self.screen, keysym) as u32;
@@ -131,7 +133,9 @@ impl Keyboard {
         }
         let keycode = keysym_to_keycode[&keysym];
         if keycode == 0 {
-            return Err(AutoGuiError::OSFailure("Failed to convert keysym to keycode. Keycode received is 0".to_string()));
+            return Err(AutoGuiError::OSFailure(
+                "Failed to convert keysym to keycode. Keycode received is 0".to_string(),
+            ));
         }
         Ok((keycode, shifted))
     }
@@ -141,7 +145,6 @@ impl Keyboard {
         unsafe {
             let char_string: String = String::from(*key);
             let (keycode, shifted) = self.get_keycode(&char_string)?;
-            
 
             if *shifted {
                 self.send_shifted_key(keycode)?;

@@ -1,3 +1,5 @@
+use crate::keyboard::get_keymap_key;
+use crate::AutoGuiError;
 use std::{collections::HashMap, mem::size_of, thread::sleep, time::Duration};
 use winapi::um::wingdi::SRCAND;
 use winapi::um::winuser::{MapVirtualKeyW, MAPVK_VK_TO_VSC};
@@ -5,8 +7,6 @@ use winapi::um::winuser::{
     SendInput, INPUT, INPUT_KEYBOARD, KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, VK_CONTROL, VK_MENU,
     VK_SHIFT,
 };
-use crate::AutoGuiError;
-use crate::keyboard::get_keymap_key;
 
 /// main struct for interacting with keyboard. Keymap is generated upon intialization.
 
@@ -23,7 +23,7 @@ impl Keyboard {
     unsafe fn key_down(scan_code: &u16) {
         let mut input: INPUT = std::mem::zeroed();
         input.type_ = INPUT_KEYBOARD;
-        {   
+        {
             let scan_code = *scan_code;
             let ki = input.u.ki_mut();
             if scan_code == VK_SHIFT as u16
@@ -50,7 +50,7 @@ impl Keyboard {
     unsafe fn key_up(scan_code: &u16) {
         let mut input: INPUT = std::mem::zeroed();
         input.type_ = INPUT_KEYBOARD;
-        {   
+        {
             let scan_code = *scan_code;
             let ki = input.u.ki_mut();
             if scan_code == VK_SHIFT as u16

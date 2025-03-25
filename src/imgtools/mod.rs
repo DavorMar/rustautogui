@@ -5,7 +5,8 @@ and converting image to vector.
 */
 use crate::AutoGuiError;
 use image::{
-    error::LimitError, io::Reader as ImageReader, DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba
+    error::LimitError, io::Reader as ImageReader, DynamicImage, GrayImage, ImageBuffer, Luma,
+    Pixel, Primitive, Rgb, Rgba,
 };
 
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
@@ -28,7 +29,9 @@ pub fn load_image_rgba(location: &str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>,
     Ok(img.to_rgba8()) // return rgba image
 }
 
-pub fn check_imagebuffer_color_scheme<P, T>(image: &ImageBuffer<P, Vec<T>>) -> Result<u32, AutoGuiError>
+pub fn check_imagebuffer_color_scheme<P, T>(
+    image: &ImageBuffer<P, Vec<T>>,
+) -> Result<u32, AutoGuiError>
 where
     P: Pixel<Subpixel = T> + 'static,
     T: Primitive + ToPrimitive + 'static,
@@ -58,21 +61,31 @@ where
             let raw_img: Result<Vec<u8>, AutoGuiError> = image
                 .as_raw()
                 .into_iter()
-                .map(|x| x.to_u8().ok_or(AutoGuiError::ImgError("Pixel conversion to raw failed".to_string())))
+                .map(|x| {
+                    x.to_u8().ok_or(AutoGuiError::ImgError(
+                        "Pixel conversion to raw failed".to_string(),
+                    ))
+                })
                 .collect();
 
-            ImageBuffer::<Luma<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?)
-                .ok_or(AutoGuiError::ImgError("failed to convert to Luma".to_string()))
+            ImageBuffer::<Luma<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?).ok_or(
+                AutoGuiError::ImgError("failed to convert to Luma".to_string()),
+            )
         }
         3 => {
             // Rgb
             let raw_img: Result<Vec<u8>, AutoGuiError> = image
                 .as_raw()
                 .into_iter()
-                .map(|x| x.to_u8().ok_or(AutoGuiError::ImgError("Pixel conversion to raw failed".to_string())))
+                .map(|x| {
+                    x.to_u8().ok_or(AutoGuiError::ImgError(
+                        "Pixel conversion to raw failed".to_string(),
+                    ))
+                })
                 .collect();
-            let rgb_img = ImageBuffer::<Rgb<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?)
-                .ok_or(AutoGuiError::ImgError("Failed conversion to RGB".to_string()))?;
+            let rgb_img = ImageBuffer::<Rgb<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?).ok_or(
+                AutoGuiError::ImgError("Failed conversion to RGB".to_string()),
+            )?;
             Ok(DynamicImage::ImageRgb8(rgb_img).to_luma8())
         }
         4 => {
@@ -80,16 +93,22 @@ where
             let raw_img: Result<Vec<u8>, AutoGuiError> = image
                 .as_raw()
                 .into_iter()
-                .map(|x| x.to_u8().ok_or(AutoGuiError::ImgError("Pixel conversion to raw failed".to_string())))
+                .map(|x| {
+                    x.to_u8().ok_or(AutoGuiError::ImgError(
+                        "Pixel conversion to raw failed".to_string(),
+                    ))
+                })
                 .collect();
             let rgba_img = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?)
-                .ok_or(AutoGuiError::ImgError("Failed conversion to RGBA".to_string()))?;
+                .ok_or(AutoGuiError::ImgError(
+                    "Failed conversion to RGBA".to_string(),
+                ))?;
             Ok(DynamicImage::ImageRgba8(rgba_img).to_luma8())
         }
         _ => {
-            return Err(
-                AutoGuiError::ImgError("Unknown image format. Load works only for Rgb/Rgba/Luma(BW) formats".to_string()),
-            )
+            return Err(AutoGuiError::ImgError(
+                "Unknown image format. Load works only for Rgb/Rgba/Luma(BW) formats".to_string(),
+            ))
         }
     }
 }
@@ -102,10 +121,15 @@ pub fn convert_rgba_to_bw(
     let raw_img: Result<Vec<u8>, AutoGuiError> = image
         .as_raw()
         .into_iter()
-        .map(|x| x.to_u8().ok_or(AutoGuiError::ImgError("Pixel conversion to raw failed".to_string())))
+        .map(|x| {
+            x.to_u8().ok_or(AutoGuiError::ImgError(
+                "Pixel conversion to raw failed".to_string(),
+            ))
+        })
         .collect();
-    let rgba_img = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?)
-        .ok_or(AutoGuiError::ImgError("Failed to convert to RGBA".to_string()))?;
+    let rgba_img = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?).ok_or(
+        AutoGuiError::ImgError("Failed to convert to RGBA".to_string()),
+    )?;
     Ok(DynamicImage::ImageRgba8(rgba_img).to_luma8())
 }
 
@@ -124,8 +148,9 @@ pub fn convert_rgba_to_bw_old(
         let gray_value = ((r * 30 + g * 59 + b * 11) / 100) as u8;
         grayscale_data.push(gray_value);
     }
-    GrayImage::from_raw(image_width as u32, image_height as u32, grayscale_data)
-        .ok_or(AutoGuiError::ImgError("Failed to convert to grayscale".to_string()))
+    GrayImage::from_raw(image_width as u32, image_height as u32, grayscale_data).ok_or(
+        AutoGuiError::ImgError("Failed to convert to grayscale".to_string()),
+    )
 }
 
 /// Cuts Region of image. Inputs are top left x , y pixel coordinates on image,

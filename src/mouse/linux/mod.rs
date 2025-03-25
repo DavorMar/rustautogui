@@ -80,7 +80,9 @@ impl Mouse {
                 &mut error_base,
             ) == 0
             {
-                return Err(AutoGuiError::OSFailure("Xtest extension is not available".to_string()));
+                return Err(AutoGuiError::OSFailure(
+                    "Xtest extension is not available".to_string(),
+                ));
             }
             if let Some(window) = self.get_window_under_cursor()? {
                 self.set_focus_to_window(window);
@@ -123,7 +125,9 @@ impl Mouse {
             );
 
             if status == 0 {
-                return Err(AutoGuiError::OSFailure("Unable to query pointer position".to_string()));
+                return Err(AutoGuiError::OSFailure(
+                    "Unable to query pointer position".to_string(),
+                ));
             }
 
             Ok((root_x, root_y))
@@ -149,7 +153,9 @@ impl Mouse {
                 &mut error_base,
             ) == 0
             {
-                return Err(AutoGuiError::OSFailure("Xtest extension is not available".to_string()));
+                return Err(AutoGuiError::OSFailure(
+                    "Xtest extension is not available".to_string(),
+                ));
             }
             if let Some(window) = self.get_window_under_cursor()? {
                 self.set_focus_to_window(window);

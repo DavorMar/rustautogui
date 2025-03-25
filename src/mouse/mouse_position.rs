@@ -83,4 +83,3 @@ pub fn print_mouse_position() -> Result<(), AutoGuiError> {
         }
     }
 }
-

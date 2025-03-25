@@ -8,8 +8,6 @@
 
 use crate::normalized_x_corr::{compute_integral_images, sum_region};
 
-
-
 use crate::imgtools;
 use image::{ImageBuffer, Luma};
 use rand::prelude::*;

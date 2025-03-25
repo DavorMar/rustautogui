@@ -18,15 +18,28 @@ pub mod macos;
 use macos::Keyboard;
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
-fn get_keymap_key<'a>(target: &'a Keyboard, key:&String) -> Result<&'a(u16, bool), AutoGuiError> {
-    
-
-    let values = target.keymap.get(key).ok_or(AutoGuiError::UnSupportedKey(format!("{} key/command is not supported", key)))?;
+fn get_keymap_key<'a>(target: &'a Keyboard, key: &String) -> Result<&'a (u16, bool), AutoGuiError> {
+    let values = target
+        .keymap
+        .get(key)
+        .ok_or(AutoGuiError::UnSupportedKey(format!(
+            "{} key/command is not supported",
+            key
+        )))?;
     Ok(values)
 }
 
 #[cfg(target_os = "linux")]
-fn get_keymap_key<'a>(target: &'a Keyboard, key:&String) -> Result<&'a(String, bool), AutoGuiError> {
-    let values = target.keymap.get(key).ok_or(AutoGuiError::UnSupportedKey(format!("{} key/command is not supported", key)))?;
+fn get_keymap_key<'a>(
+    target: &'a Keyboard,
+    key: &String,
+) -> Result<&'a (String, bool), AutoGuiError> {
+    let values = target
+        .keymap
+        .get(key)
+        .ok_or(AutoGuiError::UnSupportedKey(format!(
+            "{} key/command is not supported",
+            key
+        )))?;
     Ok(values)
 }

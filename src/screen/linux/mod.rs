@@ -1,7 +1,10 @@
 extern crate image;
 extern crate x11;
 
-use crate::{errors::{AutoGuiError, ImageProcessingError}, imgtools};
+use crate::{
+    errors::{AutoGuiError, ImageProcessingError},
+    imgtools,
+};
 use core::error;
 use image::{GrayImage, ImageBuffer, Luma, Rgba};
 use std::ptr;
@@ -66,7 +69,7 @@ impl Screen {
             XCloseDisplay(self.display);
         }
     }
-    
+
     #[allow(dead_code)]
     /// executes convert_bitmap_to_rgba, meaning it converts Vector of values to RGBA and crops the image
     /// as inputted region area. Not used anywhere at the moment

@@ -8,7 +8,6 @@ use winapi::um::winuser::{
     MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_WHEEL,
 };
 
-
 pub struct Mouse {}
 impl Mouse {
     #[allow(unused_variables)]
