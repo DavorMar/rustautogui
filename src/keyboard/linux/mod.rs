@@ -96,7 +96,8 @@ impl Keyboard {
     fn send_shifted_key(&self, scan_code: u32) -> Result<(), AutoGuiError> {
         unsafe {
             let mut keysym_to_keycode2 = HashMap::new();
-            let key_cstring = CString::new("Shift_L".to_string())?.as_ptr();
+            let key_cstring = CString::new("Shift_L".to_string())?;
+            let key_cstring = key_cstring.as_ptr();
 
             let keysym = XStringToKeysym(key_cstring);
             if !keysym_to_keycode2.contains_key(&keysym) {
@@ -113,12 +114,11 @@ impl Keyboard {
 
     /// grabs the value from structs keymap, then converts String to Keysim, and then keysim to Keycode.
     unsafe fn get_keycode(&self, key: &String) -> Result<(u32, &bool),AutoGuiError> {
-        let value = self.keymap.get(key);
-
         let (value, shifted) = get_keymap_key(self, key)?;
 
         let mut keysym_to_keycode = HashMap::new();
-        let key_cstring = CString::new(value.clone())?.as_ptr();
+        let key_cstring = CString::new(value.clone())?;
+        let key_cstring = key_cstring.as_ptr();
 
         let keysym = XStringToKeysym(key_cstring);
         

@@ -54,6 +54,7 @@ impl Screen {
         dimensions
     }
 
+    #[allow(dead_code)]
     /// return region dimension which is set up when template is precalculated
     pub fn region_dimension(&self) -> (u32, u32) {
         let dimensions = (self.screen_region_width, self.screen_region_height);
@@ -65,7 +66,8 @@ impl Screen {
             XCloseDisplay(self.display);
         }
     }
-
+    
+    #[allow(dead_code)]
     /// executes convert_bitmap_to_rgba, meaning it converts Vector of values to RGBA and crops the image
     /// as inputted region area. Not used anywhere at the moment
     pub fn grab_screen_image(
