@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [2.2.0] - 2025-03-
+## [2.2.0] - 2025-03-25
 ### Added / Fixed
 - Added ability to store multiple images (stored in Hashmap in struct) and give them alias. Can be stored from path, Imagebuffer or encoded u8 vec
 - Added corresponsing find_stored_image_on_screen() and find_stored_image_on_screen_and_move_mouse() which additionaly take alias parameter
