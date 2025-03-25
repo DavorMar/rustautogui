@@ -1,7 +1,6 @@
 use crate::mouse::{MouseClick, MouseScroll};
 use std::mem::{size_of, zeroed};
-use std::time::Instant;
-use std::{thread, time};
+use std::{thread, time, time::Instant};
 use winapi::shared::windef::POINT;
 use winapi::um::winuser::{
     SendInput, SetCursorPos, INPUT, INPUT_MOUSE, MOUSEEVENTF_HWHEEL, MOUSEEVENTF_LEFTDOWN,
@@ -32,9 +31,11 @@ impl Mouse {
         let distance_y = y - start_location.1;
 
         loop {
-            let duration = start.elapsed();
+            let duration = start.elapsed().as_secs_f32();
 
-            let time_passed_percentage = duration.as_secs_f32() / moving_time;
+            let time_passed_percentage = duration / moving_time;
+            // on first iterations, time passed percentage gets values greater than 10, probably because duration is a
+            // very small number. Probably could do if duration < 0.05 or similar
             if time_passed_percentage > 10.0 {
                 continue;
             }
@@ -43,7 +44,7 @@ impl Mouse {
 
             unsafe {
                 if time_passed_percentage >= 1.0 {
-                    SetCursorPos(x as i32, y as i32);
+                    SetCursorPos(x, y);
                     break;
                 } else {
                     SetCursorPos(new_x as i32, new_y as i32);
@@ -60,13 +61,10 @@ impl Mouse {
             input_down.type_ = INPUT_MOUSE;
             input_down.u.mi_mut().dwFlags = down;
             SendInput(1, &mut input_down, size_of::<INPUT>() as i32);
-            let some_duration = time::Duration::from_millis(80);
-            thread::sleep(some_duration);
+            // wait a bit after click down, before moving
+            thread::sleep(time::Duration::from_millis(80));
             Mouse::move_mouse_to_pos(x, y, moving_time);
-
-            let some_duration = time::Duration::from_millis(50);
-            thread::sleep(some_duration);
-
+            thread::sleep(time::Duration::from_millis(50));
             // set up the second input event (mouse up)
             let mut input_up: INPUT = zeroed();
             input_up.type_ = INPUT_MOUSE;
@@ -87,6 +85,7 @@ impl Mouse {
 
     /// click mouse, either left, right or middle "MouseClick::LEFT/RIGHT/MIDDLE enumerator"
     pub fn mouse_click(button: MouseClick) {
+        // create event type depending on click type
         let (down, up) = match button {
             MouseClick::LEFT => (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
             MouseClick::RIGHT => (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),
@@ -107,6 +106,7 @@ impl Mouse {
     }
 
     pub fn scroll(direction: MouseScroll) {
+        // direction , H or W wheel, depending on axis scrolled
         let (amount, wheel_direction) = match direction {
             MouseScroll::UP => (120, MOUSEEVENTF_WHEEL),
             MouseScroll::DOWN => (-120, MOUSEEVENTF_WHEEL),

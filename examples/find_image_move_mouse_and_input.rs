@@ -1,5 +1,7 @@
 // use rustautogui;
 
+use rustautogui::imgtools;
+
 fn main() {
     // initialize autogui
     let mut gui = rustautogui::RustAutoGui::new(false).unwrap();
@@ -8,17 +10,30 @@ fn main() {
     // especially useful on linux where screen from all monitors is grabbed
     gui.get_screen_size();
 
-    // load the image searching for. Region is Option<(startx, starty, width, height)> of search. Matchmode FFT or Segmented (not implemented before 1.0 version), max segments, only important for Segmented match mode
-    gui.load_and_prepare_template(
-        "test.png",
-        Some((0, 0, 500, 300)),
-        rustautogui::MatchMode::FFT,
-        &None,
-    )
-    .unwrap();
+    {
+        // load the image searching for. Region is Option<(startx, starty, width, height)> of search. Matchmode FFT or Segmented (not implemented before 1.0 version), max segments, only important for Segmented match mode
+        gui.prepare_template_from_file(
+            "test.png",
+            Some((0, 0, 500, 300)),
+            rustautogui::MatchMode::FFT,
+            None,
+        )
+        .unwrap();
+    }
+    // or another way to prepare template
+    {
+        let img = imgtools::load_image_rgba("test.png").unwrap(); // just loading this way for example
+        gui.prepare_template_from_imagebuffer(
+            img,
+            Some((0, 0, 700, 500)),
+            rustautogui::MatchMode::Segmented,
+            Some(5000),
+        )
+        .unwrap();
+    }
 
     // or segmented variant with no region
-    gui.load_and_prepare_template("test.png", None, rustautogui::MatchMode::FFT, &Some(5000))
+    gui.prepare_template_from_file("test.png", None, rustautogui::MatchMode::FFT, Some(5000))
         .unwrap();
 
     // change prepare template settings, like region, matchmode or max segments
@@ -26,7 +41,7 @@ fn main() {
     gui.change_prepared_settings(
         Some((200, 100, 1000, 500)),
         rustautogui::MatchMode::FFT,
-        &None,
+        None,
     );
 
     // automatically move mouse to found template position, execute movement for 1 second
@@ -68,7 +83,8 @@ fn main() {
     gui.keyboard_multi_key("alt", "tab", None).unwrap();
 
     // three key press
-    gui.keyboard_multi_key("shift", "control", Some("e")).unwrap();
+    gui.keyboard_multi_key("shift", "control", Some("e"))
+        .unwrap();
 
     // maybe you would want to loop search until image is found and break the loop then
     loop {

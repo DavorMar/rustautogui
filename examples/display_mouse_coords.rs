@@ -1,6 +1,6 @@
-use rustautogui::mouse;
+use rustautogui::print_mouse_position;
 
 #[allow(unused_must_use)]
 fn main() {
-    mouse::mouse_position::print_mouse_position();
+    print_mouse_position();
 }

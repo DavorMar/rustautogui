@@ -33,7 +33,7 @@
 | /                | X       | X     | X     |
 | ?                | X       | X     | X     |
 | \                | X       | X     | X     |
-| |                | X       | X     | X     |
+| \|               | X       | X     | X     |
 | `                | X       | X     | X     |
 | ~                | X       | X     | X     |
 | return / enter   | X       | X     | X     |
@@ -50,8 +50,8 @@
 | page_down / pgdn | X       | X     | X     |
 | insert           | X       | X     | X     |
 | delete / del     | X       | X     | X     |
-| f1 - f12         | X       | -     | X     |
-| f13 - f20        | X       | -     | X     |
+| f1 - f12         | X       | X     | X     |
+| f13 - f20        | X       | X     | X     |
 | f21 - f24        | X       | -     | -     |
 | control_l        | X       | X     | X     |
 | control_r        | X       | X     | X     |
@@ -70,8 +70,15 @@
 | numlock          | X       | -     | X     |
 | pause            | X       | -     | X     |
 | clear            | X       | -     | -     |
-| win/winleft      | X       | -     | -     |
-| winright         | X       | -     | -     |
+| win              | -       | X     | -     |# ATM win keys do not work on windows 
+| winleft          | -       | X     | -     |
+| win_l            | -       | X     | -     |
+| winright         | -       | X     | -     |
+| win_r            | -       | X     | -     |
+| super            | -       | X     | -     |
+| super_r          | -       | X     | -     |
+| super            | -       | X     | -     |
+| super_l          | -       | X     | -     |
 | command          | -       | -     | X     | # (⌘)
 | command_l        | -       | -     | X     | # (⌘)
 | command_r        | -       | -     | X     | # (⌘)
