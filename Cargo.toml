@@ -13,11 +13,11 @@ categories = ["gui", "development-tools"]
 
 
 [dependencies]
-image = "0.23"
+image = "0.25"
 rustfft = "6.2.0"
 num-complex = "0.4.6"
 rayon = "1.10.0"
-rand = "0.8.5"
+rand = "0.9"
 x11 = "2.21.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]

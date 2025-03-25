@@ -130,7 +130,7 @@ fn save_template_segmented_images(
 ) {
     let mut blurred_template: ImageBuffer<Luma<u8>, Vec<u8>> =
         ImageBuffer::new(*template_width, *template_height);
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let debug_path = Path::new("debug");
     // not returning error , just printing it because debug mode shouldnt cause crashes here
     if !debug_path.exists() {
@@ -146,7 +146,7 @@ fn save_template_segmented_images(
         }
     }
     for (x, y, segment_width, segment_height, segment_mean) in template_segments {
-        let mut rng_mult: f32 = rng.gen();
+        let mut rng_mult: f32 = rng.random();
         if segment_mean < &127.5 {
             rng_mult += 1.0;
         }

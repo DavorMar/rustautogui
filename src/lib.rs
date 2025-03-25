@@ -1153,6 +1153,10 @@ impl RustAutoGui {
     }
 
     /// DEPRECATED
+    #[deprecated(
+        since = "2.2.0",
+        note = "Renamed to prepare_template_from_file."
+    )]
     pub fn load_and_prepare_template(
         &mut self,
         template_path: &str,
@@ -1160,9 +1164,6 @@ impl RustAutoGui {
         match_mode: MatchMode,
         max_segments: Option<u32>,
     ) -> Result<(), AutoGuiError> {
-        if !self.suppress_warnings {
-            eprintln!("Warning: load_and_prepare_template will be deprecated. Consider using prepare_template_from_file");
-        }
         let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
             imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, max_segments, None)

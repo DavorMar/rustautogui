@@ -70,15 +70,15 @@
 | numlock          | X       | -     | X     |
 | pause            | X       | -     | X     |
 | clear            | X       | -     | -     |
-| win              | X       | X     | -     |
-| winleft          | X       | X     | -     |
-| win_l            | X       | X     | -     |
-| winright         | X       | X     | -     |
-| win_r            | X       | X     | -     |
-| super            | X       | X     | -     |
-| super_r          | X       | X     | -     |
-| super            | X       | X     | -     |
-| super_l          | X       | X     | -     |
+| win              | -       | X     | -     |# ATM win keys do not work on windows 
+| winleft          | -       | X     | -     |
+| win_l            | -       | X     | -     |
+| winright         | -       | X     | -     |
+| win_r            | -       | X     | -     |
+| super            | -       | X     | -     |
+| super_r          | -       | X     | -     |
+| super            | -       | X     | -     |
+| super_l          | -       | X     | -     |
 | command          | -       | -     | X     | # (⌘)
 | command_l        | -       | -     | X     | # (⌘)
 | command_r        | -       | -     | X     | # (⌘)

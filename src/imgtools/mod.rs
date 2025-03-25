@@ -5,7 +5,7 @@ and converting image to vector.
 */
 use crate::errors::AutoGuiError;
 use image::{
-    error::LimitError, io::Reader as ImageReader, DynamicImage, GrayImage, ImageBuffer, Luma,
+    error::LimitError, DynamicImage, GrayImage, ImageBuffer, Luma,
     Pixel, Primitive, Rgb, Rgba,
 };
 
@@ -13,7 +13,7 @@ use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
 /// Loads image from the provided path and converts to black-white format
 /// Returns image in image::ImageBuffer format
 pub fn load_image_bw(location: &str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
-    let img = ImageReader::open(location)?;
+    let img = image::ImageReader::open(location)?;
 
     let img = img.decode()?;
 
@@ -24,7 +24,7 @@ pub fn load_image_bw(location: &str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, A
 /// Loads image from the provided path and converts to RGBA format
 /// Returns image in image::ImageBuffer format
 pub fn load_image_rgba(location: &str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
-    let img = ImageReader::open(location)?;
+    let img = image::ImageReader::open(location)?;
     let img = img.decode()?;
     Ok(img.to_rgba8()) // return rgba image
 }
