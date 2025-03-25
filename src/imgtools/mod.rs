@@ -3,7 +3,7 @@ Functions used throughout the code that have more of a general purpose, like
 loading images from disk, converting image to black-white or RGB, cutting image
 and converting image to vector.
 */
-use crate::AutoGuiError;
+use crate::errors::AutoGuiError;
 use image::{
     error::LimitError, io::Reader as ImageReader, DynamicImage, GrayImage, ImageBuffer, Luma,
     Pixel, Primitive, Rgb, Rgba,

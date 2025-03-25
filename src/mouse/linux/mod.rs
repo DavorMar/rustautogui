@@ -3,8 +3,11 @@ use crate::errors::AutoGuiError;
 use super::{MouseClick, MouseScroll};
 use std::time::Instant;
 use std::{ptr, thread, time::Duration};
-use x11::xlib::*;
-use x11::xtest::*;
+use x11::xlib::{
+    CurrentTime, RevertToParent, Window, XDefaultRootWindow, XFlush, XQueryPointer, XSetInputFocus,
+    XTranslateCoordinates, XWarpPointer, _XDisplay,
+};
+use x11::xtest::{XTestFakeButtonEvent, XTestQueryExtension};
 
 pub struct Mouse {
     screen: *mut _XDisplay,

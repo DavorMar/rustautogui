@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::AutoGuiError;
+use crate::errors::AutoGuiError;
 
 #[cfg(target_os = "windows")]
 pub mod windows;

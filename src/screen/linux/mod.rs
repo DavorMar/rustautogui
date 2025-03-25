@@ -8,7 +8,10 @@ use crate::{
 use core::error;
 use image::{GrayImage, ImageBuffer, Luma, Rgba};
 use std::ptr;
-use x11::xlib::*;
+use x11::xlib::{
+    XCloseDisplay, XDefaultScreen, XDestroyImage, XDisplayHeight, XDisplayWidth, XGetImage,
+    XOpenDisplay, XRootWindow, ZPixmap, _XDisplay,
+};
 
 const ALLPLANES: u64 = 0xFFFFFFFFFFFFFFFF;
 

@@ -1,5 +1,5 @@
 #![allow(unused_doc_comments, unused_imports)]
-mod errors;
+pub mod errors;
 pub mod imgtools;
 mod keyboard;
 mod mouse;
@@ -7,7 +7,6 @@ pub mod normalized_x_corr;
 mod screen;
 
 mod imports {
-    pub use crate::normalized_x_corr::fast_segment_x_corr::prepare_template_picture;
     #[cfg(target_os = "linux")]
     pub use crate::{keyboard::linux::Keyboard, mouse::linux::Mouse, screen::linux::Screen};
     #[cfg(target_os = "macos")]
@@ -22,14 +21,7 @@ mod imports {
     pub use std::{collections::HashMap, env, fmt, fs, path::Path, str::FromStr};
 }
 
-use core::fmt;
-use errors::*;
-use std::fs::write;
-
-use image::{
-    error::{LimitError, LimitErrorKind},
-    ImageError,
-};
+use crate::errors::*;
 pub use mouse::mouse_position::print_mouse_position;
 
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";

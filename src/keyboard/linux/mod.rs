@@ -1,8 +1,8 @@
+use crate::errors::AutoGuiError;
 use crate::keyboard::get_keymap_key;
-use crate::AutoGuiError;
 use std::{collections::HashMap, ffi::CString, process::Command, thread, time::Duration};
-use x11::xlib::*;
-use x11::xtest::*;
+use x11::xlib::{CurrentTime, XFlush, XKeysymToKeycode, XStringToKeysym, _XDisplay};
+use x11::xtest::XTestFakeKeyEvent;
 /// main struct for interacting with keyboard. Keymap is generated upon intialization.
 /// screen is stored from Screen struct, where pointer for same screen object is used across the code
 pub struct Keyboard {

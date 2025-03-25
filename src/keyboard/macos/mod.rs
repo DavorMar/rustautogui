@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::thread::sleep;
 use std::time::Duration;
 
-use crate::AutoGuiError;
+use crate::errors::AutoGuiError;
 
 use super::get_keymap_key;
 

@@ -3,13 +3,14 @@ use std::{
     time::{Duration, Instant},
 };
 
+use crate::errors::AutoGuiError;
 use crate::mouse::{MouseClick, MouseScroll};
-use crate::AutoGuiError;
-use core_graphics::event::{
-    CGEvent, CGEventTapLocation, CGEventType, CGMouseButton, ScrollEventUnit,
+use core_graphics::{
+    event::{CGEvent, CGEventTapLocation, CGEventType, CGMouseButton, ScrollEventUnit},
+    event_source::{CGEventSource, CGEventSourceStateID},
+    geometry::CGPoint,
 };
-use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
-use core_graphics::geometry::CGPoint;
+
 use rustfft::num_traits::Pow;
 
 pub struct Mouse {}
