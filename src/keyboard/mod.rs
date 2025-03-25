@@ -26,6 +26,7 @@ fn get_keymap_key<'a>(target: &'a Keyboard, key:&String) -> Result<&'a(u16, bool
 }
 
 #[cfg(target_os = "linux")]
-fn get_keymap_key(key:&String, keymap: HashMap<String, (String, bool)>) -> Result<(&u16, &bool), AutoGuiError> {
-    
+fn get_keymap_key<'a>(target: &'a Keyboard, key:&String) -> Result<&'a(String, bool), AutoGuiError> {
+    let values = target.keymap.get(key).ok_or(AutoGuiError::UnSupportedKey(format!("{} key/command is not supported", key)))?;
+    Ok(values)
 }

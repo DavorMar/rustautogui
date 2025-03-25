@@ -187,21 +187,21 @@ impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
     /// all the other struct fields are initiated as 0 or None
     #[cfg(target_os = "linux")]
-    pub fn new(debug: bool) -> Result<Self, &'static str> {
+    pub fn new(debug: bool) -> Result<Self, AutoGuiError> {
         // on linux, screen display pointer is shared to keyboard and mouse
         // x11 works like that and initiation of individual display objects
         // under each struct wouldnt be preferable
-        let screen = Screen::new();
-        let keyboard = Keyboard::new(screen.display);
-        let mouse_struct: Mouse = Mouse::new(screen.display, screen.root_window);
+        let screen = imports::Screen::new();
+        let keyboard = imports::Keyboard::new(screen.display);
+        let mouse_struct= imports::Mouse::new(screen.display, screen.root_window);
         // check for env variable to suppress warnings, otherwise set default false value
-        let suppress_warnings = env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
+        let suppress_warnings = imports::env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
             .map(|val| val == "1" || val.eq_ignore_ascii_case("true"))
             .unwrap_or(false); // Default: warnings are NOT suppressed
         Ok(Self {
             template: None,
             prepared_data: PreparedData::None,
-            prepared_data_stored: HashMap::new(),
+            prepared_data_stored: imports::HashMap::new(),
             debug: debug,
             template_width: 0,
             template_height: 0,
@@ -1001,9 +1001,9 @@ impl RustAutoGui {
     }
 
     /// moves mouse to x, y pixel coordinate
-    pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), &'static str> {
+    pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), AutoGuiError> {
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
-            return Err("Out of screen boundaries");
+            return Err(AutoGuiError::OutOfBoundsError("Drag Mouse out of screen boundaries".to_string()));
         }
 
         #[cfg(target_os = "windows")]
@@ -1033,7 +1033,7 @@ impl RustAutoGui {
     }
 
     /// executes left mouse click    
-    pub fn left_click(&self) -> Result<(), &'static str> {
+    pub fn left_click(&self) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
         return self.mouse.mouse_click(mouse::MouseClick::LEFT);
         #[cfg(target_os = "windows")]
@@ -1043,7 +1043,7 @@ impl RustAutoGui {
     }
 
     /// executes right mouse click
-    pub fn right_click(&self) -> Result<(), &'static str> {
+    pub fn right_click(&self) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
         return self.mouse.mouse_click(mouse::MouseClick::RIGHT);
         #[cfg(target_os = "macos")]
@@ -1055,7 +1055,7 @@ impl RustAutoGui {
     }
 
     /// executes middle mouse click
-    pub fn middle_click(&self) -> Result<(), &'static str> {
+    pub fn middle_click(&self) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
         return self.mouse.mouse_click(mouse::MouseClick::MIDDLE);
         #[cfg(target_os = "windows")]
@@ -1067,7 +1067,7 @@ impl RustAutoGui {
     }
 
     /// executes double left mouse click
-    pub fn double_click(&self) -> Result<(), &'static str> {
+    pub fn double_click(&self) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
         {
             self.mouse.mouse_click(mouse::MouseClick::LEFT)?;

@@ -1,5 +1,5 @@
 
-use std::fmt;
+use std::{ffi::{CString, NulError}, fmt};
 
 
 #[derive(Debug)]
@@ -11,6 +11,7 @@ pub enum AutoGuiError {
     OutOfBoundsError(String),
     ImageError(ImageProcessingError),
     ImgError(String),  
+    NulError(NulError)
 }
 
 
@@ -26,9 +27,16 @@ impl fmt::Display for AutoGuiError {
             AutoGuiError::OutOfBoundsError(err)=> write!(f, "Out of bounds error: {}", err),
             AutoGuiError::ImageError(err)=> write!(f, "Image Error: {}", err),
             AutoGuiError::ImgError(err) => write!(f, "Image Error: {}", err),
+            AutoGuiError::NulError(err) => write!(f, "Convert to C String nulerror: {}", err),
         }
     }
     
+}
+
+impl From<NulError> for AutoGuiError {
+    fn from(err:NulError) -> Self {
+        AutoGuiError::NulError(err)
+    }
 }
 
 impl From<image::ImageError> for AutoGuiError {

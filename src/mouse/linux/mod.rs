@@ -1,3 +1,5 @@
+use crate::errors::AutoGuiError;
+
 use super::{MouseClick, MouseScroll};
 use std::time::Instant;
 use std::{ptr, thread, time::Duration};
@@ -18,7 +20,7 @@ impl Mouse {
     }
 
     /// moves mouse to x, y pixel coordinate on screen
-    pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time: f32) -> Result<(), &'static str> {
+    pub fn move_mouse_to_pos(&self, x: i32, y: i32, moving_time: f32) -> Result<(), AutoGuiError> {
         // if no moving time, then instant move is executed
         unsafe {
             if moving_time <= 0.0 {
@@ -66,7 +68,7 @@ impl Mouse {
         Ok(())
     }
 
-    pub fn drag_mouse(&self, x: i32, y: i32, moving_time: f32) -> Result<(), &'static str> {
+    pub fn drag_mouse(&self, x: i32, y: i32, moving_time: f32) -> Result<(), AutoGuiError> {
         let mut event_base = 0;
         let mut error_base = 0;
         unsafe {
@@ -78,7 +80,7 @@ impl Mouse {
                 &mut error_base,
             ) == 0
             {
-                return Err("Xtest extension is not available");
+                return Err(AutoGuiError::OSFailure("Xtest extension is not available".to_string()));
             }
             if let Some(window) = self.get_window_under_cursor()? {
                 self.set_focus_to_window(window);
@@ -98,7 +100,7 @@ impl Mouse {
     }
 
     /// returns x, y pixel coordinate of mouse position
-    pub fn get_mouse_position(&self) -> Result<(i32, i32), &'static str> {
+    pub fn get_mouse_position(&self) -> Result<(i32, i32), AutoGuiError> {
         unsafe {
             let mut root_return = 0;
             let mut child_return = 0;
@@ -121,7 +123,7 @@ impl Mouse {
             );
 
             if status == 0 {
-                return Err("Unable to query pointer position");
+                return Err(AutoGuiError::OSFailure("Unable to query pointer position".to_string()));
             }
 
             Ok((root_x, root_y))
@@ -129,7 +131,7 @@ impl Mouse {
     }
 
     /// click mouse, either left, right or middle
-    pub fn mouse_click(&self, button: MouseClick) -> Result<(), &'static str> {
+    pub fn mouse_click(&self, button: MouseClick) -> Result<(), AutoGuiError> {
         let button = match button {
             MouseClick::LEFT => 1,
             MouseClick::MIDDLE => 2,
@@ -147,7 +149,7 @@ impl Mouse {
                 &mut error_base,
             ) == 0
             {
-                return Err("Xtest extension is not available");
+                return Err(AutoGuiError::OSFailure("Xtest extension is not available".to_string()));
             }
             if let Some(window) = self.get_window_under_cursor()? {
                 self.set_focus_to_window(window);
@@ -199,7 +201,7 @@ impl Mouse {
 
     /// return window that is at cursor position. Used when executing left click to also
     /// change focused window
-    fn get_window_under_cursor(&self) -> Result<Option<Window>, &'static str> {
+    fn get_window_under_cursor(&self) -> Result<Option<Window>, AutoGuiError> {
         let mut child: Window = 0;
         let mut win_x: i32 = 0;
         let mut win_y: i32 = 0;

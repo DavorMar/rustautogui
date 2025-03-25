@@ -1,3 +1,4 @@
+use crate::errors::AutoGuiError;
 #[cfg(target_os = "linux")]
 use crate::mouse::platform::Mouse;
 #[cfg(target_os = "linux")]
@@ -49,7 +50,7 @@ impl Drop for DisplayWrapper {
     }
 }
 
-pub fn print_mouse_position() -> Result<(), &'static str> {
+pub fn print_mouse_position() -> Result<(), AutoGuiError> {
     #[cfg(target_os = "linux")]
     {
         let display_wrapper = DisplayWrapper::new();

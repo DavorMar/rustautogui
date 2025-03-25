@@ -2,11 +2,11 @@ use std::{collections::HashMap, ffi::CString, process::Command, thread, time::Du
 use x11::xlib::*;
 use x11::xtest::*;
 use crate::AutoGuiError;
-
+use crate::keyboard::get_keymap_key;
 /// main struct for interacting with keyboard. Keymap is generated upon intialization.
 /// screen is stored from Screen struct, where pointer for same screen object is used across the code
 pub struct Keyboard {
-    keymap: HashMap<String, (String, bool)>,
+    pub keymap: HashMap<String, (String, bool)>,
     screen: *mut _XDisplay,
 }
 impl Keyboard {
@@ -96,10 +96,7 @@ impl Keyboard {
     fn send_shifted_key(&self, scan_code: u32) -> Result<(), AutoGuiError> {
         unsafe {
             let mut keysym_to_keycode2 = HashMap::new();
-            let key_cstring = match CString::new("Shift_L".to_string()) {
-                Ok(x) => x.as_ptr(),
-                Err(_) => return Err("failed grabbing shift key"),
-            };
+            let key_cstring = CString::new("Shift_L".to_string())?.as_ptr();
 
             let keysym = XStringToKeysym(key_cstring);
             if !keysym_to_keycode2.contains_key(&keysym) {
@@ -115,41 +112,38 @@ impl Keyboard {
     }
 
     /// grabs the value from structs keymap, then converts String to Keysim, and then keysim to Keycode.
-    unsafe fn get_keycode(&self, key: &String) -> AutoGuiError {
+    unsafe fn get_keycode(&self, key: &String) -> Result<(u32, &bool),AutoGuiError> {
         let value = self.keymap.get(key);
 
+        let (value, shifted) = get_keymap_key(self, key)?;
+
         let mut keysym_to_keycode = HashMap::new();
-        let (keysym, shifted) = match value {
-            Some(x) => {
-                let shifted = x.1;
-                let key_cstring = CString::new(x.0.clone());
-                let key_cstring = key_cstring.map_err(|_| AutoGuiError::OSFailure("Failed to convert string value to key cstring. "))?;
-                let key_cstring = key_cstring.as_ptr();
-                (XStringToKeysym(key_cstring), shifted)
-            }
-            None => return AutoGuiError::UnSupportedKey(format!("{} key is not supported", key)),
-        };
+        let key_cstring = CString::new(value.clone())?.as_ptr();
+
+        let keysym = XStringToKeysym(key_cstring);
+        
         if keysym == 0 {
-            return AutoGuiError::OSFailure("Failed to convert xstring to keysym. Keysym received is 0");
+            return Err(AutoGuiError::OSFailure("Failed to convert xstring to keysym. Keysym received is 0".to_string()));
         }
         if !keysym_to_keycode.contains_key(&keysym) {
             let keycode = XKeysymToKeycode(self.screen, keysym) as u32;
             keysym_to_keycode.insert(keysym, keycode);
         }
         let keycode = keysym_to_keycode[&keysym];
+        if keycode == 0 {
+            return Err(AutoGuiError::OSFailure("Failed to convert keysym to keycode. Keycode received is 0".to_string()));
+        }
         Ok((keycode, shifted))
     }
 
     /// top level send character function that converts char to keycode and executes send key
-    pub fn send_char(&self, key: &char) -> AutoGuiError {
+    pub fn send_char(&self, key: &char) -> Result<(), AutoGuiError> {
         unsafe {
             let char_string: String = String::from(*key);
             let (keycode, shifted) = self.get_keycode(&char_string)?;
-            if keycode == 0 {
-                return Err("couldnt input a key");
-            }
+            
 
-            if shifted {
+            if *shifted {
                 self.send_shifted_key(keycode)?;
             } else {
                 self.send_key(keycode);
@@ -159,7 +153,7 @@ impl Keyboard {
     }
 
     /// similar to send char, but can be string such as return, escape etc
-    pub fn send_command(&self, key: &String) -> Result<(), &'static str> {
+    pub fn send_command(&self, key: &String) -> Result<(), AutoGuiError> {
         unsafe {
             let keycode = self.get_keycode(key)?;
             self.send_key(keycode.0);
@@ -172,7 +166,7 @@ impl Keyboard {
         key_1: &String,
         key_2: &String,
         key_3: Option<String>,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), AutoGuiError> {
         unsafe {
             let value1 = self.get_keycode(&key_1)?;
 
@@ -185,7 +179,7 @@ impl Keyboard {
                     let value3 = self.get_keycode(&value)?;
                     value3
                 }
-                None => (0, false), // this value should never be executed
+                None => (0, &false), // this value should never be pressed
             };
 
             self.press_key(value1.0);

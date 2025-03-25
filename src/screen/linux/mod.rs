@@ -1,7 +1,7 @@
 extern crate image;
 extern crate x11;
 
-use crate::imgtools;
+use crate::{errors::{AutoGuiError, ImageProcessingError}, imgtools};
 use core::error;
 use image::{GrayImage, ImageBuffer, Luma, Rgba};
 use std::ptr;
@@ -71,7 +71,7 @@ impl Screen {
     pub fn grab_screen_image(
         &mut self,
         region: (u32, u32, u32, u32),
-    ) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, &'static str> {
+    ) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
         let (x, y, width, height) = region;
         self.screen_region_width = width;
         self.screen_region_height = height;
@@ -87,7 +87,7 @@ impl Screen {
     pub fn grab_screen_image_grayscale(
         &mut self,
         region: &(u32, u32, u32, u32),
-    ) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, &'static str> {
+    ) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
         let (x, y, width, height) = region;
         self.screen_region_width = *width;
         self.screen_region_height = *height;
@@ -99,14 +99,14 @@ impl Screen {
     }
 
     /// captures and saves screenshot of monitors
-    pub fn grab_screenshot(&mut self, image_path: &str) -> Result<(), String> {
+    pub fn grab_screenshot(&mut self, image_path: &str) -> Result<(), AutoGuiError> {
         self.capture_screen()?;
         let image = self.convert_bitmap_to_rgba()?;
-        image.save(image_path).map_err(|x| x.to_string())
+        Ok(image.save(image_path)?)
     }
 
     /// first order capture screen function. it captures screen image and stores it as vector in self.pixel_data
-    fn capture_screen(&mut self) -> Result<(), &'static str> {
+    fn capture_screen(&mut self) -> Result<(), AutoGuiError> {
         unsafe {
             let ximage = XGetImage(
                 self.display,
@@ -119,7 +119,7 @@ impl Screen {
                 ZPixmap,
             );
             if ximage.is_null() {
-                return Err("Error grabbing display image. Unable to get X image. Possible x11 error, check if you're running on x11 and not wayland. ");
+                return Err(AutoGuiError::OSFailure("Error grabbing display image. Unable to get X image. Possible x11 error, check if you're running on x11 and not wayland".to_string()));
             }
 
             // get the image data
@@ -150,7 +150,7 @@ impl Screen {
     }
 
     /// convert vector to Luma Imagebuffer
-    fn convert_bitmap_to_grayscale(&self) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, &'static str> {
+    fn convert_bitmap_to_grayscale(&self) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
         let mut grayscale_data =
             Vec::with_capacity((self.screen_width * self.screen_height) as usize);
         for chunk in self.pixel_data.chunks_exact(4) {
@@ -166,16 +166,16 @@ impl Screen {
             self.screen_height as u32,
             grayscale_data,
         )
-        .ok_or("could not convert image to grayscale")
+        .ok_or(ImageProcessingError::new("Failed conversion to grayscale").into())
     }
 
     /// convert vector to RGBA ImageBuffer
-    fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, &'static str> {
+    fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
         ImageBuffer::from_raw(
             self.screen_width as u32,
             self.screen_height as u32,
             self.pixel_data.clone(),
         )
-        .ok_or("Failed conversion to RGBa")
+        .ok_or(ImageProcessingError::new("Failed conversion to RGBa").into())
     }
 }
