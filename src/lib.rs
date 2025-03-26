@@ -432,6 +432,7 @@ impl RustAutoGui {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn check_alias_name(alias: &String) -> Result<(), ImageProcessingError> {
         if (alias.contains(DEFAULT_ALIAS)) | (alias.contains(DEFAULT_BCKP_ALIAS)) {
             return Err(ImageProcessingError::new(
@@ -496,7 +497,7 @@ impl RustAutoGui {
         max_segments: Option<u32>,
         alias: String,
     ) -> Result<(), AutoGuiError> {
-        RustAutoGui::check_alias_name(&alias)?;
+        // RustAutoGui::check_alias_name(&alias)?;
         let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
             imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, max_segments, Some(alias))
@@ -515,7 +516,7 @@ impl RustAutoGui {
         P: imports::Pixel<Subpixel = T> + 'static,
         T: imports::Primitive + imports::ToPrimitive + 'static,
     {
-        RustAutoGui::check_alias_name(&alias)?;
+        // RustAutoGui::check_alias_name(&alias)?;
         let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
         let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, &color_scheme)?;
         self.prepare_template_picture_bw(luma_img, region, match_mode, max_segments, Some(alias))
@@ -530,7 +531,7 @@ impl RustAutoGui {
         max_segments: Option<u32>,
         alias: String,
     ) -> Result<(), AutoGuiError> {
-        RustAutoGui::check_alias_name(&alias)?;
+        // RustAutoGui::check_alias_name(&alias)?;
         let image = image::load_from_memory(img_raw)?;
         self.prepare_template_picture_bw(
             image.to_luma8(),

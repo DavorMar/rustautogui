@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [2.2.1] - 2025-03-26
+### Fixed
+- macOS alias check turned off till fixed 
+
+
 ## [2.2.0] - 2025-03-25
 ### Added / Fixed
 - Added ability to store multiple images (stored in Hashmap in struct) and give them alias. Can be stored from path, Imagebuffer or encoded u8 vec
