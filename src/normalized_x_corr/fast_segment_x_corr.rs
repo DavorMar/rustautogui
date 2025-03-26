@@ -21,7 +21,7 @@ use std::time::Instant;
 
 pub fn fast_ncc_template_match(
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
-    precision: &f32,
+    precision: f32,
     template_data: &(
         Vec<(u32, u32, u32, u32, f32)>,
         Vec<(u32, u32, u32, u32, f32)>,
@@ -69,16 +69,16 @@ pub fn fast_ncc_template_match(
     if *debug {
         let fast_name = "debug/fast.png";
         save_template_segmented_images(
-            &template_segments_fast,
-            &template_width,
-            &template_height,
+            template_segments_fast,
+            *template_width,
+            *template_height,
             fast_name,
         );
         let slow_name = "debug/slow.png";
         save_template_segmented_images(
-            &template_segments_slow,
-            &template_width,
-            &template_height,
+            template_segments_slow,
+            *template_width,
+            *template_height,
             slow_name,
         );
     }
@@ -94,15 +94,15 @@ pub fn fast_ncc_template_match(
                 &squared_image_integral,
                 &template_segments_fast,
                 &template_segments_slow,
-                &template_width,
-                &template_height,
-                &fast_segments_sum_squared_deviations,
-                &slow_segments_sum_squared_deviations,
-                &segments_mean_fast,
-                &segments_mean_slow,
-                &x,
-                &y,
-                &adjusted_fast_expected_corr,
+                *template_width,
+                *template_height,
+                *fast_segments_sum_squared_deviations,
+                *slow_segments_sum_squared_deviations,
+                *segments_mean_fast,
+                *segments_mean_slow,
+                x,
+                y,
+                adjusted_fast_expected_corr,
             );
             (x, y, corr)
         })
@@ -123,26 +123,20 @@ pub fn fast_ncc_template_match(
 }
 
 fn save_template_segmented_images(
-    template_segments: &Vec<(u32, u32, u32, u32, f32)>,
-    template_width: &u32,
-    template_height: &u32,
+    template_segments: &[(u32, u32, u32, u32, f32)],
+    template_width: u32,
+    template_height: u32,
     file_name: &str,
 ) {
     let mut blurred_template: ImageBuffer<Luma<u8>, Vec<u8>> =
-        ImageBuffer::new(*template_width, *template_height);
+        ImageBuffer::new(template_width, template_height);
     let mut rng = rand::rng();
     let debug_path = Path::new("debug");
     // not returning error , just printing it because debug mode shouldnt cause crashes here
     if !debug_path.exists() {
-        let error_catch = fs::create_dir_all(debug_path);
-        match error_catch {
-            Ok(_) => (),
-            Err(_) => {
-                println!(
-                    "Failed to create debug folder. Please create it manually in the root folder"
-                );
-                return ();
-            }
+        if fs::create_dir_all(debug_path).is_err() {
+            println!("Failed to create debug folder. Please create it manually in the root folder");
+            return;
         }
     }
     for (x, y, segment_width, segment_height, segment_mean) in template_segments {
@@ -173,7 +167,7 @@ fn save_template_segmented_images(
     }
 
     let mut blurred_template2: ImageBuffer<Luma<u8>, Vec<u8>> =
-        ImageBuffer::new(*template_width, *template_height);
+        ImageBuffer::new(template_width, template_height);
 
     for (x, y, segment_width, segment_height, segment_mean) in template_segments {
         for y1 in 0..*segment_height {
@@ -191,24 +185,24 @@ fn save_template_segmented_images(
 }
 
 fn fast_correlation_calculation(
-    image_integral: &Vec<Vec<u64>>,
-    squared_image_integral: &Vec<Vec<u64>>,
-    template_segments_fast: &Vec<(u32, u32, u32, u32, f32)>, // roughly segmented, low number of segments
-    template_segments_slow: &Vec<(u32, u32, u32, u32, f32)>, // precisely segmented, high number of segments
-    template_width: &u32,
-    template_height: &u32,
-    fast_segments_sum_squared_deviations: &f32,
-    slow_segments_sum_squared_deviations: &f32,
-    segments_fast_mean: &f32,
-    segments_slow_mean: &f32,
-    x: &u32, // big image x value
-    y: &u32, // big image y value
-    min_expected_corr: &f32,
+    image_integral: &[Vec<u64>],
+    squared_image_integral: &[Vec<u64>],
+    template_segments_fast: &[(u32, u32, u32, u32, f32)], // roughly segmented, low number of segments
+    template_segments_slow: &[(u32, u32, u32, u32, f32)], // precisely segmented, high number of segments
+    template_width: u32,
+    template_height: u32,
+    fast_segments_sum_squared_deviations: f32,
+    slow_segments_sum_squared_deviations: f32,
+    segments_fast_mean: f32,
+    segments_slow_mean: f32,
+    x: u32, // big image x value
+    y: u32, // big image y value
+    min_expected_corr: f32,
 ) -> f64 {
     let template_area = template_height * template_width;
 
     /////////// numerator calculation
-    let sum_image: u64 = sum_region(image_integral, *x, *y, *template_width, *template_height);
+    let sum_image: u64 = sum_region(image_integral, x, y, template_width, template_height);
     let mean_image = sum_image as f32 / (template_height * template_width) as f32;
     let mut nominator = 0.0;
 
@@ -222,7 +216,7 @@ fn fast_correlation_calculation(
         );
         let segment_nominator_value: f32 = (segment_image_sum as f32
             - mean_image * (segment_height * segment_width) as f32)
-            * (*segment_value - *segments_fast_mean);
+            * (*segment_value - segments_fast_mean);
 
         // let segment_nominator_value: f64 =
         //     (segment_image_sum as f64 * (*segment_value as f64 - segments_mean as f64)) - (mean_image as f64 * (segment_height*segment_width) as f64 * (*segment_value as f64 - segments_mean as f64) );
@@ -237,14 +231,14 @@ fn fast_correlation_calculation(
 
     let sum_squared_image: u64 = sum_region(
         squared_image_integral,
-        *x,
-        *y,
-        *template_width,
-        *template_height,
+        x,
+        y,
+        template_width,
+        template_height,
     );
     let image_sum_squared_deviations =
         sum_squared_image as f32 - (sum_image as f32).powi(2) / template_area as f32;
-    let denominator = image_sum_squared_deviations * *fast_segments_sum_squared_deviations;
+    let denominator = image_sum_squared_deviations * fast_segments_sum_squared_deviations;
 
     ///////////////
 
@@ -256,7 +250,7 @@ fn fast_correlation_calculation(
     }
 
     // second calculation with more detailed picture
-    if corr > *min_expected_corr {
+    if corr > min_expected_corr {
         nominator = 0.0;
         for (x1, y1, segment_width, segment_height, segment_value) in template_segments_slow {
             let segment_image_sum = sum_region(
@@ -268,7 +262,7 @@ fn fast_correlation_calculation(
             );
             let segment_nominator_value: f32 = (segment_image_sum as f32
                 - mean_image as f32 * (segment_height * segment_width) as f32)
-                * (*segment_value as f32 - *segments_slow_mean as f32);
+                * (*segment_value as f32 - segments_slow_mean as f32);
 
             // let segment_nominator_value: f64 =
             //     (segment_image_sum as f64 * (*segment_value as f64 - segments_mean as f64)) - (mean_image as f64 * (segment_height*segment_width) as f64 * (*segment_value as f64 - segments_mean as f64) );
@@ -279,7 +273,7 @@ fn fast_correlation_calculation(
             return -1.0;
         }
 
-        let denominator = image_sum_squared_deviations * *slow_segments_sum_squared_deviations;
+        let denominator = image_sum_squared_deviations * slow_segments_sum_squared_deviations;
 
         corr = (nominator * nominator) / denominator;
     }
@@ -369,24 +363,14 @@ pub fn prepare_template_picture(
         segment_sum_squared_deviations_fast,
         expected_corr_fast,
         segments_mean_fast,
-    ) = create_picture_segments(
-        &template,
-        &fast_threshold,
-        &mean_template_value,
-        &max_segments,
-    );
+    ) = create_picture_segments(&template, fast_threshold, mean_template_value, max_segments);
     // create slow segmented image
     let (
         picture_segments_slow,
         segment_sum_squared_deviations_slow,
         expected_corr_slow,
         segments_mean_slow,
-    ) = create_picture_segments(
-        &template,
-        &slow_threshold,
-        &mean_template_value,
-        &max_segments,
-    );
+    ) = create_picture_segments(&template, slow_threshold, mean_template_value, max_segments);
 
     // merge pictures segments
     let mut picture_segments_fast = merge_picture_segments(picture_segments_fast);
@@ -438,9 +422,9 @@ pub fn prepare_template_picture(
 #[allow(unused_assignments)]
 fn create_picture_segments(
     template: &ImageBuffer<Luma<u8>, Vec<u8>>,
-    threshold: &f32,
-    mean_template_value: &f32,
-    max_segments: &u32,
+    threshold: f32,
+    mean_template_value: f32,
+    max_segments: u32,
 ) -> (Vec<(u32, u32, u32, u32, f32)>, f32, f32, f32) {
     /// returns (picture_segments,segment_sum_squared_deviations, expected_corr, segments_mean)
     /// calls recursive divide and conquer binary segmentation function which divides
@@ -452,14 +436,14 @@ fn create_picture_segments(
 
     // call the recursive function to divide the picture into segments of similar pixel values
     let mut picture_segment_len = template_height * template_width;
-    let mut new_threshold = *threshold;
+    let mut new_threshold = threshold;
     let mut max_segments_calculated = (0.3 * (template_height * template_width) as f32) as u32;
 
-    if max_segments_calculated > *max_segments {
-        max_segments_calculated = *max_segments; // maybe as a variable
+    if max_segments_calculated > max_segments {
+        max_segments_calculated = max_segments; // maybe as a variable
     }
     while picture_segment_len > max_segments_calculated {
-        divide_and_conquer(&mut picture_segments, &template, 0, 0, &new_threshold);
+        divide_and_conquer(&mut picture_segments, &template, 0, 0, new_threshold);
         picture_segment_len = picture_segments.len() as u32;
         if picture_segment_len > max_segments_calculated {
             picture_segments = Vec::new();
@@ -515,7 +499,7 @@ fn divide_and_conquer(
     segment: &ImageBuffer<Luma<u8>, Vec<u8>>,
     x: u32,
     y: u32,
-    threshhold: &f32,
+    threshhold: f32,
 ) {
     /*
     function that segments template image into areas that have similar color
@@ -553,7 +537,7 @@ fn divide_and_conquer(
         (sum_squared_deviations as f32 / (segment_width * segment_height) as f32).sqrt();
     let mut additional_pixel = 0;
 
-    if average_deviation > *threshhold {
+    if average_deviation > threshhold {
         //split image
         // let (image_1, image_2) =
         if segment_width >= segment_height || segment_height == 1 {

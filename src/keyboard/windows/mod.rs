@@ -112,7 +112,7 @@ impl Keyboard {
     }
 
     /// Function used when sending commands like "return" or "escape"
-    pub fn send_command(&self, key: &String) -> Result<(), AutoGuiError> {
+    pub fn send_command(&self, key: &str) -> Result<(), AutoGuiError> {
         let (value, _) = get_keymap_key(&self, key)?;
         Keyboard::send_key(value);
         Ok(())
@@ -120,8 +120,8 @@ impl Keyboard {
 
     pub fn send_multi_key(
         &self,
-        key_1: &String,
-        key_2: &String,
+        key_1: &str,
+        key_2: &str,
         key_3: Option<String>,
     ) -> Result<(), AutoGuiError> {
         let (value_1, _) = get_keymap_key(&self, key_1)?;

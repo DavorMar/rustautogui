@@ -113,7 +113,7 @@ impl Keyboard {
     }
 
     /// grabs the value from structs keymap, then converts String to Keysim, and then keysim to Keycode.
-    unsafe fn get_keycode(&self, key: &String) -> Result<(u32, &bool), AutoGuiError> {
+    unsafe fn get_keycode(&self, key: &str) -> Result<(u32, &bool), AutoGuiError> {
         let (value, shifted) = get_keymap_key(self, key)?;
 
         let mut keysym_to_keycode = HashMap::new();
@@ -156,7 +156,7 @@ impl Keyboard {
     }
 
     /// similar to send char, but can be string such as return, escape etc
-    pub fn send_command(&self, key: &String) -> Result<(), AutoGuiError> {
+    pub fn send_command(&self, key: &str) -> Result<(), AutoGuiError> {
         unsafe {
             let keycode = self.get_keycode(key)?;
             self.send_key(keycode.0);
@@ -166,8 +166,8 @@ impl Keyboard {
 
     pub fn send_multi_key(
         &self,
-        key_1: &String,
-        key_2: &String,
+        key_1: &str,
+        key_2: &str,
         key_3: Option<String>,
     ) -> Result<(), AutoGuiError> {
         unsafe {

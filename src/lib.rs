@@ -144,16 +144,16 @@ impl RustAutoGui {
             template: None,
             prepared_data: PreparedData::None,
             prepared_data_stored: imports::HashMap::new(),
-            debug: debug,
+            debug,
             template_width: 0,
             template_height: 0,
-            keyboard: keyboard,
+            keyboard,
             mouse: mouse_struct,
-            screen: screen,
+            screen,
             match_mode: None,
             max_segments: None,
             region: (0, 0, 0, 0),
-            suppress_warnings: suppress_warnings,
+            suppress_warnings,
             alias_used: DEFAULT_ALIAS.to_string(),
         })
     }
@@ -214,12 +214,12 @@ impl RustAutoGui {
     // and if template size > region size
     fn check_if_region_out_of_bound(
         &mut self,
-        template_width: &u32,
-        template_height: &u32,
-        region_x: &u32,
-        region_y: &u32,
-        region_width: &u32,
-        region_height: &u32,
+        template_width: u32,
+        template_height: u32,
+        region_x: u32,
+        region_y: u32,
+        region_width: u32,
+        region_height: u32,
     ) -> Result<(), AutoGuiError> {
         if (region_x + region_width > self.screen.screen_width as u32)
             | (region_y + region_height > self.screen.screen_height as u32)
@@ -231,8 +231,8 @@ impl RustAutoGui {
 
         // this is a redundant check since this case should be covered by the
         // next region check, but leaving it
-        if (template_width > &(self.screen.screen_width as u32))
-            | (template_height > &(self.screen.screen_height as u32))
+        if (template_width > (self.screen.screen_width as u32))
+            | (template_height > (self.screen.screen_height as u32))
         {
             return Err(AutoGuiError::OutOfBoundsError(
                 "Template size larger than screen size".to_string(),
@@ -258,7 +258,7 @@ impl RustAutoGui {
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
         max_segments: Option<u32>,
-        alias: Option<String>,
+        alias: Option<&str>,
     ) -> Result<(), AutoGuiError> {
         // resize and adjust if retina screen is used
         // prepare additionally backup template for 2 screen size variants
@@ -271,8 +271,8 @@ impl RustAutoGui {
         // we dont want to back up the backup
         #[cfg(target_os = "macos")]
         {
-            self.prepare_macos_backup(max_segments, &match_mode, template.clone(), region, &alias)?;
-            match alias.clone() {
+            self.prepare_macos_backup(max_segments, &match_mode, template.clone(), region, alias)?;
+            match alias {
                 Some(a) => {
                     if a.contains(DEFAULT_BCKP_ALIAS) {
                         ()
@@ -307,12 +307,12 @@ impl RustAutoGui {
             }
         };
         self.check_if_region_out_of_bound(
-            &template_width,
-            &template_height,
-            &region.0,
-            &region.1,
-            &region.2,
-            &region.3,
+            template_width,
+            template_height,
+            region.0,
+            region.1,
+            region.2,
+            region.3,
         )?;
 
         // do the rest of preparation calculations depending on the matchmode
@@ -323,7 +323,7 @@ impl RustAutoGui {
             MatchMode::FFT => {
                 let prepared_data =
                     PreparedData::FFT(normalized_x_corr::fft_ncc::prepare_template_picture(
-                        &template, &region.2, &region.3,
+                        &template, region.2, region.3,
                     ));
                 let match_mode = Some(MatchMode::FFT);
                 (prepared_data, match_mode)
@@ -359,7 +359,7 @@ impl RustAutoGui {
         match alias {
             Some(name) => {
                 self.prepared_data_stored
-                    .insert(name, (template_data, region));
+                    .insert(name.into(), (template_data, region));
             }
             None => {
                 self.region = region;
@@ -388,18 +388,12 @@ impl RustAutoGui {
         match_mode: &MatchMode,
         template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>,
         region: Option<(u32, u32, u32, u32)>,
-        alias: &Option<String>,
+        alias: Option<&str>,
     ) -> Result<(), AutoGuiError> {
         {
             if ((self.screen.scaling_factor_x > 1.0) | (self.screen.scaling_factor_y > 1.0))
-                & (match alias.clone() {
-                    Some(a) => {
-                        if a.contains(DEFAULT_BCKP_ALIAS) {
-                            false
-                        } else {
-                            true
-                        }
-                    }
+                & (match alias {
+                    Some(a) => !a.contains(DEFAULT_BCKP_ALIAS),
                     None => true,
                 })
             // if conditions are met, prepare the backup
@@ -408,7 +402,7 @@ impl RustAutoGui {
                 // matching alias to see is it regular single template load
                 // or storing template with alias
                 // where names for backups differ
-                let backup_alias = match alias.clone() {
+                let backup_alias = match alias.map(ToString::to_string) {
                     Some(mut a) => {
                         a.push('_');
                         a.push_str(DEFAULT_BCKP_ALIAS);
@@ -424,7 +418,7 @@ impl RustAutoGui {
                     region,
                     match_mode.clone(),
                     max_segments,
-                    backup_alias,
+                    &backup_alias,
                 )?;
             };
         }
@@ -433,7 +427,7 @@ impl RustAutoGui {
     }
 
     #[allow(dead_code)]
-    fn check_alias_name(alias: &String) -> Result<(), ImageProcessingError> {
+    fn check_alias_name(alias: &str) -> Result<(), ImageProcessingError> {
         if (alias.contains(DEFAULT_ALIAS)) | (alias.contains(DEFAULT_BCKP_ALIAS)) {
             return Err(ImageProcessingError::new(
                 "Please do not use built in default alias names",
@@ -469,7 +463,7 @@ impl RustAutoGui {
         T: imports::Primitive + imports::ToPrimitive + 'static,
     {
         let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
-        let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, &color_scheme)?;
+        let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, color_scheme)?;
         self.prepare_template_picture_bw(luma_img, region, match_mode, max_segments, None)?;
         Ok(())
     }
@@ -495,7 +489,7 @@ impl RustAutoGui {
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
         max_segments: Option<u32>,
-        alias: String,
+        alias: &str,
     ) -> Result<(), AutoGuiError> {
         // RustAutoGui::check_alias_name(&alias)?;
         let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
@@ -510,7 +504,7 @@ impl RustAutoGui {
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
         max_segments: Option<u32>,
-        alias: String,
+        alias: &str,
     ) -> Result<(), AutoGuiError>
     where
         P: imports::Pixel<Subpixel = T> + 'static,
@@ -518,7 +512,7 @@ impl RustAutoGui {
     {
         // RustAutoGui::check_alias_name(&alias)?;
         let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
-        let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, &color_scheme)?;
+        let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, color_scheme)?;
         self.prepare_template_picture_bw(luma_img, region, match_mode, max_segments, Some(alias))
     }
 
@@ -529,7 +523,7 @@ impl RustAutoGui {
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
         max_segments: Option<u32>,
-        alias: String,
+        alias: &str,
     ) -> Result<(), AutoGuiError> {
         // RustAutoGui::check_alias_name(&alias)?;
         let image = image::load_from_memory(img_raw)?;
@@ -587,7 +581,7 @@ impl RustAutoGui {
                     }
                     let prepared_data =
                         PreparedData::FFT(normalized_x_corr::fft_ncc::prepare_template_picture(
-                            &template, &region.2, &region.3,
+                            &template, region.2, region.3,
                         ));
                     self.prepared_data = prepared_data;
                     self.match_mode = Some(MatchMode::FFT);
@@ -724,7 +718,7 @@ impl RustAutoGui {
     pub fn find_stored_image_on_screen(
         &mut self,
         precision: f32,
-        alias: &String,
+        alias: &str,
     ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
         let (prepared_data, region) =
             self.prepared_data_stored
@@ -742,7 +736,7 @@ impl RustAutoGui {
             starting_alias_used: self.alias_used.clone(),
         };
 
-        self.alias_used = alias.clone();
+        self.alias_used = alias.into();
         self.prepared_data = prepared_data.clone();
         self.screen.screen_region_width = region.2;
         self.screen.screen_region_height = region.3;
@@ -772,7 +766,7 @@ impl RustAutoGui {
         &mut self,
         precision: f32,
         timeout: u64,
-        alias: &String,
+        alias: &str,
     ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
         if (timeout == 0) & (!self.suppress_warnings) {
             eprintln!(
@@ -798,7 +792,7 @@ impl RustAutoGui {
         &mut self,
         precision: f32,
         moving_time: f32,
-        alias: &String,
+        alias: &str,
     ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
         let (prepared_data, region) =
             self.prepared_data_stored
@@ -815,7 +809,7 @@ impl RustAutoGui {
             starting_template_width: self.template_width.clone(),
             starting_alias_used: self.alias_used.clone(),
         };
-        self.alias_used = alias.clone();
+        self.alias_used = alias.into();
         self.prepared_data = prepared_data.clone();
         self.region = *region;
         self.screen.screen_region_width = region.2;
@@ -849,7 +843,7 @@ impl RustAutoGui {
         precision: f32,
         moving_time: f32,
         timeout: u64,
-        alias: &String,
+        alias: &str,
     ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
         if (timeout == 0) & (!self.suppress_warnings) {
             eprintln!(
@@ -938,11 +932,11 @@ impl RustAutoGui {
     ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
         let found_locations = match &self.prepared_data {
             PreparedData::FFT(data) => {
-                let found_locations = normalized_x_corr::fft_ncc::fft_ncc(&image, &precision, data);
+                let found_locations = normalized_x_corr::fft_ncc::fft_ncc(&image, precision, data);
                 found_locations
             },
             PreparedData::Segmented(data) => {
-                let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, &precision, &data, &self.debug, &self.suppress_warnings);
+                let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, precision, &data, &self.debug, &self.suppress_warnings);
                 found_locations
             },
             PreparedData::None => {
@@ -1015,10 +1009,8 @@ impl RustAutoGui {
         }
         #[cfg(target_os = "macos")]
         {
-            if moving_time < 0.5 {
-                if !self.suppress_warnings {
-                    eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
-                }
+            if moving_time < 0.5 && !self.suppress_warnings {
+                eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
             }
             return imports::Mouse::drag_mouse(x as i32, y as i32, moving_time);
         }
@@ -1149,8 +1141,7 @@ impl RustAutoGui {
             None => None,
         };
         // send automatically result of function
-        self.keyboard
-            .send_multi_key(&String::from(input1), &String::from(input2), input3)
+        self.keyboard.send_multi_key(input1, input2, input3)
     }
 
     /// DEPRECATED

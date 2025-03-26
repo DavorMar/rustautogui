@@ -84,8 +84,8 @@ pub fn slow_ncc_template_match(
 
 fn calculate_corr_value(
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
-    image_integral: &Vec<Vec<u64>>,
-    squared_image_integral: &Vec<Vec<u64>>,
+    image_integral: &[Vec<u64>],
+    squared_image_integral: &[Vec<u64>],
     template: &ImageBuffer<Luma<u8>, Vec<u8>>,
     template_width: u32,
     template_height: u32,

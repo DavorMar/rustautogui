@@ -46,7 +46,7 @@ where
 
 pub fn convert_t_imgbuffer_to_luma<P, T>(
     image: &ImageBuffer<P, Vec<T>>,
-    color_scheme: &u32,
+    color_scheme: u32,
 ) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError>
 where
     P: Pixel<Subpixel = T> + 'static,
