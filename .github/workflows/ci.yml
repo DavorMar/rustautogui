@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
   merge_group:
 
@@ -27,6 +27,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install x11 dev packages (linux)
+        run: |
+          sudo apt update
+          sudo apt install -y libx11-dev libxtst-dev
+        # Only install on Ubuntu
+        if: matrix.os == 'ubuntu-latest'
 
       - name: Install Rust toolchain
         run: rustup target add ${{ matrix.target }}
