@@ -5,8 +5,7 @@ and converting image to vector.
 */
 use crate::errors::AutoGuiError;
 use image::{
-    error::LimitError, DynamicImage, GrayImage, ImageBuffer, Luma,
-    Pixel, Primitive, Rgb, Rgba,
+    error::LimitError, DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba,
 };
 
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};

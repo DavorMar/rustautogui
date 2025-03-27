@@ -1033,7 +1033,7 @@ impl RustAutoGui {
         }
     }
 
-    /// executes left mouse click    
+    /// executes left mouse click
     pub fn left_click(&self) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
         return self.mouse.mouse_click(mouse::MouseClick::LEFT);
@@ -1154,10 +1154,7 @@ impl RustAutoGui {
     }
 
     /// DEPRECATED
-    #[deprecated(
-        since = "2.2.0",
-        note = "Renamed to prepare_template_from_file."
-    )]
+    #[deprecated(since = "2.2.0", note = "Renamed to prepare_template_from_file.")]
     pub fn load_and_prepare_template(
         &mut self,
         template_path: &str,
