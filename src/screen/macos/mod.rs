@@ -52,15 +52,13 @@ impl Screen {
 
     /// returns screen dimensions. All monitors included
     pub fn dimension(&self) -> (i32, i32) {
-        let dimensions = (self.screen_width, self.screen_height);
-        dimensions
+        (self.screen_width, self.screen_height)
     }
 
     #[allow(dead_code)]
     /// return region dimension which is set up when template is precalculated
     pub fn region_dimension(&self) -> (u32, u32) {
-        let dimensions = (self.screen_region_width, self.screen_region_height);
-        dimensions
+        (self.screen_region_width, self.screen_region_height)
     }
 
     #[allow(dead_code)]
@@ -147,7 +145,7 @@ impl Screen {
             "Could not convert image to grayscale".to_string(),
         ))?;
         let image = resize(
-            &mut image,
+            &image,
             self.screen_width as u32,
             self.screen_height as u32,
             Nearest,

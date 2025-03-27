@@ -1,10 +1,13 @@
 #![allow(unused_doc_comments, unused_imports)]
+#![allow(clippy::type_complexity)]
+#![allow(clippy::too_many_arguments)]
 pub mod errors;
 pub mod imgtools;
 mod keyboard;
 mod mouse;
 pub mod normalized_x_corr;
 mod screen;
+use num_complex::Complex;
 
 mod imports {
     #[cfg(target_os = "linux")]
@@ -29,42 +32,35 @@ const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
 /// Struct of prepared data for each correlation method used
 /// Segmented consists of two image vectors and associated mean value, sum of squared deviations, sizes
 /// FFT vector consists of template vector converted to frequency domain and conjugated, sum squared deviations, size and padded size
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Clone)]
 enum PreparedData {
-    Segmented(
-        (
-            Vec<(u32, u32, u32, u32, f32)>, // template_segments_fast
-            Vec<(u32, u32, u32, u32, f32)>, // template_segments_slow
-            u32,                            // template_width
-            u32,                            // template_height
-            f32,                            // segment_sum_squared_deviations_fast
-            f32,                            // segment_sum_squared_deviations_slow
-            f32,                            // expected_corr_fast
-            f32,                            // expected_corr_slow
-            f32,                            // segments_mean_fast
-            f32,                            // segments_mean_slow
-        ),
-    ),
-    FFT(
-        (
-            Vec<imports::Complex<f32>>, // template_conj_freq
-            f32,                        // template_sum_squared_deviations
-            u32,                        // template_width
-            u32,                        // template_height
-            u32,                        // padded_size
-        ),
-    ),
-
+    Segmented(SegmentedData),
+    FFT(FftData),
     None,
 }
 
-impl Clone for PreparedData {
-    fn clone(&self) -> Self {
-        match self {
-            PreparedData::Segmented(data) => PreparedData::Segmented(data.clone()),
-            PreparedData::FFT(data) => PreparedData::FFT(data.clone()),
-            PreparedData::None => PreparedData::None,
-        }
-    }
+#[derive(Debug, Clone)]
+pub struct SegmentedData {
+    pub template_segments_fast: Vec<(u32, u32, u32, u32, f32)>,
+    pub template_segments_slow: Vec<(u32, u32, u32, u32, f32)>,
+    pub template_width: u32,
+    pub template_height: u32,
+    pub fast_segments_sum_squared_deviations: f32,
+    pub slow_segments_sum_squared_deviations: f32,
+    pub fast_expected_corr: f32,
+    pub slow_expected_corr: f32,
+    pub segments_mean_fast: f32,
+    pub segments_mean_slow: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct FftData {
+    pub template_conj_freq: Vec<Complex<f32>>,
+    pub template_sum_squared_deviations: f32,
+    pub template_width: u32,
+    pub template_height: u32,
+    pub padded_size: u32,
 }
 
 /// Matchmode Segmented correlation and Fourier transform correlation
@@ -176,16 +172,16 @@ impl RustAutoGui {
             template: None,
             prepared_data: PreparedData::None,
             prepared_data_stored: imports::HashMap::new(),
-            debug: debug,
+            debug,
             template_width: 0,
             template_height: 0,
-            keyboard: keyboard,
+            keyboard,
             mouse: mouse_struct,
-            screen: screen,
+            screen,
             match_mode: None,
             max_segments: None,
             region: (0, 0, 0, 0),
-            suppress_warnings: suppress_warnings,
+            suppress_warnings,
             alias_used: DEFAULT_ALIAS.to_string(),
         })
     }
@@ -274,9 +270,7 @@ impl RustAutoGui {
             self.prepare_macos_backup(max_segments, &match_mode, template.clone(), region, alias)?;
             match alias {
                 Some(a) => {
-                    if a.contains(DEFAULT_BCKP_ALIAS) {
-                        ()
-                    } else {
+                    if !a.contains(DEFAULT_BCKP_ALIAS) {
                         template = imports::resize(
                             &template,
                             template.width() / self.screen.scaling_factor_x as u32,
@@ -329,24 +323,16 @@ impl RustAutoGui {
                 (prepared_data, match_mode)
             }
             MatchMode::Segmented => {
-                let prepared_data: (
-                    Vec<(u32, u32, u32, u32, f32)>,
-                    Vec<(u32, u32, u32, u32, f32)>,
-                    u32,
-                    u32,
-                    f32,
-                    f32,
-                    f32,
-                    f32,
-                    f32,
-                    f32,
-                ) = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
-                    &template,
-                    max_segments,
-                    &self.debug,
-                );
+                let prepared_data =
+                    normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
+                        &template,
+                        max_segments,
+                        &self.debug,
+                    );
                 // mostly happens due to using too complex image with small max segments value
-                if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
+                if (prepared_data.template_segments_fast.len() == 1)
+                    | (prepared_data.template_segments_slow.len() == 1)
+                {
                     Err(ImageProcessingError::new("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"))?;
                 }
                 let match_mode = Some(MatchMode::Segmented);
@@ -375,7 +361,7 @@ impl RustAutoGui {
                 self.template = Some(template.clone());
             }
         }
-        return Ok(());
+        Ok(())
     }
 
     // prepares also unscaled variant of image if retina display is on
@@ -637,12 +623,12 @@ impl RustAutoGui {
                         println!("Created a debug folder in your root for saving segmented template images");
                         match image.save("debug/screen_capture.png") {
                             Ok(_) => (),
-                            Err(x) => println!("{}", x.to_string()),
+                            Err(x) => println!("{x}"),
                         };
                     }
                     Err(x) => {
                         println!("Failed to create debug folder");
-                        println!("{}", x.to_string());
+                        println!("{x}");
                     }
                 };
             }
@@ -675,7 +661,7 @@ impl RustAutoGui {
                     let mut bckp_alias = String::new();
 
                     // if its not a single image search, create a alias_backup hash
-                    if self.alias_used != DEFAULT_ALIAS.to_string() {
+                    if &self.alias_used != DEFAULT_ALIAS {
                         bckp_alias.push_str(self.alias_used.as_str());
                         bckp_alias.push('_');
                     }
@@ -729,10 +715,10 @@ impl RustAutoGui {
         // save to reset after finished
         let backup = BackupData {
             starting_data: self.prepared_data.clone(),
-            starting_region: self.region.clone(),
+            starting_region: self.region,
             starting_match_mode: self.match_mode.clone(),
-            starting_template_height: self.template_height.clone(),
-            starting_template_width: self.template_width.clone(),
+            starting_template_height: self.template_height,
+            starting_template_width: self.template_width,
             starting_alias_used: self.alias_used.clone(),
         };
 
@@ -743,13 +729,13 @@ impl RustAutoGui {
         self.region = *region;
         self.match_mode = match prepared_data {
             PreparedData::FFT(data) => {
-                self.template_width = data.2;
-                self.template_height = data.3;
+                self.template_width = data.template_width;
+                self.template_height = data.template_height;
                 Some(MatchMode::FFT)
             }
             PreparedData::Segmented(data) => {
-                self.template_width = data.2;
-                self.template_height = data.3;
+                self.template_width = data.template_width;
+                self.template_height = data.template_height;
                 Some(MatchMode::Segmented)
             }
             PreparedData::None => None,
@@ -803,10 +789,10 @@ impl RustAutoGui {
         // save to reset after finished
         let backup = BackupData {
             starting_data: self.prepared_data.clone(),
-            starting_region: self.region.clone(),
+            starting_region: self.region,
             starting_match_mode: self.match_mode.clone(),
-            starting_template_height: self.template_height.clone(),
-            starting_template_width: self.template_width.clone(),
+            starting_template_height: self.template_height,
+            starting_template_width: self.template_width,
             starting_alias_used: self.alias_used.clone(),
         };
         self.alias_used = alias.into();
@@ -816,14 +802,14 @@ impl RustAutoGui {
         self.screen.screen_region_height = region.3;
         self.match_mode = match prepared_data {
             PreparedData::FFT(data) => {
-                self.template_width = data.2;
-                self.template_height = data.3;
+                self.template_width = data.template_width;
+                self.template_height = data.template_height;
 
                 Some(MatchMode::FFT)
             }
             PreparedData::Segmented(data) => {
-                self.template_width = data.2;
-                self.template_height = data.3;
+                self.template_width = data.template_width;
+                self.template_height = data.template_height;
 
                 Some(MatchMode::Segmented)
             }
@@ -895,7 +881,7 @@ impl RustAutoGui {
 
         self.move_mouse_to_pos(target_x, target_y, moving_time)?;
 
-        return Ok(Some(locations_adjusted));
+        Ok(Some(locations_adjusted))
     }
 
     // loops until image is found and returns found values, or until it times out
@@ -932,12 +918,10 @@ impl RustAutoGui {
     ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
         let found_locations = match &self.prepared_data {
             PreparedData::FFT(data) => {
-                let found_locations = normalized_x_corr::fft_ncc::fft_ncc(&image, precision, data);
-                found_locations
+                normalized_x_corr::fft_ncc::fft_ncc(&image, precision, data)
             },
             PreparedData::Segmented(data) => {
-                let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, precision, &data, &self.debug, &self.suppress_warnings);
-                found_locations
+                normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, precision, data, &self.debug, &self.suppress_warnings)
             },
             PreparedData::None => {
                 Err(ImageProcessingError::new("No template chosen and no template data prepared. Please run load_and_prepare_template before searching image on screen"))?
@@ -945,17 +929,12 @@ impl RustAutoGui {
 
         };
 
-        if found_locations.len() > 0 {
+        if !found_locations.is_empty() {
             if self.debug {
-                let corrected_found_location: (u32, u32, f64);
-                let x = found_locations[0].0 as u32
-                    + (self.template_width / 2) as u32
-                    + self.region.0 as u32;
-                let y = found_locations[0].1 as u32
-                    + (self.template_height / 2) as u32
-                    + self.region.1 as u32;
+                let x = found_locations[0].0 as u32 + (self.template_width / 2) + self.region.0;
+                let y = found_locations[0].1 as u32 + (self.template_height / 2) + self.region.1;
                 let corr = found_locations[0].2;
-                corrected_found_location = (x, y, corr);
+                let corrected_found_location: (u32, u32, f64) = (x, y, corr);
 
                 println!(
                     "Location found at x: {}, y {}, corr {} ",
@@ -964,10 +943,10 @@ impl RustAutoGui {
                     corrected_found_location.2
                 )
             }
-            return Ok(Some(found_locations));
+            Ok(Some(found_locations))
         } else {
-            return Ok(None);
-        };
+            Ok(None)
+        }
     }
 
     //////////////////////////////// MOUSE ////////////////////////////////////////
@@ -1012,51 +991,48 @@ impl RustAutoGui {
             if moving_time < 0.5 && !self.suppress_warnings {
                 eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
             }
-            return imports::Mouse::drag_mouse(x as i32, y as i32, moving_time);
+            imports::Mouse::drag_mouse(x as i32, y as i32, moving_time)
         }
         #[cfg(target_os = "linux")]
         {
-            if moving_time < 0.5 {
-                if !self.suppress_warnings {
-                    eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
-                }
+            if moving_time < 0.5 && !self.suppress_warnings {
+                eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
             }
-            return self.mouse.drag_mouse(x as i32, y as i32, moving_time);
+            self.mouse.drag_mouse(x as i32, y as i32, moving_time)
         }
     }
 
     /// executes left mouse click
     pub fn left_click(&self) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
-        return self.mouse.mouse_click(mouse::MouseClick::LEFT);
+        self.mouse.mouse_click(mouse::MouseClick::LEFT)?;
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT));
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
         #[cfg(target_os = "macos")]
-        return mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT)?;
+        Ok(())
     }
 
     /// executes right mouse click
     pub fn right_click(&self) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
-        return self.mouse.mouse_click(mouse::MouseClick::RIGHT);
+        self.mouse.mouse_click(mouse::MouseClick::RIGHT)?;
         #[cfg(target_os = "macos")]
-        return mouse::platform::Mouse::mouse_click(mouse::MouseClick::RIGHT);
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::RIGHT)?;
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::mouse_click(
-            mouse::MouseClick::RIGHT,
-        ));
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::RIGHT);
+        Ok(())
     }
 
     /// executes middle mouse click
     pub fn middle_click(&self) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
-        return self.mouse.mouse_click(mouse::MouseClick::MIDDLE);
+        self.mouse.mouse_click(mouse::MouseClick::MIDDLE)?;
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::mouse_click(
-            mouse::MouseClick::MIDDLE,
-        ));
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::MIDDLE);
         #[cfg(target_os = "macos")]
-        return mouse::platform::Mouse::mouse_click(mouse::MouseClick::MIDDLE);
+        mouse::platform::Mouse::mouse_click(mouse::MouseClick::MIDDLE)?;
+        Ok(())
     }
 
     /// executes double left mouse click
@@ -1064,52 +1040,56 @@ impl RustAutoGui {
         #[cfg(target_os = "linux")]
         {
             self.mouse.mouse_click(mouse::MouseClick::LEFT)?;
-            return self.mouse.mouse_click(mouse::MouseClick::LEFT);
+            self.mouse.mouse_click(mouse::MouseClick::LEFT)?;
         }
         #[cfg(target_os = "windows")]
         {
             mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
             mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
-            return Ok(());
         }
         #[cfg(target_os = "macos")]
-        return mouse::platform::Mouse::double_click();
+        mouse::platform::Mouse::double_click()?;
+        Ok(())
     }
 
     pub fn scroll_up(&self) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
-        return Ok(self.mouse.scroll(mouse::MouseScroll::UP));
+        self.mouse.scroll(mouse::MouseScroll::UP);
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::UP));
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::UP);
         #[cfg(target_os = "macos")]
-        return mouse::platform::Mouse::scroll(mouse::MouseScroll::UP);
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::UP)?;
+        Ok(())
     }
 
     pub fn scroll_down(&self) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
-        return Ok(self.mouse.scroll(mouse::MouseScroll::DOWN));
+        self.mouse.scroll(mouse::MouseScroll::DOWN);
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN));
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN);
         #[cfg(target_os = "macos")]
-        return mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN);
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN)?;
+        Ok(())
     }
 
     pub fn scroll_left(&self) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
-        return Ok(self.mouse.scroll(mouse::MouseScroll::LEFT));
+        self.mouse.scroll(mouse::MouseScroll::LEFT);
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT));
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT);
         #[cfg(target_os = "macos")]
-        return mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT);
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT)?;
+        Ok(())
     }
 
     pub fn scroll_right(&self) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
-        return Ok(self.mouse.scroll(mouse::MouseScroll::RIGHT));
+        self.mouse.scroll(mouse::MouseScroll::RIGHT);
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT));
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT);
         #[cfg(target_os = "macos")]
-        return mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT);
+        mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT)?;
+        Ok(())
     }
 
     //////////////////// Keyboard ////////////////////
@@ -1136,10 +1116,6 @@ impl RustAutoGui {
         input2: &str,
         input3: Option<&str>,
     ) -> Result<(), AutoGuiError> {
-        let input3 = match input3 {
-            Some(x) => Some(String::from(x)),
-            None => None,
-        };
         // send automatically result of function
         self.keyboard.send_multi_key(input1, input2, input3)
     }
