@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
   merge_group:
 
@@ -10,7 +10,7 @@ jobs:
   ci:
     name: CI
     runs-on: ubuntu-latest
-    needs: [check]
+    needs: [clippy-check]
     if: always()
     steps:
       - name: Done

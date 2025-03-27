@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [staging, trying, master]
+    branches: [main]
   pull_request:
   merge_group:
 
