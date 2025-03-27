@@ -38,7 +38,7 @@ Either run
 
 or add the crate in your Cargo.toml:
 
-`rustautogui = "2.2.1"`
+`rustautogui = "2.2.2"`
 
 For Linux additionally run:
 

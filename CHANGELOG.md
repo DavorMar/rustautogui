@@ -1,10 +1,14 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [2.2.2] - 2025-03-27
+### Fixed
+- use `&str` && `&[]` more wide
+
 ## [2.2.1] - 2025-03-26
 ### Fixed
 - macOS alias check turned off till fixed
-- use `&str` && `&[]` more wide
+
 
 ## [2.2.0] - 2025-03-25
 ### Added / Fixed
