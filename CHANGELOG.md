@@ -1,9 +1,13 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [2.2.2] - 2025-03-27
+### Fixed
+- use `&str` && `&[]` more wide
+
 ## [2.2.1] - 2025-03-26
 ### Fixed
-- macOS alias check turned off till fixed 
+- macOS alias check turned off till fixed
 
 
 ## [2.2.0] - 2025-03-25
@@ -19,7 +23,7 @@ All notable changes to this project will be documented in this file.
 - Added custom error type
 - Made template search for macOS retina displays more robust. Now 2 variants of template are stored, the provided one and resized one. The search is done for both of them. The reason for this is, it cannot be known if user is providing template image which he got as a snip which needs to be resized, or from a (for instance) downloaded image which does not require resize
 - updated to latest versions of dependencies
-- Fix: find_image_and_move_mouse now returns vec of all found locations instead of just top location 
+- Fix: find_image_and_move_mouse now returns vec of all found locations instead of just top location
 - Fix: README code examples fixed
 - Fix: check for out of bounds on windows mouse move fixed
 - imgtools::convert_image_to_bw was renamed to convert_rgba_to_bw
@@ -29,7 +33,7 @@ All notable changes to this project will be documented in this file.
 
 
 
- 
+
 
 ## [2.1.1] - 2025-03.16
 ### Fixed
@@ -54,11 +58,11 @@ All notable changes to this project will be documented in this file.
 ## [2.0.1] - 2025-03.14
 ### Fixed
 - Fixed readme code examples
-- fixed Segmented normalized cross correlation doing false matches.  
+- fixed Segmented normalized cross correlation doing false matches.
 
 ## [2.0.0] - 2025-03.10
 ### Added/Fixed
-- complete rework of the code which will not be compatible with old versions. 
+- complete rework of the code which will not be compatible with old versions.
 - introduced graceful exits, except for some situations like not having x11 activated on linux
 - most of methods return Result<> now.
 
@@ -77,7 +81,7 @@ All notable changes to this project will be documented in this file.
 
 ## [0.3.1] - 2024-08.01
 ### Added
--small optimization to template prepare 
+-small optimization to template prepare
 
 ## [0.3.0] - 2024-07.27
 ### Removed

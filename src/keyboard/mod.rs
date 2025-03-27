@@ -18,7 +18,7 @@ pub mod macos;
 use macos::Keyboard;
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
-fn get_keymap_key<'a>(target: &'a Keyboard, key: &String) -> Result<&'a (u16, bool), AutoGuiError> {
+fn get_keymap_key<'a>(target: &'a Keyboard, key: &str) -> Result<&'a (u16, bool), AutoGuiError> {
     let values = target
         .keymap
         .get(key)
@@ -30,10 +30,7 @@ fn get_keymap_key<'a>(target: &'a Keyboard, key: &String) -> Result<&'a (u16, bo
 }
 
 #[cfg(target_os = "linux")]
-fn get_keymap_key<'a>(
-    target: &'a Keyboard,
-    key: &String,
-) -> Result<&'a (String, bool), AutoGuiError> {
+fn get_keymap_key<'a>(target: &'a Keyboard, key: &str) -> Result<&'a (String, bool), AutoGuiError> {
     let values = target
         .keymap
         .get(key)

@@ -38,14 +38,14 @@ impl Screen {
             let scaling_factor_x = image_width as f64 / screen_width as f64;
             let scaling_factor_y = image_height as f64 / screen_height as f64;
             Ok(Self {
-                screen_height: screen_height,
-                screen_width: screen_width,
+                screen_height,
+                screen_width,
                 screen_region_height: 0,
                 screen_region_width: 0,
                 pixel_data: vec![0u8; (screen_width * screen_height * 4) as usize],
                 display: main_display,
-                scaling_factor_x: scaling_factor_x,
-                scaling_factor_y: scaling_factor_y,
+                scaling_factor_x,
+                scaling_factor_y,
             })
         }
     }

@@ -22,7 +22,7 @@ fn main() {
             )),
             rustautogui::MatchMode::Segmented,
             None,
-            "stars".to_string(),
+            "stars",
         )
         .unwrap();
 
@@ -76,7 +76,7 @@ fn main() {
 
     // loop till image of star is found or timeout of 15 seconds is hit
     rustautogui
-        .loop_find_stored_image_on_screen_and_move_mouse(0.95, 1.0, 15, &"stars".to_string())
+        .loop_find_stored_image_on_screen_and_move_mouse(0.95, 1.0, 15, "stars")
         .unwrap();
 
     thread::sleep(time::Duration::from_millis(500));

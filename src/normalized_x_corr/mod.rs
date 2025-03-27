@@ -2,7 +2,7 @@ pub mod fast_segment_x_corr;
 pub mod fft_ncc;
 pub mod slow_ncc;
 
-fn compute_integral_image(image: &Vec<Vec<u8>>) -> Vec<Vec<u64>> {
+fn compute_integral_image(image: &[Vec<u8>]) -> Vec<Vec<u64>> {
     /*
     Function that takes an image as input and computes an integral table (sum table).
     Table is calculated in a way : f(x,y) = sum where f(x1<=x, y1<=y), meaning it always
@@ -53,7 +53,7 @@ fn compute_integral_image(image: &Vec<Vec<u8>>) -> Vec<Vec<u64>> {
     integral_image
 }
 
-fn compute_squared_integral_image(image: &Vec<Vec<u8>>) -> Vec<Vec<u64>> {
+fn compute_squared_integral_image(image: &[Vec<u8>]) -> Vec<Vec<u64>> {
     /*
     Same as compute_integral_image, except we always take squared value of pixel f(x,y).
     */
@@ -86,7 +86,7 @@ fn compute_squared_integral_image(image: &Vec<Vec<u8>>) -> Vec<Vec<u64>> {
 }
 
 /// Compute both normal and squared integral image
-fn compute_integral_images(image: &Vec<Vec<u8>>) -> (Vec<Vec<u64>>, Vec<Vec<u64>>) {
+fn compute_integral_images(image: &[Vec<u8>]) -> (Vec<Vec<u64>>, Vec<Vec<u64>>) {
     let height = image.len() as u32;
     let width = if height > 0 { image[0].len() as u32 } else { 0 };
     let mut integral_image = vec![vec![0u64; width as usize]; height as usize];
@@ -127,7 +127,7 @@ fn compute_integral_images(image: &Vec<Vec<u8>>) -> (Vec<Vec<u64>>, Vec<Vec<u64>
     (integral_image, squared_integral_image)
 }
 
-fn sum_region(integral_image: &Vec<Vec<u64>>, x: u32, y: u32, width: u32, height: u32) -> u64 {
+fn sum_region(integral_image: &[Vec<u64>], x: u32, y: u32, width: u32, height: u32) -> u64 {
     /*
     Used to calculate sum region of an integral image. Bottom right pixel will have summed up value of everything above and left.
     In order to get exact sum value of subregion of the image, we take that sum from bottom right,
