@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use crate::errors::AutoGuiError;
 
+type Str = std::borrow::Cow<'static, str>;
+
 #[cfg(target_os = "windows")]
 pub mod windows;
 #[cfg(target_os = "windows")]
@@ -18,7 +20,7 @@ pub mod macos;
 use macos::Keyboard;
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
-fn get_keymap_key<'a>(target: &'a Keyboard, key: &str) -> Result<&'a (u16, bool), AutoGuiError> {
+fn get_keymap_key(target: &Keyboard, key: &str) -> Result<(u16, bool), AutoGuiError> {
     let values = target
         .keymap
         .get(key)
@@ -26,11 +28,11 @@ fn get_keymap_key<'a>(target: &'a Keyboard, key: &str) -> Result<&'a (u16, bool)
             "{} key/command is not supported",
             key
         )))?;
-    Ok(values)
+    Ok(*values)
 }
 
 #[cfg(target_os = "linux")]
-fn get_keymap_key<'a>(target: &'a Keyboard, key: &str) -> Result<&'a (String, bool), AutoGuiError> {
+fn get_keymap_key<'a>(target: &'a Keyboard, key: &str) -> Result<(&'a Str, bool), AutoGuiError> {
     let values = target
         .keymap
         .get(key)
@@ -38,5 +40,5 @@ fn get_keymap_key<'a>(target: &'a Keyboard, key: &str) -> Result<&'a (String, bo
             "{} key/command is not supported",
             key
         )))?;
-    Ok(values)
+    Ok((&values.0, values.1))
 }

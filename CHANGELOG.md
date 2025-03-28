@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+### Changed
+- `fft_ncc` takes `FFTData`, `fast_ncc_template_match` takes `SegmentedData`
+
 ## [2.2.2] - 2025-03-27
 ### Fixed
 - use `&str` && `&[]` more wide

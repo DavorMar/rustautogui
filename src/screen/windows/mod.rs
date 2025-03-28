@@ -40,24 +40,24 @@ impl Screen {
             let h_bitmap: *mut winapi::shared::windef::HBITMAP__ =
                 CreateCompatibleBitmap(h_screen_dc, screen_width, screen_height);
             Ok(Screen {
-                screen_height: screen_height,
-                screen_width: screen_width,
+                screen_height,
+                screen_width,
                 screen_region_height: screen_height as u32,
                 screen_region_width: screen_width as u32,
                 pixel_data: vec![0u8; (screen_width * screen_height * 4) as usize],
-                h_screen_dc: h_screen_dc,
+                h_screen_dc,
                 h_memory_dc: h_mem_dc,
-                h_bitmap: h_bitmap,
+                h_bitmap,
             })
         }
     }
     pub fn dimension(&self) -> (i32, i32) {
-        return (self.screen_width, self.screen_height);
+        (self.screen_width, self.screen_height)
     }
 
     #[allow(dead_code)]
     pub fn region_dimension(&self) -> (u32, u32) {
-        return (self.screen_region_width, self.screen_region_height);
+        (self.screen_region_width, self.screen_region_height)
     }
 
     /// clear memory and delete screen
