@@ -9,13 +9,14 @@ use std::time::Duration;
 use crate::errors::AutoGuiError;
 
 use super::get_keymap_key;
+use super::Str;
 
 pub struct Keyboard {
-    pub keymap: HashMap<String, (u16, bool)>,
+    pub keymap: HashMap<Str, (u16, bool)>,
 }
 impl Keyboard {
     pub fn new() -> Self {
-        let keymap: HashMap<String, (u16, bool)> = Keyboard::create_keymap();
+        let keymap: HashMap<Str, (u16, bool)> = Keyboard::create_keymap();
 
         Self { keymap }
     }
@@ -60,11 +61,9 @@ impl Keyboard {
         Ok(())
     }
 
-    pub fn send_char(&self, key: &char) -> Result<(), AutoGuiError> {
-        let char_string = String::from(*key);
-        let value = get_keymap_key(self, &char_string)?;
-        let shifted = value.1;
-        let value = value.0;
+    pub fn send_char(&self, key: char) -> Result<(), AutoGuiError> {
+        let char_string = String::from(key);
+        let (value, shifted) = get_keymap_key(self, &char_string)?;
         if shifted {
             self.send_shifted_key(value)?;
         } else {
@@ -136,180 +135,177 @@ impl Keyboard {
         Ok(())
     }
 
-    fn create_keymap() -> HashMap<String, (u16, bool)> {
-        let mut keymap: HashMap<String, (u16, bool)> = HashMap::new();
-        keymap.insert(String::from("return"), (KeyCode::RETURN, false));
-        keymap.insert(String::from("enter"), (KeyCode::RETURN, false));
-        keymap.insert(String::from("tab"), (KeyCode::TAB, false));
-        keymap.insert(String::from("space"), (KeyCode::SPACE, false));
-        keymap.insert(String::from(" "), (KeyCode::SPACE, false));
-        keymap.insert(String::from("delete"), (KeyCode::DELETE, false));
-        keymap.insert(String::from("del"), (KeyCode::DELETE, false));
-        keymap.insert(String::from("escape"), (KeyCode::ESCAPE, false));
-        keymap.insert(String::from("esc"), (KeyCode::ESCAPE, false));
-        keymap.insert(String::from("command"), (KeyCode::COMMAND, false));
-        keymap.insert(String::from("command_l"), (KeyCode::COMMAND, false));
-        keymap.insert(String::from("shift"), (KeyCode::SHIFT, false));
-        keymap.insert(String::from("shift_l"), (KeyCode::SHIFT, false));
-        keymap.insert(String::from("caps_lock"), (KeyCode::CAPS_LOCK, false));
-        keymap.insert(String::from("option"), (KeyCode::OPTION, false));
-        keymap.insert(String::from("option_l"), (KeyCode::OPTION, false));
-        keymap.insert(String::from("control"), (KeyCode::CONTROL, false));
-        keymap.insert(String::from("control_l"), (KeyCode::CONTROL, false));
-        keymap.insert(String::from("ctrl"), (KeyCode::CONTROL, false));
-        keymap.insert(String::from("command_r"), (KeyCode::RIGHT_COMMAND, false));
-        keymap.insert(String::from("shift_r"), (KeyCode::RIGHT_SHIFT, false));
-        keymap.insert(String::from("option_r"), (KeyCode::RIGHT_OPTION, false));
-        keymap.insert(String::from("control_r"), (KeyCode::RIGHT_CONTROL, false));
-        keymap.insert(String::from("function"), (KeyCode::FUNCTION, false));
-        keymap.insert(String::from("volumeup"), (KeyCode::VOLUME_UP, false));
-        keymap.insert(String::from("volumedown"), (KeyCode::VOLUME_DOWN, false));
-        keymap.insert(String::from("volumemute"), (KeyCode::MUTE, false));
-        keymap.insert(String::from("F1"), (KeyCode::F1, false));
-        keymap.insert(String::from("F2"), (KeyCode::F2, false));
-        keymap.insert(String::from("F3"), (KeyCode::F3, false));
-        keymap.insert(String::from("F4"), (KeyCode::F4, false));
-        keymap.insert(String::from("F5"), (KeyCode::F5, false));
-        keymap.insert(String::from("F6"), (KeyCode::F6, false));
-        keymap.insert(String::from("F7"), (KeyCode::F7, false));
-        keymap.insert(String::from("F8"), (KeyCode::F8, false));
-        keymap.insert(String::from("F9"), (KeyCode::F9, false));
-        keymap.insert(String::from("F10"), (KeyCode::F10, false));
-        keymap.insert(String::from("F11"), (KeyCode::F11, false));
-        keymap.insert(String::from("F12"), (KeyCode::F12, false));
-        keymap.insert(String::from("F13"), (KeyCode::F13, false));
-        keymap.insert(String::from("F14"), (KeyCode::F14, false));
-        keymap.insert(String::from("F15"), (KeyCode::F15, false));
-        keymap.insert(String::from("F16"), (KeyCode::F16, false));
-        keymap.insert(String::from("F17"), (KeyCode::F17, false));
-        keymap.insert(String::from("F18"), (KeyCode::F18, false));
-        keymap.insert(String::from("F19"), (KeyCode::F19, false));
-        keymap.insert(String::from("F20"), (KeyCode::F20, false));
-        keymap.insert(String::from("help"), (KeyCode::HELP, false));
-        keymap.insert(String::from("home"), (KeyCode::HOME, false));
-        keymap.insert(String::from("page_up"), (KeyCode::PAGE_UP, false));
-        keymap.insert(String::from("pgup"), (KeyCode::PAGE_UP, false));
-        keymap.insert(
-            String::from("forward_delete"),
-            (KeyCode::FORWARD_DELETE, false),
-        );
-        keymap.insert(String::from("end"), (KeyCode::END, false));
-        keymap.insert(String::from("page_down"), (KeyCode::PAGE_DOWN, false));
-        keymap.insert(String::from("pgdn"), (KeyCode::PAGE_DOWN, false));
-        keymap.insert(String::from("left_arrow"), (KeyCode::LEFT_ARROW, false));
-        keymap.insert(String::from("right_arrow"), (KeyCode::RIGHT_ARROW, false));
-        keymap.insert(String::from("down_arrow"), (KeyCode::DOWN_ARROW, false));
-        keymap.insert(String::from("up_arrow"), (KeyCode::UP_ARROW, false));
-        keymap.insert(String::from("left"), (KeyCode::LEFT_ARROW, false));
-        keymap.insert(String::from("right"), (KeyCode::RIGHT_ARROW, false));
-        keymap.insert(String::from("down"), (KeyCode::DOWN_ARROW, false));
-        keymap.insert(String::from("up"), (KeyCode::UP_ARROW, false));
+    fn create_keymap() -> HashMap<Str, (u16, bool)> {
+        let mut keymap = HashMap::new();
+        keymap.insert("return".into(), (KeyCode::RETURN, false));
+        keymap.insert("enter".into(), (KeyCode::RETURN, false));
+        keymap.insert("tab".into(), (KeyCode::TAB, false));
+        keymap.insert("space".into(), (KeyCode::SPACE, false));
+        keymap.insert(" ".into(), (KeyCode::SPACE, false));
+        keymap.insert("delete".into(), (KeyCode::DELETE, false));
+        keymap.insert("del".into(), (KeyCode::DELETE, false));
+        keymap.insert("escape".into(), (KeyCode::ESCAPE, false));
+        keymap.insert("esc".into(), (KeyCode::ESCAPE, false));
+        keymap.insert("command".into(), (KeyCode::COMMAND, false));
+        keymap.insert("command_l".into(), (KeyCode::COMMAND, false));
+        keymap.insert("shift".into(), (KeyCode::SHIFT, false));
+        keymap.insert("shift_l".into(), (KeyCode::SHIFT, false));
+        keymap.insert("caps_lock".into(), (KeyCode::CAPS_LOCK, false));
+        keymap.insert("option".into(), (KeyCode::OPTION, false));
+        keymap.insert("option_l".into(), (KeyCode::OPTION, false));
+        keymap.insert("control".into(), (KeyCode::CONTROL, false));
+        keymap.insert("control_l".into(), (KeyCode::CONTROL, false));
+        keymap.insert("ctrl".into(), (KeyCode::CONTROL, false));
+        keymap.insert("command_r".into(), (KeyCode::RIGHT_COMMAND, false));
+        keymap.insert("shift_r".into(), (KeyCode::RIGHT_SHIFT, false));
+        keymap.insert("option_r".into(), (KeyCode::RIGHT_OPTION, false));
+        keymap.insert("control_r".into(), (KeyCode::RIGHT_CONTROL, false));
+        keymap.insert("function".into(), (KeyCode::FUNCTION, false));
+        keymap.insert("volumeup".into(), (KeyCode::VOLUME_UP, false));
+        keymap.insert("volumedown".into(), (KeyCode::VOLUME_DOWN, false));
+        keymap.insert("volumemute".into(), (KeyCode::MUTE, false));
+        keymap.insert("F1".into(), (KeyCode::F1, false));
+        keymap.insert("F2".into(), (KeyCode::F2, false));
+        keymap.insert("F3".into(), (KeyCode::F3, false));
+        keymap.insert("F4".into(), (KeyCode::F4, false));
+        keymap.insert("F5".into(), (KeyCode::F5, false));
+        keymap.insert("F6".into(), (KeyCode::F6, false));
+        keymap.insert("F7".into(), (KeyCode::F7, false));
+        keymap.insert("F8".into(), (KeyCode::F8, false));
+        keymap.insert("F9".into(), (KeyCode::F9, false));
+        keymap.insert("F10".into(), (KeyCode::F10, false));
+        keymap.insert("F11".into(), (KeyCode::F11, false));
+        keymap.insert("F12".into(), (KeyCode::F12, false));
+        keymap.insert("F13".into(), (KeyCode::F13, false));
+        keymap.insert("F14".into(), (KeyCode::F14, false));
+        keymap.insert("F15".into(), (KeyCode::F15, false));
+        keymap.insert("F16".into(), (KeyCode::F16, false));
+        keymap.insert("F17".into(), (KeyCode::F17, false));
+        keymap.insert("F18".into(), (KeyCode::F18, false));
+        keymap.insert("F19".into(), (KeyCode::F19, false));
+        keymap.insert("F20".into(), (KeyCode::F20, false));
+        keymap.insert("help".into(), (KeyCode::HELP, false));
+        keymap.insert("home".into(), (KeyCode::HOME, false));
+        keymap.insert("page_up".into(), (KeyCode::PAGE_UP, false));
+        keymap.insert("pgup".into(), (KeyCode::PAGE_UP, false));
+        keymap.insert("forward_delete".into(), (KeyCode::FORWARD_DELETE, false));
+        keymap.insert("end".into(), (KeyCode::END, false));
+        keymap.insert("page_down".into(), (KeyCode::PAGE_DOWN, false));
+        keymap.insert("pgdn".into(), (KeyCode::PAGE_DOWN, false));
+        keymap.insert("left_arrow".into(), (KeyCode::LEFT_ARROW, false));
+        keymap.insert("right_arrow".into(), (KeyCode::RIGHT_ARROW, false));
+        keymap.insert("down_arrow".into(), (KeyCode::DOWN_ARROW, false));
+        keymap.insert("up_arrow".into(), (KeyCode::UP_ARROW, false));
+        keymap.insert("left".into(), (KeyCode::LEFT_ARROW, false));
+        keymap.insert("right".into(), (KeyCode::RIGHT_ARROW, false));
+        keymap.insert("down".into(), (KeyCode::DOWN_ARROW, false));
+        keymap.insert("up".into(), (KeyCode::UP_ARROW, false));
 
-        keymap.insert(String::from("1"), (18, false));
-        keymap.insert(String::from("2"), (19, false));
-        keymap.insert(String::from("3"), (20, false));
-        keymap.insert(String::from("4"), (21, false));
-        keymap.insert(String::from("5"), (23, false));
-        keymap.insert(String::from("6"), (22, false));
-        keymap.insert(String::from("7"), (26, false));
-        keymap.insert(String::from("8"), (28, false));
-        keymap.insert(String::from("9"), (25, false));
-        keymap.insert(String::from("0"), (29, false));
+        keymap.insert("1".into(), (18, false));
+        keymap.insert("2".into(), (19, false));
+        keymap.insert("3".into(), (20, false));
+        keymap.insert("4".into(), (21, false));
+        keymap.insert("5".into(), (23, false));
+        keymap.insert("6".into(), (22, false));
+        keymap.insert("7".into(), (26, false));
+        keymap.insert("8".into(), (28, false));
+        keymap.insert("9".into(), (25, false));
+        keymap.insert("0".into(), (29, false));
 
-        keymap.insert(String::from("!"), (18, true));
-        keymap.insert(String::from("@"), (19, true));
-        keymap.insert(String::from("#"), (20, true));
-        keymap.insert(String::from("$"), (21, true));
-        keymap.insert(String::from("%"), (23, true));
-        keymap.insert(String::from("^"), (22, true));
-        keymap.insert(String::from("&"), (26, true));
-        keymap.insert(String::from("*"), (28, true));
-        keymap.insert(String::from("("), (25, true));
-        keymap.insert(String::from(")"), (29, true));
+        keymap.insert("!".into(), (18, true));
+        keymap.insert("@".into(), (19, true));
+        keymap.insert("#".into(), (20, true));
+        keymap.insert("$".into(), (21, true));
+        keymap.insert("%".into(), (23, true));
+        keymap.insert("^".into(), (22, true));
+        keymap.insert("&".into(), (26, true));
+        keymap.insert("*".into(), (28, true));
+        keymap.insert("(".into(), (25, true));
+        keymap.insert(".into()".into(), (29, true));
 
-        keymap.insert(String::from("A"), (0, true));
-        keymap.insert(String::from("B"), (11, true));
-        keymap.insert(String::from("C"), (8, true));
-        keymap.insert(String::from("D"), (2, true));
-        keymap.insert(String::from("E"), (14, true));
-        keymap.insert(String::from("F"), (3, true));
-        keymap.insert(String::from("G"), (5, true));
-        keymap.insert(String::from("H"), (4, true));
-        keymap.insert(String::from("I"), (34, true));
-        keymap.insert(String::from("J"), (38, true));
-        keymap.insert(String::from("K"), (40, true));
-        keymap.insert(String::from("L"), (37, true));
-        keymap.insert(String::from("M"), (46, true));
-        keymap.insert(String::from("N"), (45, true));
-        keymap.insert(String::from("O"), (31, true));
-        keymap.insert(String::from("P"), (35, true));
-        keymap.insert(String::from("Q"), (12, true));
-        keymap.insert(String::from("R"), (15, true));
-        keymap.insert(String::from("S"), (1, true));
-        keymap.insert(String::from("T"), (17, true));
-        keymap.insert(String::from("U"), (32, true));
-        keymap.insert(String::from("V"), (9, true));
-        keymap.insert(String::from("W"), (13, true));
-        keymap.insert(String::from("X"), (7, true));
-        keymap.insert(String::from("Y"), (16, true));
-        keymap.insert(String::from("Z"), (6, true));
+        keymap.insert("A".into(), (0, true));
+        keymap.insert("B".into(), (11, true));
+        keymap.insert("C".into(), (8, true));
+        keymap.insert("D".into(), (2, true));
+        keymap.insert("E".into(), (14, true));
+        keymap.insert("F".into(), (3, true));
+        keymap.insert("G".into(), (5, true));
+        keymap.insert("H".into(), (4, true));
+        keymap.insert("I".into(), (34, true));
+        keymap.insert("J".into(), (38, true));
+        keymap.insert("K".into(), (40, true));
+        keymap.insert("L".into(), (37, true));
+        keymap.insert("M".into(), (46, true));
+        keymap.insert("N".into(), (45, true));
+        keymap.insert("O".into(), (31, true));
+        keymap.insert("P".into(), (35, true));
+        keymap.insert("Q".into(), (12, true));
+        keymap.insert("R".into(), (15, true));
+        keymap.insert("S".into(), (1, true));
+        keymap.insert("T".into(), (17, true));
+        keymap.insert("U".into(), (32, true));
+        keymap.insert("V".into(), (9, true));
+        keymap.insert("W".into(), (13, true));
+        keymap.insert("X".into(), (7, true));
+        keymap.insert("Y".into(), (16, true));
+        keymap.insert("Z".into(), (6, true));
 
-        keymap.insert(String::from("a"), (0, false));
-        keymap.insert(String::from("b"), (11, false));
-        keymap.insert(String::from("c"), (8, false));
-        keymap.insert(String::from("d"), (2, false));
-        keymap.insert(String::from("e"), (14, false));
-        keymap.insert(String::from("f"), (3, false));
-        keymap.insert(String::from("g"), (5, false));
-        keymap.insert(String::from("h"), (4, false));
-        keymap.insert(String::from("i"), (34, false));
-        keymap.insert(String::from("j"), (38, false));
-        keymap.insert(String::from("k"), (40, false));
-        keymap.insert(String::from("l"), (37, false));
-        keymap.insert(String::from("m"), (46, false));
-        keymap.insert(String::from("n"), (45, false));
-        keymap.insert(String::from("o"), (31, false));
-        keymap.insert(String::from("p"), (35, false));
-        keymap.insert(String::from("q"), (12, false));
-        keymap.insert(String::from("r"), (15, false));
-        keymap.insert(String::from("s"), (1, false));
-        keymap.insert(String::from("t"), (17, false));
-        keymap.insert(String::from("u"), (32, false));
-        keymap.insert(String::from("v"), (9, false));
-        keymap.insert(String::from("w"), (13, false));
-        keymap.insert(String::from("x"), (7, false));
-        keymap.insert(String::from("y"), (16, false));
-        keymap.insert(String::from("z"), (6, false));
+        keymap.insert("a".into(), (0, false));
+        keymap.insert("b".into(), (11, false));
+        keymap.insert("c".into(), (8, false));
+        keymap.insert("d".into(), (2, false));
+        keymap.insert("e".into(), (14, false));
+        keymap.insert("f".into(), (3, false));
+        keymap.insert("g".into(), (5, false));
+        keymap.insert("h".into(), (4, false));
+        keymap.insert("i".into(), (34, false));
+        keymap.insert("j".into(), (38, false));
+        keymap.insert("k".into(), (40, false));
+        keymap.insert("l".into(), (37, false));
+        keymap.insert("m".into(), (46, false));
+        keymap.insert("n".into(), (45, false));
+        keymap.insert("o".into(), (31, false));
+        keymap.insert("p".into(), (35, false));
+        keymap.insert("q".into(), (12, false));
+        keymap.insert("r".into(), (15, false));
+        keymap.insert("s".into(), (1, false));
+        keymap.insert("t".into(), (17, false));
+        keymap.insert("u".into(), (32, false));
+        keymap.insert("v".into(), (9, false));
+        keymap.insert("w".into(), (13, false));
+        keymap.insert("x".into(), (7, false));
+        keymap.insert("y".into(), (16, false));
+        keymap.insert("z".into(), (6, false));
 
-        keymap.insert(String::from("backspace"), (51, false));
-        keymap.insert(String::from("insert"), (114, false));
-        keymap.insert(String::from("print_screen"), (105, false));
-        keymap.insert(String::from("printscreen"), (105, false));
-        keymap.insert(String::from("printscrn"), (105, false));
-        keymap.insert(String::from("prtsc"), (105, false));
-        keymap.insert(String::from("prtscr"), (105, false));
-        keymap.insert(String::from("scroll_lock"), (107, false));
-        keymap.insert(String::from("pause"), (113, false));
-        keymap.insert(String::from("-"), (27, false));
-        keymap.insert(String::from("="), (24, false));
-        keymap.insert(String::from("["), (33, false));
-        keymap.insert(String::from("]"), (30, false));
-        keymap.insert(String::from("\\"), (42, false));
-        keymap.insert(String::from(";"), (41, false));
-        keymap.insert(String::from("'"), (39, false));
-        keymap.insert(String::from(","), (43, false));
-        keymap.insert(String::from("."), (47, false));
+        keymap.insert("backspace".into(), (51, false));
+        keymap.insert("insert".into(), (114, false));
+        keymap.insert("print_screen".into(), (105, false));
+        keymap.insert("printscreen".into(), (105, false));
+        keymap.insert("printscrn".into(), (105, false));
+        keymap.insert("prtsc".into(), (105, false));
+        keymap.insert("prtscr".into(), (105, false));
+        keymap.insert("scroll_lock".into(), (107, false));
+        keymap.insert("pause".into(), (113, false));
+        keymap.insert("-".into(), (27, false));
+        keymap.insert("=".into(), (24, false));
+        keymap.insert("[".into(), (33, false));
+        keymap.insert("]".into(), (30, false));
+        keymap.insert("\\".into(), (42, false));
+        keymap.insert(";".into(), (41, false));
+        keymap.insert("'".into(), (39, false));
+        keymap.insert(",".into(), (43, false));
+        keymap.insert(".".into(), (47, false));
 
-        keymap.insert(String::from("_"), (27, true));
-        keymap.insert(String::from("+"), (24, true));
-        keymap.insert(String::from("{"), (33, true));
-        keymap.insert(String::from("}"), (30, true));
-        keymap.insert(String::from("|"), (42, true));
-        keymap.insert(String::from(":"), (41, true));
-        keymap.insert(String::from("\""), (39, true));
-        keymap.insert(String::from("<"), (43, true));
-        keymap.insert(String::from(">"), (47, true));
-        keymap.insert(String::from("/"), (44, true));
+        keymap.insert("_".into(), (27, true));
+        keymap.insert("+".into(), (24, true));
+        keymap.insert("{".into(), (33, true));
+        keymap.insert("}".into(), (30, true));
+        keymap.insert("|".into(), (42, true));
+        keymap.insert(":".into(), (41, true));
+        keymap.insert("\"".into(), (39, true));
+        keymap.insert("<".into(), (43, true));
+        keymap.insert(">".into(), (47, true));
+        keymap.insert("/".into(), (44, true));
         keymap
     }
 }

@@ -661,7 +661,7 @@ impl RustAutoGui {
                     let mut bckp_alias = String::new();
 
                     // if its not a single image search, create a alias_backup hash
-                    if &self.alias_used != DEFAULT_ALIAS {
+                    if self.alias_used != DEFAULT_ALIAS {
                         bckp_alias.push_str(self.alias_used.as_str());
                         bckp_alias.push('_');
                     }
@@ -1098,7 +1098,7 @@ impl RustAutoGui {
     pub fn keyboard_input(&self, input: &str) -> Result<(), AutoGuiError> {
         let input_string = String::from(input);
         for letter in input_string.chars() {
-            self.keyboard.send_char(&letter)?;
+            self.keyboard.send_char(letter)?;
         }
         Ok(())
     }

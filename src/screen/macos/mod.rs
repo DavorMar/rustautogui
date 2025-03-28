@@ -136,7 +136,7 @@ impl Screen {
             let gray_value = ((r * 30 + g * 59 + b * 11) / 100) as u8;
             grayscale_data.push(gray_value);
         }
-        let mut image = GrayImage::from_raw(
+        let image = GrayImage::from_raw(
             (self.scaling_factor_x * self.screen_width as f64) as u32,
             (self.scaling_factor_y * self.screen_height as f64) as u32,
             grayscale_data,
