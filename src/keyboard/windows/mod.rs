@@ -9,7 +9,6 @@ use winapi::um::winuser::{
 };
 
 /// main struct for interacting with keyboard. Keymap is generated upon intialization.
-
 pub struct Keyboard {
     pub keymap: HashMap<String, (u16, bool)>,
 }
@@ -101,7 +100,7 @@ impl Keyboard {
     /// Keyboard::send_shifted_key is executed
     pub fn send_char(&self, key: &char) -> Result<(), AutoGuiError> {
         let char_string = String::from(*key);
-        let (value, shifted) = get_keymap_key(&self, &char_string)?;
+        let (value, shifted) = get_keymap_key(self, &char_string)?;
 
         if *shifted {
             Keyboard::send_shifted_key(value);
@@ -113,7 +112,7 @@ impl Keyboard {
 
     /// Function used when sending commands like "return" or "escape"
     pub fn send_command(&self, key: &str) -> Result<(), AutoGuiError> {
-        let (value, _) = get_keymap_key(&self, key)?;
+        let (value, _) = get_keymap_key(self, key)?;
         Keyboard::send_key(value);
         Ok(())
     }
@@ -122,16 +121,16 @@ impl Keyboard {
         &self,
         key_1: &str,
         key_2: &str,
-        key_3: Option<String>,
+        key_3: Option<&str>,
     ) -> Result<(), AutoGuiError> {
-        let (value_1, _) = get_keymap_key(&self, key_1)?;
-        let (value_2, _) = get_keymap_key(&self, key_2)?;
+        let (value_1, _) = get_keymap_key(self, key_1)?;
+        let (value_2, _) = get_keymap_key(self, key_2)?;
 
         let mut third_key = false;
         let value_3 = match key_3 {
             Some(value) => {
                 third_key = true;
-                let (value_, _) = get_keymap_key(&self, &value)?;
+                let (value_, _) = get_keymap_key(self, value)?;
                 value_
             }
             None => &0,
@@ -147,7 +146,7 @@ impl Keyboard {
             Keyboard::key_up(value_2);
             Keyboard::key_up(value_1);
         }
-        return Ok(());
+        Ok(())
     }
 
     /// mapping made so  bigger variety of strings can be used when sending string as input.

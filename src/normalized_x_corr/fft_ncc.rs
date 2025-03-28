@@ -4,7 +4,7 @@
  * http://scribblethink.org/Work/nvisionInterface/vi95_lewis.pdf
  */
 
-use crate::imgtools;
+use crate::{imgtools, FftData};
 use core::cmp::max;
 use image::{ImageBuffer, Luma};
 use rayon::prelude::*;
@@ -15,23 +15,23 @@ use super::{compute_integral_images, sum_region};
 pub fn fft_ncc(
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
     precision: f32,
-    prepared_data: &(Vec<Complex<f32>>, f32, u32, u32, u32),
+    prepared_data: &FftData,
 ) -> Vec<(u32, u32, f64)> {
     // retreive all precalculated template data, most importantly template with already fft and conjugation calculated
     // sum squared deviations will be needed for denominator
-    let (
+    let FftData {
         template_conj_freq,
         template_sum_squared_deviations,
         template_width,
         template_height,
         padded_size,
-    ) = prepared_data;
+    } = prepared_data;
 
     let mut planner = FftPlanner::<f32>::new();
     let fft: std::sync::Arc<dyn Fft<f32>> =
         planner.plan_fft_forward((padded_size * padded_size) as usize);
     let (image_width, image_height) = image.dimensions();
-    let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(&image);
+    let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(image);
 
     // compute needed integral images for denominator calculation
     let (image_integral, squared_image_integral) = compute_integral_images(&image_vec);
@@ -152,7 +152,7 @@ pub fn prepare_template_picture(
     template: &ImageBuffer<Luma<u8>, Vec<u8>>,
     image_width: u32,
     image_height: u32,
-) -> (Vec<Complex<f32>>, f32, u32, u32, u32) {
+) -> FftData {
     /// precalculate all the neccessary data so its not slowing down main process
     /// returning template in frequency domain, with calculated conjugate
     let (template_width, template_height) = template.dimensions();
@@ -176,7 +176,7 @@ pub fn prepare_template_picture(
     for y in 0..template_height {
         for x in 0..template_width {
             let template_value = template.get_pixel(x, y)[0] as f32;
-            let squared_deviation = (template_value - mean_template_value as f32).powf(2.0);
+            let squared_deviation = (template_value - mean_template_value).powf(2.0);
             template_sum_squared_deviations += squared_deviation;
 
             // set zero mean value on new template
@@ -201,11 +201,11 @@ pub fn prepare_template_picture(
     // calculate template conjugate
     let template_conj_freq: Vec<Complex<f32>> =
         template_padded.iter().map(|&val| val.conj()).collect();
-    (
+    FftData {
         template_conj_freq,
         template_sum_squared_deviations,
         template_width,
         template_height,
         padded_size,
-    )
+    }
 }
