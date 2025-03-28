@@ -327,7 +327,7 @@ impl RustAutoGui {
                     normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
                         &template,
                         max_segments,
-                        &self.debug,
+                        self.debug,
                     );
                 // mostly happens due to using too complex image with small max segments value
                 if (prepared_data.template_segments_fast.len() == 1)
@@ -587,9 +587,7 @@ impl RustAutoGui {
                     }
                     let prepared_data = PreparedData::Segmented(
                         normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
-                            &template,
-                            None,
-                            &self.debug,
+                            &template, None, self.debug,
                         ),
                     );
                     self.prepared_data = prepared_data;
@@ -921,7 +919,7 @@ impl RustAutoGui {
                 normalized_x_corr::fft_ncc::fft_ncc(&image, precision, data)
             },
             PreparedData::Segmented(data) => {
-                normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, precision, data, &self.debug, &self.suppress_warnings)
+                normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, precision, data, self.debug, self.suppress_warnings)
             },
             PreparedData::None => {
                 Err(ImageProcessingError::new("No template chosen and no template data prepared. Please run load_and_prepare_template before searching image on screen"))?

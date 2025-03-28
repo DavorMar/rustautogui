@@ -23,8 +23,8 @@ pub fn fast_ncc_template_match(
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
     precision: f32,
     template_data: &SegmentedData,
-    debug: &bool,
-    suppress_warnings: &bool,
+    debug: bool,
+    suppress_warnings: bool,
 ) -> Vec<(u32, u32, f64)> {
     /// Process:
     /// Template preparation : done before calling template match
@@ -51,11 +51,11 @@ pub fn fast_ncc_template_match(
     // calculate precision into expected correlation
     let adjusted_fast_expected_corr = (precision * fast_expected_corr).pow(2);
     let adjusted_slow_expected_corr: f32 = (precision * slow_expected_corr).pow(2);
-    if (!*suppress_warnings) & (adjusted_slow_expected_corr < 0.65) {
+    if !suppress_warnings && (adjusted_slow_expected_corr < 0.65) {
         eprintln!("WARNING:Segmented match mode may not be suitable for provided template image. High possibility of false positive
             matches. Either use FFT match mode or increase number of segments(unless None as value is already selected)")
     }
-    if *debug {
+    if debug {
         let fast_name = "debug/fast.png";
         save_template_segmented_images(
             template_segments_fast,
@@ -101,7 +101,7 @@ pub fn fast_ncc_template_match(
     // returned list of found points
 
     found_points.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap());
-    if *debug {
+    if debug {
         let found_point_len = found_points.len();
         if found_point_len > 0 {
             println!("first found position corr :({})", found_points[0].2);
@@ -275,7 +275,7 @@ fn fast_correlation_calculation(
 pub fn prepare_template_picture(
     template: &ImageBuffer<Luma<u8>, Vec<u8>>,
     max_segments: Option<u32>,
-    debug: &bool,
+    debug: bool,
 ) -> SegmentedData {
     ///
     ///preprocess all the picture subimages
@@ -300,7 +300,7 @@ pub fn prepare_template_picture(
     let (template_width, template_height) = template.dimensions();
     let mut sum_template = 0.0;
 
-    if *debug {
+    if debug {
         let pixel_number = template_height * template_width;
         println! {"starting with {pixel_number}"};
     }
@@ -362,7 +362,7 @@ pub fn prepare_template_picture(
         area_a.cmp(&area_b) // Compare the areas
     });
 
-    if *debug {
+    if debug {
         let fast_segment_number = picture_segments_fast.len();
         let slow_segment_number = picture_segments_slow.len();
         println!("reduced number of segments to {fast_segment_number} for fast image and {slow_segment_number} for slow image" );
