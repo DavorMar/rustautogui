@@ -21,7 +21,6 @@ fn main() {
                 (0.4 * screen_h as f32) as u32, // height
             )),
             rustautogui::MatchMode::Segmented,
-            None,
             "stars",
         )
         .unwrap();
@@ -38,7 +37,6 @@ fn main() {
                 (0.3 * screen_h as f32) as u32, // height
             )),
             rustautogui::MatchMode::Segmented,
-            None,
         )
         .unwrap();
 

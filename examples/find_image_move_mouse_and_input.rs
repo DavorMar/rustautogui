@@ -16,7 +16,6 @@ fn main() {
             "test.png",
             Some((0, 0, 500, 300)),
             rustautogui::MatchMode::FFT,
-            None,
         )
         .unwrap();
     }
@@ -27,22 +26,15 @@ fn main() {
             img,
             Some((0, 0, 700, 500)),
             rustautogui::MatchMode::Segmented,
-            Some(5000),
         )
         .unwrap();
     }
 
     // or segmented variant with no region
-    gui.prepare_template_from_file("test.png", None, rustautogui::MatchMode::FFT, Some(5000))
+    gui.prepare_template_from_file("test.png", None, rustautogui::MatchMode::FFT)
         .unwrap();
 
     // change prepare template settings, like region, matchmode or max segments
-
-    gui.change_prepared_settings(
-        Some((200, 100, 1000, 500)),
-        rustautogui::MatchMode::FFT,
-        None,
-    );
 
     // automatically move mouse to found template position, execute movement for 1 second
     gui.find_image_on_screen_and_move_mouse(0.9, 1.0).unwrap();
