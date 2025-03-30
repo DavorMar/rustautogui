@@ -3,4 +3,7 @@
 /*.png
 /src/main.rs
 /debug
-/testing_images
+/testing_images*
+*ipynb*
+/testing_points/
+*.zip
