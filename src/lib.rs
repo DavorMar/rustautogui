@@ -121,7 +121,7 @@ pub struct RustAutoGui {
     mouse: imports::Mouse,
     screen: imports::Screen,
     match_mode: Option<MatchMode>,
-    max_segments: Option<u32>,
+    
     region: (u32, u32, u32, u32),
     suppress_warnings: bool,
     alias_used: String,
@@ -151,7 +151,7 @@ impl RustAutoGui {
             mouse: mouse_struct,
             screen,
             match_mode: None,
-            max_segments: None,
+            
             region: (0, 0, 0, 0),
             suppress_warnings,
             alias_used: DEFAULT_ALIAS.to_string(),
@@ -183,7 +183,7 @@ impl RustAutoGui {
             mouse: mouse_struct,
             screen: screen,
             match_mode: None,
-            max_segments: None,
+            
             region: (0, 0, 0, 0),
             suppress_warnings: suppress_warnings,
             alias_used: DEFAULT_ALIAS.to_string(),
@@ -257,7 +257,6 @@ impl RustAutoGui {
         mut template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: Option<u32>,
         alias: Option<&str>,
     ) -> Result<(), AutoGuiError> {
         // resize and adjust if retina screen is used
@@ -297,7 +296,7 @@ impl RustAutoGui {
         }
         let (template_width, template_height) = template.dimensions();
 
-        self.max_segments = max_segments;
+        
         // if no region provided, grab whole screen
         let region = match region {
             Some(region_tuple) => region_tuple,
@@ -342,7 +341,7 @@ impl RustAutoGui {
                     f32,
                 ) = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
                     &template,
-                    max_segments,
+
                     &self.debug,
                 );
                 // mostly happens due to using too complex image with small max segments value
@@ -443,11 +442,11 @@ impl RustAutoGui {
         template_path: &str,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: Option<u32>,
+        
     ) -> Result<(), AutoGuiError> {
         let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
             imgtools::load_image_bw(template_path)?;
-        self.prepare_template_picture_bw(template, region, match_mode, max_segments, None)
+        self.prepare_template_picture_bw(template, region, match_mode, None)
     }
 
     /// prepare from imagebuffer, works only on types RGB/RGBA/Luma
@@ -456,7 +455,6 @@ impl RustAutoGui {
         image: imports::ImageBuffer<P, Vec<T>>,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: Option<u32>,
     ) -> Result<(), AutoGuiError>
     where
         P: imports::Pixel<Subpixel = T> + 'static,
@@ -464,7 +462,7 @@ impl RustAutoGui {
     {
         let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
         let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, color_scheme)?;
-        self.prepare_template_picture_bw(luma_img, region, match_mode, max_segments, None)?;
+        self.prepare_template_picture_bw(luma_img, region, match_mode, None)?;
         Ok(())
     }
 
@@ -474,10 +472,9 @@ impl RustAutoGui {
         img_raw: &[u8],
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: Option<u32>,
     ) -> Result<(), AutoGuiError> {
         let image = image::load_from_memory(img_raw)?;
-        self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, max_segments, None)
+        self.prepare_template_picture_bw(image.to_luma8(), region, match_mode,  None)
     }
 
     ///////////////////////// store single template functions //////////////////////////
@@ -488,13 +485,12 @@ impl RustAutoGui {
         template_path: &str,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: Option<u32>,
         alias: &str,
     ) -> Result<(), AutoGuiError> {
         // RustAutoGui::check_alias_name(&alias)?;
         let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
             imgtools::load_image_bw(template_path)?;
-        self.prepare_template_picture_bw(template, region, match_mode, max_segments, Some(alias))
+        self.prepare_template_picture_bw(template, region, match_mode, Some(alias))
     }
 
     /// Load template from imagebuffer and store prepared template data for multiple image search
@@ -503,7 +499,6 @@ impl RustAutoGui {
         image: imports::ImageBuffer<P, Vec<T>>,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: Option<u32>,
         alias: &str,
     ) -> Result<(), AutoGuiError>
     where
@@ -513,7 +508,7 @@ impl RustAutoGui {
         // RustAutoGui::check_alias_name(&alias)?;
         let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
         let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, color_scheme)?;
-        self.prepare_template_picture_bw(luma_img, region, match_mode, max_segments, Some(alias))
+        self.prepare_template_picture_bw(luma_img, region, match_mode,  Some(alias))
     }
 
     /// Load template from encoded raw bytes and store prepared template data for multiple image search
@@ -522,7 +517,6 @@ impl RustAutoGui {
         img_raw: &[u8],
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: Option<u32>,
         alias: &str,
     ) -> Result<(), AutoGuiError> {
         // RustAutoGui::check_alias_name(&alias)?;
@@ -531,90 +525,10 @@ impl RustAutoGui {
             image.to_luma8(),
             region,
             match_mode,
-            max_segments,
+            
             Some(alias),
         )?;
         Ok(())
-    }
-
-    /// change certain settings for prepared template, like region, match_mode or max_segments. If MatchMode is not changed, whole template
-    /// recalculation may still be needed if certain other parameters are changed, depending on current MatchMode.
-    /// For FFT, changing region starts complete recalculation again, because of change in zero pad image. While changing
-    /// max_segments calls recalculation of template for Segmented matchmode
-    #[allow(unused_variables)]
-    pub fn change_prepared_settings(
-        &mut self,
-        region: Option<(u32, u32, u32, u32)>,
-        match_mode: MatchMode,
-        max_segments: Option<u32>,
-    ) {
-        let template = self.template.clone();
-        let template = match template {
-            Some(image) => image,
-            None => {
-                println!("No template loaded! Please use load_and_prepare_template method before changing prepared settings");
-                return;
-            }
-        };
-
-        // unpack region , or set default if none (whole screen)
-        let region = match region {
-            Some(region_tuple) => region_tuple,
-            None => {
-                let (screen_width, screen_height) = self.screen.dimension();
-                (0, 0, screen_width as u32, screen_height as u32)
-            }
-        };
-
-        // check if template recalculation is needed
-        // if region changed and FFT used, recalculate because of image padding
-        // for Segmented, recalculate if max_segments changed
-        match match_mode {
-            MatchMode::FFT => {
-                if self.region == region && self.match_mode == Some(MatchMode::FFT) {
-                    if self.debug {
-                        println!("Keeping same template data");
-                    }
-                } else {
-                    if self.debug {
-                        println!("Recalculating template data");
-                    }
-                    let prepared_data =
-                        PreparedData::FFT(normalized_x_corr::fft_ncc::prepare_template_picture(
-                            &template, region.2, region.3,
-                        ));
-                    self.prepared_data = prepared_data;
-                    self.match_mode = Some(MatchMode::FFT);
-                }
-            }
-            MatchMode::Segmented => {
-                // no need to recalculate if max segments havent changed or if match mode has not changed
-                if self.match_mode == Some(MatchMode::Segmented)
-                    && self.max_segments == max_segments
-                {
-                    if self.debug {
-                        println!("Keeping same template data");
-                    }
-                } else {
-                    if self.debug {
-                        println!("Recalculating template data");
-                    }
-                    let prepared_data = PreparedData::Segmented(
-                        normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
-                            &template,
-                            None,
-                            &self.debug,
-                        ),
-                    );
-                    self.prepared_data = prepared_data;
-                    self.match_mode = Some(MatchMode::Segmented);
-                }
-            }
-        };
-        self.region = region;
-        // set new Screen::region... fields
-        self.screen.screen_region_width = region.2;
-        self.screen.screen_region_height = region.3;
     }
 
     /// Searches for prepared template on screen.
@@ -1151,11 +1065,10 @@ impl RustAutoGui {
         template_path: &str,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        max_segments: Option<u32>,
     ) -> Result<(), AutoGuiError> {
         let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
             imgtools::load_image_bw(template_path)?;
-        self.prepare_template_picture_bw(template, region, match_mode, max_segments, None)
+        self.prepare_template_picture_bw(template, region, match_mode,  None)
     }
 }
 
