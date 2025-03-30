@@ -563,7 +563,6 @@ impl RustAutoGui {
         };
 
         let locations_ajusted: Vec<(u32, u32, f64)> = locations
-            .clone()
             .iter()
             .map(|(mut x, mut y, corr)| {
                 x = x + self.region.0 + (self.template_width / 2);

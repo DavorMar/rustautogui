@@ -19,7 +19,16 @@ Main functions:
 - and more
 
 
-Note: Unlike PyAutoGUI, this library does not use OpenCV for template matching. Instead, it employs a custom multithreaded implementation, though it lacks GPU acceleration. While OpenCV's template matching is highly optimized, RustAutoGui aims to provide faster overall performance by optimizing the entire process of screen capture, processing, and image matching.
+
+
+## Achievable speed
+Unlike PyAutoGUI, this library does not use OpenCV for template matching. Instead, it employs a custom multithreaded implementation, though it lacks GPU acceleration. While OpenCV's template matching is highly optimized, RustAutoGui aims to provide faster overall performance by optimizing the entire process of screen capture, processing, and image matching. From tests so far, the performance appears to be ~5x faster than python counterpart. The speed will also vary between operating systems, where Windows outperforms Linux for instance. 
+
+
+Gif presentation (intentionally captured with phone camera): 
+
+![](testspeed.gif)
+
 
 ### Why not OpenCV?
 
