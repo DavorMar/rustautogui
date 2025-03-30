@@ -38,7 +38,7 @@ Either run
 
 or add the crate in your Cargo.toml:
 
-`rustautogui = "2.2.2"`
+`rustautogui = "2.3.0"`
 
 For Linux additionally run:
 
@@ -71,7 +71,6 @@ rustautogui.prepare_template_from_file( // returns Result<(), String>
    "template.png", // template_path: &str path to the image file on disk
    Some((0,0,1000,1000)), // region: Option<(u32, u32, u32, u32)>  region of monitor to search (x, y, width, height)
    rustautogui::MatchMode::Segmented, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)
-   Some(3000) // max_segments: Option<u32> max segments for Segmented match mode. Can be set to None to automatically calculate
 ).unwrap();
 ```
 From ImageBuffer<RGB/RGBA/Luma<u8>>
@@ -80,7 +79,6 @@ rustautogui.prepare_template_from_imagebuffer( // returns Result<(), String>
    img_buffer, // image:  ImageBuffer<P, Vec<T>> -- Accepts RGB/RGBA/Luma(black and white)
    None,  // region: Option<(u32, u32, u32, u32)> searches whole screen when None
    rustautogui::MatchMode::FFT, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)
-   None, // max_segments: Option<u32> no need for segments when doing FFT search
 ).unwrap();
 ```
 From raw bytes of encoded image
@@ -89,23 +87,17 @@ rustautogui.prepare_template_from_raw_encoded( // returns Result<(), String>
    img_raw // img_raw:  &[u8] - encoded raw bytes
    None,  // region: Option<(u32, u32, u32, u32)>
    rustautogui::MatchMode::FFT, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)
-   None, // max_segments: Option<u32>
 ).unwrap();
 
 ```
 
-Changing template settings
+
+## Segmented vs FFT matching
+It is hard to give a 100% correct answer when to use which algorithm. FFT algorithm is mostly consistent, with no big variances in speed. Segmented on other hand can heavily vary and speed can be up to 10x faster than FFT, but also slower by factor of up to thousands. The best method would be for users to test both methods and determine when to use which method. A general advice can be: Use segmented on smaller template images and when template is less visually complex (visual complexity is randomness of pixels in an image, for instance an image that is half white vs half black vs random noise image). 
+FFT would probably be better when comparing large template images on a large region, but also when template size approaches image region size. 
 
 
-```rust
-// change template matching settings, if template is already loaded (does not work for stored images with alias)
-rustautogui.change_prepared_settings(
-   Some((0,0,1000,1000)), //region: Option<(u32, u32, u32, u32)>
-   rustautogui::MatchMode::Segmented, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)
-   None // max_segments: Option<u32>
-);
-
-```
+Generally, if you're following the idea of maximizing speeds by using as small as possible template images and determining small as possible screen regions, in most cases Segmented will perform faster than FFT. 
 
 Matchmodes enum:
 ```rust
@@ -114,14 +106,6 @@ pub enum MatchMode {
    FFT,
 }
 ```
-
-#### Max segments explanation
-max_segments arguments is only used in Segmented matchmode and its not important for FFT match mode, when you want to set it as &None.
-If using Segmented match mode, max_segments can influence speed and precision. If using large and complex pictures(with high pixel variation), max segments determines maximum number of segments to divide picture into, sacrificing precision while increasing speed. The higher the number of segments, lower the speed but higher precision.
-
-The default value is set to 30% of the template pixel count. If you want to increase speed, reduce max segments and monitor correlation values in debug mode.
-
-If you're looking to maximize speed, your template and region of search should be as small as possible.
 
 
 ## Loading multiple images into memory
@@ -134,7 +118,6 @@ rustautogui.store_template_from_file( // returns Result<(), String>
    "template.png", // template_path: &str path to the image file on disk
    Some((0,0,1000,1000)), // region: Option<(u32, u32, u32, u32)>  region of monitor to search (x, y, width, height)
    rustautogui::MatchMode::Segmented, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)
-   Some(3000), // max_segments: Option<u32> max segments for Segmented match mode. Can be set to None to automatically calculate
    "button_image" // alias: &str. Keyword used to select which image to search for
 ).unwrap();
 ```
@@ -144,7 +127,6 @@ rustautogui.store_template_from_imagebuffer( // returns Result<(), String>
    img_buffer, // image:  ImageBuffer<P, Vec<T>> -- Accepts RGB/RGBA/Luma(black and white)
    None,  // region: Option<(u32, u32, u32, u32)>
    rustautogui::MatchMode::Segmented, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)
-   None, // max_segments: Option<u32>
    "button_image" // alias: &str. Keyword used to select which image to search for
 ).unwrap();
 ```
@@ -154,7 +136,6 @@ rustautogui.store_template_from_raw_encoded( // returns Result<(), String>
    img_raw // img_raw:  &[u8] encoded raw bytes
    None,  // region: Option<(u32, u32, u32, u32)>
    rustautogui::MatchMode::Segmented, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)
-   None, // max_segments: Option<u32>
    "button_image" // alias: &str. Keyword used to select which image to search for
 ).unwrap();
 

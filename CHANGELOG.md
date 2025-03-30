@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [2.3.0] - 2025-03-30
+### Fixed
+- rework of Segmented NCC template match. Completely removed argument of Max segments and made it always work robustly, never sacrificing precision for  speed. Additionally fixed part of formulas which will additionally reduce false positives, regardless of max segments. The fix also improves algorithms speed when compared to previous version, if max_segments is not taken into consideration. The speed gain is due to much less checks and verifications in the algorithm. The user should determine which algorithm is better in which case , but general advice would be to use FFT on large template + large screen region combination, while Segmented on any kind of smaller template and smaller region (but its not a rule)
+- fixed returned values from find image on screen, where its correctly returning positions adjusted for screen region and template size, where previously that workedo nly on find image and move mouse
+
+
 ## [2.2.2] - 2025-03-27
 ### Fixed
 - use `&str` && `&[]` more wide

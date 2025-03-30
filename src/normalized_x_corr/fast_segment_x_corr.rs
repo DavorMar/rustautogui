@@ -1,8 +1,8 @@
 /*
  * Template Matching Algorithm
- * Author: Davor Marušić, Siniša Popović
+ * Author: Davor Marušić, Siniša Popović, Zoran Kalafatić
  * License: GPLv3
- * (c) 2024 Davor Marušić, Siniša Popović. All rights reserved.
+ * (c) 2024 Davor Marušić, Siniša Popović, Zoran Kalafatić  All rights reserved.
  * Please read NOTICE.md file
  */
 
@@ -35,13 +35,12 @@ pub fn fast_ncc_template_match(
         f32,
     ),
     debug: &bool,
-    suppress_warnings: &bool,
 ) -> Vec<(u32, u32, f64)> {
     /// Process:
     /// Template preparation : done before calling template match
     /// Template is
     let (image_width, image_height) = image.dimensions();
-    
+
     // compute image integral, or in other words sum tables where each pixel
     // corresponds to sum of all the pixels above and left
     let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(&image);
@@ -60,13 +59,9 @@ pub fn fast_ncc_template_match(
     ) = template_data;
 
     // calculate precision into expected correlation
-    let adjusted_fast_expected_corr: f32 = precision * fast_expected_corr.pow(2) - 0.001 as f32;
-    let adjusted_slow_expected_corr: f32 = precision * slow_expected_corr.pow(2) - 0.001 as f32;
-    println!("Adjusted_corrs for fast and slow are : {}, {}", adjusted_fast_expected_corr, adjusted_slow_expected_corr);
-    if (!*suppress_warnings) & (adjusted_slow_expected_corr < 0.65) {
-        eprintln!("WARNING:Segmented match mode may not be suitable for provided template image. High possibility of false positive
-            matches. Either use FFT match mode or increase number of segments(unless None as value is already selected)")
-    }
+    let adjusted_fast_expected_corr: f32 = precision * fast_expected_corr - 0.0001 as f32;
+    let adjusted_slow_expected_corr: f32 = precision * slow_expected_corr - 0.0001 as f32;
+
     if *debug {
         let fast_name = "debug/fast.png";
         save_template_segmented_images(
@@ -107,7 +102,7 @@ pub fn fast_ncc_template_match(
             );
             (x, y, corr)
         })
-        // .filter(|&(_, _, corr)| corr > adjusted_slow_expected_corr as f64)
+        .filter(|&(_, _, corr)| corr >= adjusted_slow_expected_corr as f64)
         .collect();
 
     // returned list of found points
@@ -224,9 +219,9 @@ fn fast_correlation_calculation(
         nominator += segment_nominator_value;
     }
 
-    if nominator <= 0.0 {
-        return -1.0;
-    }
+    // if nominator <= 0.0 {
+    //     return -1.0;
+    // }
 
     ////////// denominator calculation
 
@@ -239,11 +234,11 @@ fn fast_correlation_calculation(
     );
     let image_sum_squared_deviations =
         sum_squared_image as f32 - (sum_image as f32).powi(2) / template_area as f32;
-    let denominator = image_sum_squared_deviations * fast_segments_sum_squared_deviations;
+    let denominator = (image_sum_squared_deviations * fast_segments_sum_squared_deviations).sqrt();
 
     ///////////////
 
-    let mut corr: f32 = (nominator * nominator) / denominator;
+    let mut corr: f32 = nominator / denominator;
 
     if corr > 1.1 || corr.is_nan() {
         corr = -100.0;
@@ -251,7 +246,7 @@ fn fast_correlation_calculation(
     }
 
     // second calculation with more detailed picture
-    if corr > min_expected_corr {
+    if corr >= min_expected_corr {
         nominator = 0.0;
         for (x1, y1, segment_width, segment_height, segment_value) in template_segments_slow {
             let segment_image_sum = sum_region(
@@ -270,16 +265,14 @@ fn fast_correlation_calculation(
             nominator += segment_nominator_value;
         }
 
-        if nominator <= 0.0 {
-            return -1.0;
-        }
+        // if nominator <= 0.0 {
+        //     return -1.0;
+        // }
 
-        let denominator = image_sum_squared_deviations * slow_segments_sum_squared_deviations;
+        let denominator =
+            (image_sum_squared_deviations * slow_segments_sum_squared_deviations).sqrt();
 
-        corr = (nominator * nominator) / denominator;
-    } 
-    else {
-        return -150.0
+        corr = nominator / denominator;
     }
     if corr > 1.1 || corr.is_nan() {
         corr = -100.0;
@@ -351,21 +344,30 @@ pub fn prepare_template_picture(
     let avg_deviation_of_template =
         (template_sum_squared_deviations / (template_width * template_height) as f32).sqrt();
 
-
     // create fast segmented image
     let (
         picture_segments_fast,
         segment_sum_squared_deviations_fast,
         expected_corr_fast,
         segments_mean_fast,
-    ) = create_picture_segments(&template, mean_template_value, avg_deviation_of_template, "fast");
+    ) = create_picture_segments(
+        &template,
+        mean_template_value,
+        avg_deviation_of_template,
+        "fast",
+    );
     // create slow segmented image
     let (
         picture_segments_slow,
         segment_sum_squared_deviations_slow,
         expected_corr_slow,
         segments_mean_slow,
-    ) = create_picture_segments(&template, mean_template_value, avg_deviation_of_template, "slow");
+    ) = create_picture_segments(
+        &template,
+        mean_template_value,
+        avg_deviation_of_template,
+        "slow",
+    );
 
     // merge pictures segments
     let mut picture_segments_fast = merge_picture_segments(picture_segments_fast);
@@ -430,63 +432,66 @@ fn create_picture_segments(
     let mut picture_segments: Vec<(u32, u32, u32, u32, f32)> = Vec::new();
 
     // call the recursive function to divide the picture into segments of similar pixel values
-    let mut picture_segment_len = template_height * template_width;
+
     let mut target_corr = 0.0;
     let mut threshold = 0.0;
     if template_type == "fast" {
-        threshold = 0.90;
+        threshold = 0.99;
         target_corr = -0.95;
     } else if template_type == "slow" {
-        threshold = 0.99;
+        threshold = 0.85;
         target_corr = 0.99;
     }
-
-
 
     let mut expected_corr = -1.0;
     let mut segments_sum = 0;
     let mut segment_sum_squared_deviations = 0.0;
     let mut segments_mean = 0.0;
     while expected_corr < target_corr {
-        divide_and_conquer(&mut picture_segments, &template, 0, 0, threshold*avg_deviation_of_template);
-        picture_segment_len = picture_segments.len() as u32;
-        
+        divide_and_conquer(
+            &mut picture_segments,
+            &template,
+            0,
+            0,
+            threshold * avg_deviation_of_template,
+        );
 
         threshold -= 0.05;
         if threshold <= 0.1 {
-            break
+            break;
         }
         // iterate through segments to calculate sum
         segments_sum = 0;
         let mut segment_count_pixels = 0;
         for (_, _, segment_width, segment_height, segment_value) in &picture_segments {
             segments_sum += *segment_value as u32 * (segment_width * segment_height);
-            segment_count_pixels += segment_width*segment_height;
+            segment_count_pixels += segment_width * segment_height;
         }
-        assert!(segment_count_pixels ==(template_height*template_width));
+        assert!(segment_count_pixels == (template_height * template_width));
         let mut numerator = 0.0;
         let mut denom1 = 0.0;
         let mut denom2 = 0.0;
         segment_sum_squared_deviations = 0.0;
         segments_mean = 0.0;
-        
+
         segments_mean = segments_sum as f32 / (template_height * template_width) as f32;
 
         let mut count = 0;
         // calculate correlation between segmented picture and real template picture
         // use this correlation to know which correlation to  expect when searching on big image
         for (x, y, segment_width, segment_height, segment_value) in &picture_segments {
-            for y_segment in 0..*segment_height  {
-                for x_segment in 0..*segment_width  {
+            for y_segment in 0..*segment_height {
+                for x_segment in 0..*segment_width {
                     let template_pixel_value = template.get_pixel(x + x_segment, y + y_segment)[0];
 
                     let template_diff = template_pixel_value as f32 - mean_template_value;
                     let segment_diff = *segment_value as f32 - segments_mean;
-                    segment_sum_squared_deviations += (segment_value - segments_mean as f32).powf(2.0);
+                    segment_sum_squared_deviations +=
+                        (segment_value - segments_mean as f32).powf(2.0);
                     numerator += template_diff * segment_diff;
                     denom1 += template_diff.powf(2.0);
                     denom2 += segment_diff.powf(2.0);
-                    
+
                     count += 1;
                 }
             }
@@ -498,11 +503,7 @@ fn create_picture_segments(
             picture_segments = Vec::new();
         }
     }
-    println!("Expected_corr: {}", expected_corr);
-    if template_type == "slow" {
-        println!("Threshold: {},", threshold)
-    }    
-    
+
     return (
         picture_segments,
         segment_sum_squared_deviations,

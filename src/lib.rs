@@ -29,7 +29,7 @@ const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
 /// Struct of prepared data for each correlation method used
 /// Segmented consists of two image vectors and associated mean value, sum of squared deviations, sizes
 /// FFT vector consists of template vector converted to frequency domain and conjugated, sum squared deviations, size and padded size
-enum PreparedData {
+pub enum PreparedData {
     Segmented(
         (
             Vec<(u32, u32, u32, u32, f32)>, // template_segments_fast
@@ -121,7 +121,7 @@ pub struct RustAutoGui {
     mouse: imports::Mouse,
     screen: imports::Screen,
     match_mode: Option<MatchMode>,
-    
+
     region: (u32, u32, u32, u32),
     suppress_warnings: bool,
     alias_used: String,
@@ -151,7 +151,7 @@ impl RustAutoGui {
             mouse: mouse_struct,
             screen,
             match_mode: None,
-            
+
             region: (0, 0, 0, 0),
             suppress_warnings,
             alias_used: DEFAULT_ALIAS.to_string(),
@@ -183,7 +183,7 @@ impl RustAutoGui {
             mouse: mouse_struct,
             screen: screen,
             match_mode: None,
-            
+
             region: (0, 0, 0, 0),
             suppress_warnings: suppress_warnings,
             alias_used: DEFAULT_ALIAS.to_string(),
@@ -270,7 +270,7 @@ impl RustAutoGui {
         // we dont want to back up the backup
         #[cfg(target_os = "macos")]
         {
-            self.prepare_macos_backup(max_segments, &match_mode, template.clone(), region, alias)?;
+            self.prepare_macos_backup(&match_mode, template.clone(), region, alias)?;
             match alias {
                 Some(a) => {
                     if a.contains(DEFAULT_BCKP_ALIAS) {
@@ -296,7 +296,6 @@ impl RustAutoGui {
         }
         let (template_width, template_height) = template.dimensions();
 
-        
         // if no region provided, grab whole screen
         let region = match region {
             Some(region_tuple) => region_tuple,
@@ -341,7 +340,6 @@ impl RustAutoGui {
                     f32,
                 ) = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
                     &template,
-
                     &self.debug,
                 );
                 // mostly happens due to using too complex image with small max segments value
@@ -383,7 +381,6 @@ impl RustAutoGui {
     #[cfg(target_os = "macos")]
     fn prepare_macos_backup(
         &mut self,
-        max_segments: Option<u32>,
         match_mode: &MatchMode,
         template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>,
         region: Option<(u32, u32, u32, u32)>,
@@ -416,7 +413,6 @@ impl RustAutoGui {
                     bckp_template,
                     region,
                     match_mode.clone(),
-                    max_segments,
                     &backup_alias,
                 )?;
             };
@@ -442,7 +438,6 @@ impl RustAutoGui {
         template_path: &str,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
-        
     ) -> Result<(), AutoGuiError> {
         let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
             imgtools::load_image_bw(template_path)?;
@@ -474,7 +469,7 @@ impl RustAutoGui {
         match_mode: MatchMode,
     ) -> Result<(), AutoGuiError> {
         let image = image::load_from_memory(img_raw)?;
-        self.prepare_template_picture_bw(image.to_luma8(), region, match_mode,  None)
+        self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, None)
     }
 
     ///////////////////////// store single template functions //////////////////////////
@@ -508,7 +503,7 @@ impl RustAutoGui {
         // RustAutoGui::check_alias_name(&alias)?;
         let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
         let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, color_scheme)?;
-        self.prepare_template_picture_bw(luma_img, region, match_mode,  Some(alias))
+        self.prepare_template_picture_bw(luma_img, region, match_mode, Some(alias))
     }
 
     /// Load template from encoded raw bytes and store prepared template data for multiple image search
@@ -521,13 +516,7 @@ impl RustAutoGui {
     ) -> Result<(), AutoGuiError> {
         // RustAutoGui::check_alias_name(&alias)?;
         let image = image::load_from_memory(img_raw)?;
-        self.prepare_template_picture_bw(
-            image.to_luma8(),
-            region,
-            match_mode,
-            
-            Some(alias),
-        )?;
+        self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, Some(alias))?;
         Ok(())
     }
 
@@ -563,9 +552,27 @@ impl RustAutoGui {
         };
 
         #[cfg(target_os = "macos")]
-        return self.run_macos_xcorr_with_backup(image, precision);
+        let locations = match self.run_macos_xcorr_with_backup(image, precision)? {
+            Some(x) => x,
+            None => return Ok(None),
+        };
         #[cfg(not(target_os = "macos"))]
-        return self.run_x_corr(image, precision);
+        let locations = match self.run_x_corr(image, precision)? {
+            Some(x) => x,
+            None => return Ok(None),
+        };
+
+        let locations_ajusted: Vec<(u32, u32, f64)> = locations
+            .clone()
+            .iter()
+            .map(|(mut x, mut y, corr)| {
+                x = x + self.region.0 + (self.template_width / 2);
+                y = y + self.region.1 + (self.template_height / 2);
+                (x, y, *corr)
+            })
+            .collect();
+
+        return Ok(Some(locations_ajusted));
     }
 
     // for macOS with retina display, two runs are made. One for resized template
@@ -795,21 +802,11 @@ impl RustAutoGui {
             None => return Ok(None),
         };
 
-        let locations_adjusted: Vec<(u32, u32, f64)> = locations
-            .clone()
-            .into_iter()
-            .map(|(mut x, mut y, corr)| {
-                x = x + self.region.0 + (self.template_width / 2);
-                y = y + self.region.1 + (self.template_height / 2);
-                (x, y, corr)
-            })
-            .collect();
-
-        let (target_x, target_y, _) = locations_adjusted[0];
+        let (target_x, target_y, _) = locations[0];
 
         self.move_mouse_to_pos(target_x, target_y, moving_time)?;
 
-        return Ok(Some(locations_adjusted));
+        return Ok(Some(locations));
     }
 
     // loops until image is found and returns found values, or until it times out
@@ -850,7 +847,7 @@ impl RustAutoGui {
                 found_locations
             },
             PreparedData::Segmented(data) => {
-                let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, precision, &data, &self.debug, &self.suppress_warnings);
+                let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, precision, &data, &self.debug);
                 found_locations
             },
             PreparedData::None => {
@@ -1068,7 +1065,7 @@ impl RustAutoGui {
     ) -> Result<(), AutoGuiError> {
         let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
             imgtools::load_image_bw(template_path)?;
-        self.prepare_template_picture_bw(template, region, match_mode,  None)
+        self.prepare_template_picture_bw(template, region, match_mode, None)
     }
 }
 
