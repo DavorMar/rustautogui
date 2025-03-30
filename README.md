@@ -1,6 +1,6 @@
 # RustAutoGUI
 
-RustAutoGUI crate, made after Al Sweigarts library PyAutoG for python.
+RustAutoGUI crate, made after Al Sweigarts library PyAutoGUI for python.
 
 RustAutoGUI allows you to control the mouse and keyboard to automate interactions with other applications.
 The crate works on Windows, Linux and Macos.
