@@ -20,7 +20,7 @@ impl Keyboard {
         Keyboard { keymap: keyset }
     }
 
-    unsafe fn key_down(scan_code: &u16) {
+    unsafe fn press_key(scan_code: &u16) {
         let mut input: INPUT = std::mem::zeroed();
         input.type_ = INPUT_KEYBOARD;
         {
@@ -47,7 +47,7 @@ impl Keyboard {
         SendInput(1, &mut input, size_of::<INPUT>() as i32);
     }
 
-    unsafe fn key_up(scan_code: &u16) {
+    unsafe fn release_key(scan_code: &u16) {
         let mut input: INPUT = std::mem::zeroed();
         input.type_ = INPUT_KEYBOARD;
         {
@@ -74,24 +74,39 @@ impl Keyboard {
         SendInput(1, &mut input, size_of::<INPUT>() as i32);
     }
 
+
+    pub fn key_down(key: &str) -> Result<(), AutoGuiError> {
+        let (value, _) = get_keymap_key(&self, key)?;
+        unsafe {
+            Keyboard::press_key(scan_code);
+        }
+    }
+
+    pub fn key_up(key: &str) -> Result<(), AutoGuiError> {
+        let (value, _) = get_keymap_key(&self, key)?;
+        unsafe {
+            Keyboard::release_key(scan_code);
+        }
+    }
+
     /// executes press down of a key, then press up.
     pub fn send_key(scan_code: &u16) {
         unsafe {
-            Keyboard::key_down(scan_code);
-            Keyboard::key_up(scan_code);
+            Keyboard::press_key(scan_code);
+            Keyboard::release_key(scan_code);
         }
     }
 
     /// executes press down of shift key, press down and press up for desired key, then press up of shift key
     pub fn send_shifted_key(scan_code: &u16) {
         unsafe {
-            Keyboard::key_down(&0x10); // shift press
+            Keyboard::press_key(&0x10); // shift press
             sleep(Duration::from_micros(50));
             // send key
             Keyboard::send_key(scan_code);
             sleep(Duration::from_micros(50));
 
-            Keyboard::key_up(&0x10); // shift release
+            Keyboard::release_key(&0x10); // shift release
             sleep(Duration::from_micros(50));
         }
     }
@@ -138,14 +153,14 @@ impl Keyboard {
         };
 
         unsafe {
-            Keyboard::key_down(value_1);
-            Keyboard::key_down(value_2);
+            Keyboard::press_key(value_1);
+            Keyboard::press_key(value_2);
             if third_key {
-                Keyboard::key_down(value_3);
-                Keyboard::key_up(value_3);
+                Keyboard::press_key(value_3);
+                Keyboard::release_key(value_3);
             }
-            Keyboard::key_up(value_2);
-            Keyboard::key_up(value_1);
+            Keyboard::release_key(value_2);
+            Keyboard::release_key(value_1);
         }
         return Ok(());
     }

@@ -22,6 +22,22 @@ impl Keyboard {
         }
     }
 
+    pub fn key_down(&self, key:&str) -> Result<(), AutoGuiError> {
+        unsafe  {
+            let (keycode, _) = self.get_keycode(key)?;
+            self.press_key(keycode);
+        }
+        Ok(())
+    }
+
+    pub fn key_up(&self, key:&str) -> Result<(), AutoGuiError> {
+        unsafe  {
+            let (keycode, _) = self.get_keycode(key)?;
+            self.release_key(keycode);
+        }
+        Ok(())
+    }
+
     /// Function that presses key down. When sending key, press key down and release key is executed
     unsafe fn press_key(&self, keycode: u32) {
         XTestFakeKeyEvent(self.screen, keycode, 1, CurrentTime);
@@ -113,7 +129,7 @@ impl Keyboard {
     }
 
     /// grabs the value from structs keymap, then converts String to Keysim, and then keysim to Keycode.
-    unsafe fn get_keycode(&self, key: &str) -> Result<(u32, &bool), AutoGuiError> {
+    pub unsafe fn get_keycode(&self, key: &str) -> Result<(u32, &bool), AutoGuiError> {
         let (value, shifted) = get_keymap_key(self, key)?;
 
         let mut keysym_to_keycode = HashMap::new();
