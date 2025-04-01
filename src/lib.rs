@@ -24,7 +24,9 @@ mod imports {
 use std::fmt::{self, Formatter};
 
 use crate::errors::*;
+use imports::Mouse;
 pub use mouse::mouse_position::print_mouse_position;
+pub use mouse::MouseClick;
 
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
 const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
@@ -891,9 +893,9 @@ impl RustAutoGui {
         #[cfg(target_os = "linux")]
         return self.mouse.get_mouse_position();
         #[cfg(target_os = "windows")]
-        return Ok(imports::Mouse::get_mouse_position());
+        return Ok(imports::Mouse::get_mouse_position(&self));
         #[cfg(target_os = "macos")]
-        return imports::Mouse::get_mouse_position();
+        return imports::Mouse::get_mouse_position(&self);
     }
 
     /// Move mouse to x,y pixel coordinate
@@ -1148,6 +1150,25 @@ impl RustAutoGui {
         #[cfg(target_os = "macos")]
         return mouse::platform::Mouse::double_click();
     }
+
+    pub fn click_down(&self, button: MouseClick) -> Result<(), AutoGuiError> {
+        #[cfg(target_os = "linux")]
+        return self.mouse.mouse_down(button);
+        #[cfg(target_os = "macos")]
+        return mouse::platform::Mouse::mouse_down(&self, button);
+        #[cfg(target_os = "windows")]
+        return Ok(mouse::platform::Mouse::mouse_down(button));
+    }
+    pub fn click_up(&self, button: MouseClick) -> Result<(), AutoGuiError> {
+        #[cfg(target_os = "linux")]
+        return self.mouse.mouse_up(button);
+        #[cfg(target_os = "macos")]
+        return mouse::platform::Mouse::mouse_up(&self, button);
+        #[cfg(target_os = "windows")]
+        return Ok(mouse::platform::Mouse::mouse_up(button));
+
+    }
+
 
     pub fn scroll_up(&self, intensity:u32) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
