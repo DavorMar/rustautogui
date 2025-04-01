@@ -17,8 +17,8 @@ pub struct Mouse {
 impl Mouse {
     pub fn new(screen: *mut _XDisplay, root_window: u64) -> Self {
         Self {
-            screen: screen,
-            root_window: root_window,
+            screen,
+            root_window,
         }
     }
 

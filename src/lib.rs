@@ -278,7 +278,6 @@ impl RustAutoGui {
             match alias {
                 Some(a) => {
                     if a.contains(DEFAULT_BCKP_ALIAS) {
-                        ()
                     } else {
                         template = imports::resize(
                             &template,
@@ -1238,6 +1237,14 @@ impl RustAutoGui {
         };
         // send automatically result of function
         self.keyboard.send_multi_key(input1, input2, input3)
+    }
+
+    pub fn key_down(&self, key: &str) -> Result<(), AutoGuiError> {
+        self.keyboard.key_down(key)
+    }
+
+    pub fn key_up(&self, key: &str) -> Result<(), AutoGuiError> {
+        self.keyboard.key_up(key)
     }
 
     /// DEPRECATED
