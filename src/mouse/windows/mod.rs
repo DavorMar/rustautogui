@@ -105,7 +105,6 @@ impl Mouse {
         }
     }
 
-    
     pub fn mouse_down(button: MouseClick) {
         // create event type depending on click type
         let down = match button {
@@ -119,12 +118,11 @@ impl Mouse {
             // set up thefirstut vent (mous;
             input.type_ = INPUT_MOUSE;
             input.u.mi_mut().dwFlags = down;
-            
+
             // send the input events
             SendInput(1, &mut input, size_of::<INPUT>() as i32);
         }
     }
-
 
     pub fn mouse_up(button: MouseClick) {
         // create event type depending on click type
@@ -139,13 +137,11 @@ impl Mouse {
             // set up thefirstut vent (mous;
             input.type_ = INPUT_MOUSE;
             input.u.mi_mut().dwFlags = up;
-            
+
             // send the input events
             SendInput(1, &mut input, size_of::<INPUT>() as i32);
         }
     }
-
-
 
     pub fn scroll(direction: MouseScroll, intensity: u32) {
         // direction , H or W wheel, depending on axis scrolled

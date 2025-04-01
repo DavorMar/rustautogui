@@ -205,7 +205,6 @@ impl Mouse {
         Ok(())
     }
 
-
     pub fn mouse_up(&self, button: MouseClick) -> Result<(), AutoGuiError> {
         let button = match button {
             MouseClick::LEFT => 1,
@@ -270,7 +269,6 @@ impl Mouse {
                 XTestFakeButtonEvent(self.screen, button, 0, CurrentTime);
                 XFlush(self.screen);
             }
-            
         }
     }
 

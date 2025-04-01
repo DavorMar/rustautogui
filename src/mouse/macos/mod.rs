@@ -224,18 +224,9 @@ impl Mouse {
 
     pub fn mouse_down(button: MouseClick) -> Result<(), AutoGuiError> {
         let (cg_button, down) = match button {
-            MouseClick::LEFT => (
-                CGMouseButton::Left,
-                CGEventType::LeftMouseDown,
-            ),
-            MouseClick::RIGHT => (
-                CGMouseButton::Right,
-                CGEventType::RightMouseDown,
-            ),
-            MouseClick::MIDDLE => (
-                CGMouseButton::Center,
-                CGEventType::OtherMouseDown,
-            ),
+            MouseClick::LEFT => (CGMouseButton::Left, CGEventType::LeftMouseDown),
+            MouseClick::RIGHT => (CGMouseButton::Right, CGEventType::RightMouseDown),
+            MouseClick::MIDDLE => (CGMouseButton::Center, CGEventType::OtherMouseDown),
         };
 
         // needed as input for where to click
@@ -257,21 +248,11 @@ impl Mouse {
         click_down.post(CGEventTapLocation::HID);
     }
 
-    
     pub fn mouse_up(button: MouseClick) -> Result<(), AutoGuiError> {
         let (cg_button, up) = match button {
-            MouseClick::LEFT => (
-                CGMouseButton::Left,
-                CGEventType::LeftMouseUp,
-            ),
-            MouseClick::RIGHT => (
-                CGMouseButton::Right,
-                CGEventType::RightMouseUp,
-            ),
-            MouseClick::MIDDLE => (
-                CGMouseButton::Center,
-                CGEventType::OtherMouseUp,
-            ),
+            MouseClick::LEFT => (CGMouseButton::Left, CGEventType::LeftMouseUp),
+            MouseClick::RIGHT => (CGMouseButton::Right, CGEventType::RightMouseUp),
+            MouseClick::MIDDLE => (CGMouseButton::Center, CGEventType::OtherMouseUp),
         };
 
         // needed as input for where to click
@@ -297,7 +278,6 @@ impl Mouse {
         sleep(Duration::from_millis(20));
         Ok(())
     }
-
 
     pub fn scroll(direction: MouseScroll, intensity: u32) -> Result<(), AutoGuiError> {
         let delta = match direction {

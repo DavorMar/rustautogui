@@ -83,7 +83,6 @@ fn main() {
 
     // scroll down 80 times to the bottom of the page where small terms button is
     rustautogui.scroll_down(80).unwrap();
-    
 
     // loop till image found with timeout of 15 seconds
     rustautogui
