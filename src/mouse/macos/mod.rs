@@ -246,6 +246,7 @@ impl Mouse {
         )
         .map_err(|_| AutoGuiError::OSFailure("Failed the mouse click down CGevent".to_string()))?;
         click_down.post(CGEventTapLocation::HID);
+        Ok(())
     }
 
     pub fn mouse_up(button: MouseClick) -> Result<(), AutoGuiError> {

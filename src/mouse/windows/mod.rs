@@ -151,7 +151,7 @@ impl Mouse {
             MouseScroll::LEFT => (-120, MOUSEEVENTF_HWHEEL),
             MouseScroll::RIGHT => (120, MOUSEEVENTF_HWHEEL),
         };
-        let amount = amount * intensity;
+        let amount = amount * intensity as i32;
         unsafe {
             let mut scroll_input: INPUT = zeroed();
 
