@@ -231,12 +231,24 @@ rustautogui.save_screenshot("test.png").unwrap(); //saves screen screenshot
 
 ## Mouse functions
 
+MouseClick enum used in some functions
+```rust
+pub enum MouseClick {
+    LEFT,
+    RIGHT,
+    MIDDLE,
+}
+```
 Mouse clicks functions
 ```rust
+rustautogui.click(MouseClick::LEFT).unwrap; // args: button,  choose  click button MouseClick::{LEFT, RIGHT, MIDDLE}
 rustautogui.left_click().unwrap(); // left mouse click
 rustautogui.right_click().unwrap(); // right mouse click
 rustautogui.double_click().unwrap(); // double left click
 rustautogui.middle_click().unwrap(); // double left click
+rustautogui.mouse_down(MouseClick::RIGHT).unwrap; // args: button, click button down,  MouseClick::{LEFT, RIGHT, MIDDLE}
+rustautogui.mouse_up(MouseClick::RIGHT).unwrap; // args: button,  click button up MouseClick::{LEFT, RIGHT, MIDDLE}
+
 ```
 
 Mouse scrolls functions
@@ -263,8 +275,6 @@ In version 2.4.0 drag_mouse() was renamed to drag_mouse_to_pos(). New drag_mouse
 
 Drag action is: left click down, move mouse to position, left click up. Like when moving icons
 ```rust
-
-
 rustautogui.drag_mouse_to_pos(150, 980, 2.0).unwrap(); // args: x, y, moving_time. 
 rustautogui.drag_mouse_to(Some(200), Some(400), 1.2).unwrap(); // args: x, y, moving_time. Accepts option. None value keeps current pos.
 rustautogui.drag_mouse(500, -500, 1.0).unwrap(); // args: x, y, moving_time. Drags mouse relative to its current position.
