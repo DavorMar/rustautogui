@@ -21,6 +21,8 @@ mod imports {
     pub use std::{collections::HashMap, env, fmt, fs, path::Path, str::FromStr};
 }
 
+use std::fmt::{self, Formatter};
+
 use crate::errors::*;
 pub use mouse::mouse_position::print_mouse_position;
 
@@ -882,11 +884,23 @@ impl RustAutoGui {
 
     //////////////////////////////// MOUSE ////////////////////////////////////////
 
-    /// moves mouse to x, y pixel coordinate
+    
+
+
+    pub fn get_mouse_position(&self) -> Result<(i32, i32), AutoGuiError> {
+        #[cfg(target_os = "linux")]
+        return self.mouse.get_mouse_position();
+        #[cfg(target_os = "windows")]
+        return Ok(imports::Mouse::get_mouse_position(&self));
+        #[cfg(target_os = "macos")]
+        return imports::Mouse::get_mouse_position(&self);
+    }
+
+    /// Move mouse to x,y pixel coordinate
     pub fn move_mouse_to_pos(&self, x: u32, y: u32, moving_time: f32) -> Result<(), AutoGuiError> {
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
             return Err(AutoGuiError::OutOfBoundsError(
-                "Mouse movement out of screen boundaries".to_string(),
+                format!("Out of bounds at positions x,y :{}, {}",x, y )
             ));
         }
 
@@ -902,9 +916,158 @@ impl RustAutoGui {
         #[cfg(target_os = "macos")]
         return imports::Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time);
     }
+    
 
+    /// Very similar to move mouse to pos, but takes Option<x> and Option<y>, where None value just keeps the current mouse x or y value
+    /// So in case you want to more easily move mouse horizontally or vertically
+    pub fn move_mouse_to(&self, x: Option<u32>, y: Option<u32>, moving_time: f32) -> Result<(), AutoGuiError> {
+        let (pos_x, pos_y) = self.get_mouse_position()?;
+
+        let x = if let Some(x) = x {
+            x as i32
+        } else {
+            pos_x
+        };
+
+        let y = if let Some(y) = y {
+            y as i32
+        } else {
+            pos_y
+        };
+
+        if (x > self.screen.screen_width) | (y  > self.screen.screen_height) {
+            return Err(AutoGuiError::OutOfBoundsError(
+                format!("Out of bounds at positions x,y :{}, {}",x, y )
+            ));
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            imports::Mouse::move_mouse_to_pos(x, y, moving_time);
+            Ok(())
+        }
+        #[cfg(target_os = "linux")]
+        return self
+            .mouse
+            .move_mouse_to_pos(x, y, moving_time);
+        #[cfg(target_os = "macos")]
+        return imports::Mouse::move_mouse_to_pos(x, y, moving_time);
+    }
+
+
+    /// Move mouse in relative position. Accepts both positive and negative values, where negative X moves left, positive moves right
+    /// and negative Y moves up, positive down
+    pub fn move_mouse(&self, x:i32, y:i32, moving_time: f32) -> Result<(), AutoGuiError> {
+        let (pos_x, pos_y) = self.get_mouse_position()?;
+
+        let x = x + pos_x;
+        let y = y + pos_y;
+
+        if (x > self.screen.screen_width) | (y > self.screen.screen_height) |
+        (x < 0) | (y < 0) {
+            return Err(AutoGuiError::OutOfBoundsError(
+                format!("Out of bounds at positions x,y :{}, {}",x, y )
+                // "Mouse movement out of screen boundaries".to_string(),
+            ));
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            imports::Mouse::move_mouse_to_pos(x, y, moving_time);
+            Ok(())
+        }
+        #[cfg(target_os = "linux")]
+        return self
+            .mouse
+            .move_mouse_to_pos(x, y , moving_time);
+        #[cfg(target_os = "macos")]
+        return imports::Mouse::move_mouse_to_pos(x, y, moving_time);
+    }
+
+
+    pub fn drag_mouse(&self, x: i32, y: i32, moving_time: f32) ->  Result<(), AutoGuiError> {
+        let (pos_x, pos_y) = self.get_mouse_position()?;
+
+        let x = x + pos_x;
+        let y = y + pos_y;
+        if (x > self.screen.screen_width) | (y > self.screen.screen_height) |
+        (x < 0) | (y < 0) {
+            return Err(AutoGuiError::OutOfBoundsError(
+                format!("Out of bounds at positions x,y :{}, {}",x, y )
+                // "Mouse movement out of screen boundaries".to_string(),
+            ));
+        };
+        #[cfg(target_os = "windows")]
+        {
+            imports::Mouse::drag_mouse(x as i32, y as i32, moving_time);
+
+            Ok(())
+        }
+        #[cfg(target_os = "macos")]
+        {
+            if moving_time < 0.5 && !self.suppress_warnings {
+                eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
+            }
+            return imports::Mouse::drag_mouse(x as i32, y as i32, moving_time);
+        }
+        #[cfg(target_os = "linux")]
+        {
+            if moving_time < 0.5 {
+                if !self.suppress_warnings {
+                    eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
+                }
+            }
+            return self.mouse.drag_mouse(x as i32, y as i32, moving_time);
+        }
+    }
+
+
+    pub fn drag_mouse_to(&self, x: Option<u32>, y: Option<u32>, moving_time: f32) -> Result<(), AutoGuiError> {
+        let (pos_x, pos_y) = self.get_mouse_position()?;
+
+        let x = if let Some(x) = x {
+            x as i32
+        } else {
+            pos_x
+        };
+
+        let y = if let Some(y) = y {
+            y as i32
+        } else {
+            pos_y
+        };
+
+        if (x > self.screen.screen_width) | (y  > self.screen.screen_height) {
+            return Err(AutoGuiError::OutOfBoundsError(
+                format!("Out of bounds at positions x,y :{}, {}",x, y )
+            ));
+        }
+        #[cfg(target_os = "windows")]
+        {
+            imports::Mouse::drag_mouse(x as i32, y as i32, moving_time);
+
+            Ok(())
+        }
+        #[cfg(target_os = "macos")]
+        {
+            if moving_time < 0.5 && !self.suppress_warnings {
+                eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
+            }
+            return imports::Mouse::drag_mouse(x as i32, y as i32, moving_time);
+        }
+        #[cfg(target_os = "linux")]
+        {
+            if moving_time < 0.5 {
+                if !self.suppress_warnings {
+                    eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
+                }
+            }
+            return self.mouse.drag_mouse(x as i32, y as i32, moving_time);
+        }
+    }
+    
     /// moves mouse to x, y pixel coordinate
-    pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), AutoGuiError> {
+    pub fn drag_mouse_to_pos(&self, x: u32, y: u32, moving_time: f32) -> Result<(), AutoGuiError> {
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
             return Err(AutoGuiError::OutOfBoundsError(
                 "Drag Mouse out of screen boundaries".to_string(),
@@ -1066,6 +1229,9 @@ impl RustAutoGui {
             imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, None)
     }
+
+
+    
 }
 
 #[cfg(any(target_os = "linux", target_os = "windows"))]
