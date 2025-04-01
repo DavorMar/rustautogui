@@ -891,9 +891,9 @@ impl RustAutoGui {
         #[cfg(target_os = "linux")]
         return self.mouse.get_mouse_position();
         #[cfg(target_os = "windows")]
-        return Ok(imports::Mouse::get_mouse_position(&self));
+        return Ok(imports::Mouse::get_mouse_position());
         #[cfg(target_os = "macos")]
-        return imports::Mouse::get_mouse_position(&self);
+        return imports::Mouse::get_mouse_position();
     }
 
     /// Move mouse to x,y pixel coordinate
