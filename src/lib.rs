@@ -1161,8 +1161,7 @@ impl RustAutoGui {
         #[cfg(target_os = "macos")]
         return mouse::platform::Mouse::double_click();
     }
-
-    
+        
     pub fn click_down(&self, button: MouseClick) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
         return self.mouse.mouse_down(button);
@@ -1171,7 +1170,6 @@ impl RustAutoGui {
         #[cfg(target_os = "windows")]
         return Ok(mouse::platform::Mouse::mouse_down(button));
     }
-
     pub fn click_up(&self, button: MouseClick) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
         return self.mouse.mouse_up(button);
@@ -1181,7 +1179,6 @@ impl RustAutoGui {
         return Ok(mouse::platform::Mouse::mouse_up(button));
 
     }
-
 
     pub fn scroll_up(&self, intensity:u32) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
