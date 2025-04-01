@@ -105,7 +105,7 @@ impl Mouse {
         }
     }
 
-    pub fn scroll(direction: MouseScroll) {
+    pub fn scroll(direction: MouseScroll, intensity: u32) {
         // direction , H or W wheel, depending on axis scrolled
         let (amount, wheel_direction) = match direction {
             MouseScroll::UP => (120, MOUSEEVENTF_WHEEL),
@@ -113,6 +113,7 @@ impl Mouse {
             MouseScroll::LEFT => (-120, MOUSEEVENTF_HWHEEL),
             MouseScroll::RIGHT => (120, MOUSEEVENTF_HWHEEL),
         };
+        let amount = amount * intensity;
         unsafe {
             let mut scroll_input: INPUT = zeroed();
 

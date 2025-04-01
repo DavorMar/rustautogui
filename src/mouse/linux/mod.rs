@@ -174,7 +174,7 @@ impl Mouse {
         Ok(())
     }
 
-    pub fn scroll(&self, direction: MouseScroll) {
+    pub fn scroll(&self, direction: MouseScroll, intensity: u32) {
         let button = match direction {
             MouseScroll::UP => 4,
             MouseScroll::DOWN => 5,
@@ -199,12 +199,15 @@ impl Mouse {
             //     self.set_focus_to_window(window);
             // }
             // Press the mouse button
-            XTestFakeButtonEvent(self.screen, button, 1, CurrentTime);
-            XFlush(self.screen);
+            for _ in 0..intensity {
+                XTestFakeButtonEvent(self.screen, button, 1, CurrentTime);
+                XFlush(self.screen);
 
-            // Release the mouse button
-            XTestFakeButtonEvent(self.screen, button, 0, CurrentTime);
-            XFlush(self.screen);
+                // Release the mouse button
+                XTestFakeButtonEvent(self.screen, button, 0, CurrentTime);
+                XFlush(self.screen);
+            }
+            
         }
     }
 

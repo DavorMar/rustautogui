@@ -1149,40 +1149,40 @@ impl RustAutoGui {
         return mouse::platform::Mouse::double_click();
     }
 
-    pub fn scroll_up(&self) -> Result<(), AutoGuiError> {
+    pub fn scroll_up(&self, intensity:u32) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
-        return Ok(self.mouse.scroll(mouse::MouseScroll::UP));
+        return Ok(self.mouse.scroll(mouse::MouseScroll::UP, intensity));
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::UP));
+        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::UP, intensity));
         #[cfg(target_os = "macos")]
-        return mouse::platform::Mouse::scroll(mouse::MouseScroll::UP);
+        return mouse::platform::Mouse::scroll(mouse::MouseScroll::UP, intensity);
     }
 
-    pub fn scroll_down(&self) -> Result<(), AutoGuiError> {
+    pub fn scroll_down(&self, intensity:u32) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
-        return Ok(self.mouse.scroll(mouse::MouseScroll::DOWN));
+        return Ok(self.mouse.scroll(mouse::MouseScroll::DOWN, intensity));
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN));
+        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN, intensity));
         #[cfg(target_os = "macos")]
-        return mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN);
+        return mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN, intensity);
     }
 
-    pub fn scroll_left(&self) -> Result<(), AutoGuiError> {
+    pub fn scroll_left(&self, intensity:u32) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
-        return Ok(self.mouse.scroll(mouse::MouseScroll::LEFT));
+        return Ok(self.mouse.scroll(mouse::MouseScroll::LEFT, intensity));
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT));
+        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT, intensity));
         #[cfg(target_os = "macos")]
-        return mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT);
+        return mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT, intensity);
     }
 
-    pub fn scroll_right(&self) -> Result<(), AutoGuiError> {
+    pub fn scroll_right(&self, intensity:u32) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
-        return Ok(self.mouse.scroll(mouse::MouseScroll::RIGHT));
+        return Ok(self.mouse.scroll(mouse::MouseScroll::RIGHT, intensity));
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT));
+        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT, intensity));
         #[cfg(target_os = "macos")]
-        return mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT);
+        return mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT, intensity);
     }
 
     //////////////////// Keyboard ////////////////////
