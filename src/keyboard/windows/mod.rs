@@ -79,6 +79,7 @@ impl Keyboard {
         unsafe {
             Keyboard::press_key(value);
         }
+        Ok(())
     }
 
     pub fn key_up(&self, key: &str) -> Result<(), AutoGuiError> {
@@ -86,8 +87,8 @@ impl Keyboard {
         unsafe {
             Keyboard::release_key(value);
         }
+        Ok(())
     }
-
 
     /// executes press down of a key, then press up.
     pub fn send_key(scan_code: &u16) {

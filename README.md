@@ -239,6 +239,11 @@ pub enum MouseClick {
     MIDDLE,
 }
 ```
+Get current mouse position
+```rust
+rustautogui.get_mouse_position().unwrap(); // returns (x,y) coordinate of mouse
+
+```
 Mouse clicks functions
 ```rust
 rustautogui.click(MouseClick::LEFT).unwrap; // args: button,  choose  click button MouseClick::{LEFT, RIGHT, MIDDLE}
@@ -260,7 +265,6 @@ rustautogui.scroll_right().unwrap();
 ```
 Mouse movements functions
 ```rust
-rustautogui.get_mouse_position().unwrap(); // returns (x,y) coordinate of mouse
 rustautogui.move_mouse_to_pos(1920, 1080, 1.0).unwrap(); // args: x, y, moving_time. Moves mouse to position for certain time
 rustautogui.move_mouse_to(Some(500), None, 1.0).unwrap(); // args: x, y, moving_time. Moves mouse to position, but acceps Option
 //                                                                                    None Value keeps same position
@@ -297,6 +301,8 @@ Currently, only US keyboard is implemented. If you have different layout active,
 rustautogui.keyboard_input("test!@#24").unwrap(); // input string, or better say, do the sequence of key presses
 rustautogui.keyboard_command("backspace").unwrap(); // press a keyboard button
 rustautogui.keyboard_multi_key("shift", "control", Some("t")).unwrap(); // Executed multiple key press at same time. third argument is optional
+rustautogui.key_down("backspace").unwrap(); // press a keyboard button down only
+rustautogui.key_up("backspace").unwrap(); // press a keyboard button down only
 ```
 
 
@@ -340,11 +346,14 @@ rustautogui.set_suppress_warnings(true);
 
 
 ## Major changes:
+For more detail, check CHANGELOG.md
 
 - 1.0.0 - introduces segmented match mode
 - 2.0.0 - removed most of panics and crashes
 - 2.1.0 - fixed on keyboard, some methods arguments / returns changed and will cause code breaking.
 - 2.2.0 - loading multiple images, loading images from memory
+- 2.3.0 - rework and improvement on Segmented match mode
+- 2.4.0 - many additional functions for mouse and keyboard
 
 
 

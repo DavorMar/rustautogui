@@ -15,6 +15,8 @@ All notable changes to this project will be documented in this file.
 -    - click() - Mouse click - choose button with MouseClick enum
 -    - click_down() - accepts MouseClick enum
 -    - click_up() - accepts MouseClick enum
+-    - key_down() - executes key press down only
+-    - key_up() - executes key press up only
 - move_mouse_to_pos() remains the same, while drag_mouse_to_pos() is new name for the old version of drag_mouse() function
 
 ## [2.3.0] - 2025-03-30

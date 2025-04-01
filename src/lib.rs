@@ -194,16 +194,17 @@ impl RustAutoGui {
         })
     }
 
+    /// set true to turn off warnings. 
     pub fn set_suppress_warnings(&mut self, suppress: bool) {
         self.suppress_warnings = suppress;
     }
 
-    /// changes debug mode
+    /// changes debug mode. True activates debug
     pub fn change_debug_state(&mut self, state: bool) {
         self.debug = state;
     }
 
-    /// returns screen width and height
+    /// returns screen width and height 
     pub fn get_screen_size(&mut self) -> (i32, i32) {
         self.screen.dimension()
     }
@@ -214,8 +215,8 @@ impl RustAutoGui {
         Ok(())
     }
 
-    // checks if region selected out of screen bounds, if template size > screen size (redundant)
-    // and if template size > region size
+    /// checks if region selected out of screen bounds, if template size > screen size (redundant)
+    /// and if template size > region size
     fn check_if_region_out_of_bound(
         &mut self,
         template_width: u32,
@@ -253,8 +254,8 @@ impl RustAutoGui {
 
     ///////////////////////// prepare single template functions //////////////////////////
 
-    // main prepare template picture which takes ImageBuffer Luma u8. all the other variants
-    // of prepare/store funtions call this function
+    /// main prepare template picture which takes ImageBuffer Luma u8. all the other variants
+    /// of prepare/store funtions call this function
     #[allow(unused_mut)]
     fn prepare_template_picture_bw(
         &mut self,
@@ -524,7 +525,7 @@ impl RustAutoGui {
     }
 
     /// Searches for prepared template on screen.
-    /// On windows only main monitor search is supported, while on linux, all monitors work
+    /// On windows only main monitor search is supported, while on linux, all monitors work.
     /// more details in README
     #[allow(unused_variables)]
     pub fn find_image_on_screen(
@@ -611,7 +612,7 @@ impl RustAutoGui {
         first_match
     }
 
-    // loops until image is found and returns found values, or until it times out
+    /// loops until image is found and returns found values, or until it times out
     pub fn loop_find_image_on_screen(
         &mut self,
         precision: f32,
@@ -638,6 +639,7 @@ impl RustAutoGui {
         }
     }
 
+    /// find image stored under provided alias
     pub fn find_stored_image_on_screen(
         &mut self,
         precision: f32,
@@ -684,7 +686,7 @@ impl RustAutoGui {
         Ok(points)
     }
 
-    // loops until stored image is found and returns found values, or until it times out
+    /// loops until stored image is found and returns found values, or until it times out
     pub fn loop_find_stored_image_on_screen(
         &mut self,
         precision: f32,
@@ -711,6 +713,7 @@ impl RustAutoGui {
         }
     }
 
+    /// searches for image stored under provided alias and moves mouse to position
     pub fn find_stored_image_on_screen_and_move_mouse(
         &mut self,
         precision: f32,
@@ -811,7 +814,7 @@ impl RustAutoGui {
         return Ok(Some(locations));
     }
 
-    // loops until image is found and returns found values, or until it times out
+    /// loops until image is found and returns found values, or until it times out
     pub fn loop_find_image_on_screen_and_move_mouse(
         &mut self,
         precision: f32,
@@ -973,6 +976,7 @@ impl RustAutoGui {
         return imports::Mouse::move_mouse_to_pos(x, y, moving_time);
     }
 
+    /// executes left click down, move to position relative to current position, left click up
     pub fn drag_mouse(&self, x: i32, y: i32, moving_time: f32) -> Result<(), AutoGuiError> {
         let (pos_x, pos_y) = self.get_mouse_position()?;
 
@@ -1007,6 +1011,7 @@ impl RustAutoGui {
         }
     }
 
+    /// Moves to position x,y. None values maintain current position. Useful for vertical and horizontal movement
     pub fn drag_mouse_to(
         &self,
         x: Option<u32>,
@@ -1244,7 +1249,6 @@ impl RustAutoGui {
     }
 
     pub fn key_up(&self, key: &str) -> Result<(), AutoGuiError>{
-
         self.keyboard.key_up(key)
     }
 
