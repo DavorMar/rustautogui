@@ -74,19 +74,20 @@ impl Keyboard {
         SendInput(1, &mut input, size_of::<INPUT>() as i32);
     }
 
-    pub fn key_down(key: &str) -> Result<(), AutoGuiError> {
+    pub fn key_down(&self, key: &str) -> Result<(), AutoGuiError> {
         let (value, _) = get_keymap_key(&self, key)?;
         unsafe {
-            Keyboard::press_key(scan_code);
+            Keyboard::press_key(value);
         }
     }
 
-    pub fn key_up(key: &str) -> Result<(), AutoGuiError> {
+    pub fn key_up(&self, key: &str) -> Result<(), AutoGuiError> {
         let (value, _) = get_keymap_key(&self, key)?;
         unsafe {
-            Keyboard::release_key(scan_code);
+            Keyboard::release_key(value);
         }
     }
+
 
     /// executes press down of a key, then press up.
     pub fn send_key(scan_code: &u16) {

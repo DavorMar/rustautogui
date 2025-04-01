@@ -1239,11 +1239,12 @@ impl RustAutoGui {
         self.keyboard.send_multi_key(input1, input2, input3)
     }
 
-    pub fn key_down(&self, key: &str) -> Result<(), AutoGuiError> {
+    pub fn key_down(&self, key: &str) -> Result<(), AutoGuiError>{    
         self.keyboard.key_down(key)
     }
 
-    pub fn key_up(&self, key: &str) -> Result<(), AutoGuiError> {
+    pub fn key_up(&self, key: &str) -> Result<(), AutoGuiError>{
+
         self.keyboard.key_up(key)
     }
 
