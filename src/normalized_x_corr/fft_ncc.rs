@@ -33,7 +33,7 @@ pub fn fft_ncc(
     let (image_width, image_height) = image.dimensions();
     let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(&image);
 
-    if (image_width < *template_width) | (image_height < *template_height) {
+    if (image_width < *template_width) || (image_height < *template_height) {
         return Vec::new();
     }
 

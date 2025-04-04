@@ -115,7 +115,7 @@ impl Mouse {
         unsafe {
             // create an array of INPUT structures
             let mut input: INPUT = zeroed();
-            // set up thefirstut vent (mous;
+
             input.type_ = INPUT_MOUSE;
             input.u.mi_mut().dwFlags = down;
 
