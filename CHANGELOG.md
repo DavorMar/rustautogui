@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [2.4.0] - 2025-04-01
+## [2.4.0] - 2025-04-05
 ### Added / Changed / Fixed
 - Changed: function drag_mouse to drag_mouse_to_pos. Reason is the new drag_mouse function that moves mouse in relation to current position
 - made MouseClick enum public
@@ -13,9 +13,9 @@ All notable changes to this project will be documented in this file.
 -    - drag_mouse_to_pos() - same as in move_mouse_to_pos(). This is the old drag_mouse() func 
 -    - get_mouse_position() - returns Result<(i32, i32)> current mouse position
 -    - click() - Mouse click - choose button with MouseClick enum
--    - click_down() - accepts MouseClick enum
--    - click_up() - accepts MouseClick enum
--    - key_down() - executes key press down only
+-    - click_down() - accepts MouseClick enum (does not work on macOS)
+-    - click_up() - accepts MouseClick enum (does not work on macOS)
+-    - key_down() - executes key press down only 
 -    - key_up() - executes key press up only
 - move_mouse_to_pos() remains the same, while drag_mouse_to_pos() is new name for the old version of drag_mouse() function
 

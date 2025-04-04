@@ -244,13 +244,15 @@ Get current mouse position
 rustautogui.get_mouse_position().unwrap(); // returns (x,y) coordinate of mouse
 
 ```
-Mouse clicks functions
+Mouse clicks functions. Mouse up and down work only on Windows / Linux.
 ```rust
 rustautogui.click(MouseClick::LEFT).unwrap; // args: button,  choose  click button MouseClick::{LEFT, RIGHT, MIDDLE}
 rustautogui.left_click().unwrap(); // left mouse click
 rustautogui.right_click().unwrap(); // right mouse click
 rustautogui.double_click().unwrap(); // double left click
 rustautogui.middle_click().unwrap(); // double left click
+
+// mouse up and mouse down work only on Windows and Linux
 rustautogui.mouse_down(MouseClick::RIGHT).unwrap; // args: button, click button down,  MouseClick::{LEFT, RIGHT, MIDDLE}
 rustautogui.mouse_up(MouseClick::RIGHT).unwrap; // args: button,  click button up MouseClick::{LEFT, RIGHT, MIDDLE}
 
@@ -346,7 +348,7 @@ rustautogui.set_suppress_warnings(true);
 
 
 ## Major changes:
-For more detail, check CHANGELOG.md
+For more details, check CHANGELOG.md
 
 - 1.0.0 - introduces segmented match mode
 - 2.0.0 - removed most of panics and crashes

@@ -249,6 +249,12 @@ impl RustAutoGui {
                 "Template size larger than region size".to_string(),
             ));
         }
+        if template_height * template_width == 0 {
+            Err(ImageProcessingError::Custom(
+                "Template size = 0. Please check loaded template if its correct".to_string(),
+            ))?;
+            
+        }
         Ok(())
     }
 
