@@ -60,10 +60,10 @@ fn main() {
     gui.double_click().unwrap();
 
     // mouse scrolls
-    gui.scroll_down().unwrap();
-    gui.scroll_up().unwrap();
-    gui.scroll_right().unwrap();
-    gui.scroll_left().unwrap();
+    gui.scroll_down(1).unwrap();
+    gui.scroll_up(5).unwrap();
+    gui.scroll_right(8).unwrap();
+    gui.scroll_left(10).unwrap();
 
     // input keyboard string
     gui.keyboard_input("test.com").unwrap();

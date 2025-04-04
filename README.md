@@ -47,7 +47,7 @@ Either run
 
 or add the crate in your Cargo.toml:
 
-`rustautogui = "2.3.0"`
+`rustautogui = "2.4.0"`
 
 For Linux additionally run:
 
@@ -230,18 +230,62 @@ rustautogui.save_screenshot("test.png").unwrap(); //saves screen screenshot
 ```
 
 ## Mouse functions
+
+MouseClick enum used in some functions
 ```rust
+pub enum MouseClick {
+    LEFT,
+    RIGHT,
+    MIDDLE,
+}
+```
+Get current mouse position
+```rust
+rustautogui.get_mouse_position().unwrap(); // returns (x,y) coordinate of mouse
+
+```
+Mouse clicks functions. Mouse up and down work only on Windows / Linux.
+```rust
+rustautogui.click(MouseClick::LEFT).unwrap(); // args: button,  choose  click button MouseClick::{LEFT, RIGHT, MIDDLE}
 rustautogui.left_click().unwrap(); // left mouse click
 rustautogui.right_click().unwrap(); // right mouse click
 rustautogui.double_click().unwrap(); // double left click
 rustautogui.middle_click().unwrap(); // double left click
+
+// mouse up and mouse down work only on Windows and Linux
+rustautogui.mouse_down(MouseClick::RIGHT).unwrap(); // args: button, click button down,  MouseClick::{LEFT, RIGHT, MIDDLE}
+rustautogui.mouse_up(MouseClick::RIGHT).unwrap(); // args: button,  click button up MouseClick::{LEFT, RIGHT, MIDDLE}
+
+```
+
+Mouse scrolls functions
+```rust
 rustautogui.scroll_up().unwrap();
 rustautogui.scroll_down().unwrap();
 rustautogui.scroll_left().unwrap();
 rustautogui.scroll_right().unwrap();
+```
+Mouse movements functions
+```rust
 rustautogui.move_mouse_to_pos(1920, 1080, 1.0).unwrap(); // args: x, y, moving_time. Moves mouse to position for certain time
-rustautogui.drag_mouse(500, 500, 1.0).unwrap(); // executes left click down, move mouse_to_pos x, y location, left click up.
-//note: use moving time > 0.2, or even higher, depending on distance. Especially important for macOS
+rustautogui.move_mouse_to(Some(500), None, 1.0).unwrap(); // args: x, y, moving_time. Moves mouse to position, but acceps Option
+//                                                                                    None Value keeps same position
+rustautogui.move_mouse(-50, 120, 1.0).unwrap(); //  args: x, y, moving_time. Moves mouse relative to its current position. 
+//                                                                            -x left, +x right, -y up, +y down. 0 maintain position
+```
+Mouse drag functions. 
+
+For all mouse drag commands, use moving time > 0.2, or even higher, depending on distance. Especially important for macOS
+
+In version 2.4.0 drag_mouse() was renamed to drag_mouse_to_pos(). New drag_mouse() is in relative to its current position
+
+Drag action is: left click down, move mouse to position, left click up. Like when moving icons
+```rust
+rustautogui.drag_mouse_to_pos(150, 980, 2.0).unwrap(); // args: x, y, moving_time. 
+rustautogui.drag_mouse_to(Some(200), Some(400), 1.2).unwrap(); // args: x, y, moving_time. Accepts option. None value keeps current pos.
+rustautogui.drag_mouse(500, -500, 1.0).unwrap(); // args: x, y, moving_time. Drags mouse relative to its current position.
+//                                                                           Same rules as in move_mouse
+
 ```
 
 Below is a helper function to determine coordinates on screen, helpful when determining region or mouse move target when developing
@@ -259,6 +303,8 @@ Currently, only US keyboard is implemented. If you have different layout active,
 rustautogui.keyboard_input("test!@#24").unwrap(); // input string, or better say, do the sequence of key presses
 rustautogui.keyboard_command("backspace").unwrap(); // press a keyboard button
 rustautogui.keyboard_multi_key("shift", "control", Some("t")).unwrap(); // Executed multiple key press at same time. third argument is optional
+rustautogui.key_down("backspace").unwrap(); // press a keyboard button down only
+rustautogui.key_up("backspace").unwrap(); // press a keyboard button down only
 ```
 
 
@@ -302,11 +348,14 @@ rustautogui.set_suppress_warnings(true);
 
 
 ## Major changes:
+For more details, check CHANGELOG.md
 
 - 1.0.0 - introduces segmented match mode
 - 2.0.0 - removed most of panics and crashes
 - 2.1.0 - fixed on keyboard, some methods arguments / returns changed and will cause code breaking.
 - 2.2.0 - loading multiple images, loading images from memory
+- 2.3.0 - rework and improvement on Segmented match mode
+- 2.4.0 - many additional functions for mouse and keyboard
 
 
 

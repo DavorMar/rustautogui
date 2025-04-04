@@ -17,8 +17,8 @@ pub struct Mouse {
 impl Mouse {
     pub fn new(screen: *mut _XDisplay, root_window: u64) -> Self {
         Self {
-            screen: screen,
-            root_window: root_window,
+            screen,
+            root_window,
         }
     }
 
@@ -174,7 +174,69 @@ impl Mouse {
         Ok(())
     }
 
-    pub fn scroll(&self, direction: MouseScroll) {
+    pub fn mouse_down(&self, button: MouseClick) -> Result<(), AutoGuiError> {
+        let button = match button {
+            MouseClick::LEFT => 1,
+            MouseClick::MIDDLE => 2,
+            MouseClick::RIGHT => 3,
+        };
+        let mut event_base = 0;
+        let mut error_base = 0;
+        unsafe {
+            if XTestQueryExtension(
+                self.screen,
+                &mut event_base,
+                &mut error_base,
+                &mut event_base,
+                &mut error_base,
+            ) == 0
+            {
+                return Err(AutoGuiError::OSFailure(
+                    "Xtest extension is not available".to_string(),
+                ));
+            }
+            if let Some(window) = self.get_window_under_cursor()? {
+                self.set_focus_to_window(window);
+            }
+            // Press the mouse button
+            XTestFakeButtonEvent(self.screen, button, 1, CurrentTime);
+            XFlush(self.screen);
+        }
+        Ok(())
+    }
+
+    pub fn mouse_up(&self, button: MouseClick) -> Result<(), AutoGuiError> {
+        let button = match button {
+            MouseClick::LEFT => 1,
+            MouseClick::MIDDLE => 2,
+            MouseClick::RIGHT => 3,
+        };
+        let mut event_base = 0;
+        let mut error_base = 0;
+        unsafe {
+            if XTestQueryExtension(
+                self.screen,
+                &mut event_base,
+                &mut error_base,
+                &mut event_base,
+                &mut error_base,
+            ) == 0
+            {
+                return Err(AutoGuiError::OSFailure(
+                    "Xtest extension is not available".to_string(),
+                ));
+            }
+            if let Some(window) = self.get_window_under_cursor()? {
+                self.set_focus_to_window(window);
+            }
+            // Press the mouse button
+            XTestFakeButtonEvent(self.screen, button, 0, CurrentTime);
+            XFlush(self.screen);
+        }
+        Ok(())
+    }
+
+    pub fn scroll(&self, direction: MouseScroll, intensity: u32) {
         let button = match direction {
             MouseScroll::UP => 4,
             MouseScroll::DOWN => 5,
@@ -199,12 +261,14 @@ impl Mouse {
             //     self.set_focus_to_window(window);
             // }
             // Press the mouse button
-            XTestFakeButtonEvent(self.screen, button, 1, CurrentTime);
-            XFlush(self.screen);
+            for _ in 0..intensity {
+                XTestFakeButtonEvent(self.screen, button, 1, CurrentTime);
+                XFlush(self.screen);
 
-            // Release the mouse button
-            XTestFakeButtonEvent(self.screen, button, 0, CurrentTime);
-            XFlush(self.screen);
+                // Release the mouse button
+                XTestFakeButtonEvent(self.screen, button, 0, CurrentTime);
+                XFlush(self.screen);
+            }
         }
     }
 

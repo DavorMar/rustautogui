@@ -21,8 +21,12 @@ mod imports {
     pub use std::{collections::HashMap, env, fmt, fs, path::Path, str::FromStr};
 }
 
+use std::fmt::{self, Formatter};
+
 use crate::errors::*;
+use imports::Mouse;
 pub use mouse::mouse_position::print_mouse_position;
+pub use mouse::MouseClick;
 
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
 const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
@@ -190,11 +194,12 @@ impl RustAutoGui {
         })
     }
 
+    /// set true to turn off warnings.
     pub fn set_suppress_warnings(&mut self, suppress: bool) {
         self.suppress_warnings = suppress;
     }
 
-    /// changes debug mode
+    /// changes debug mode. True activates debug
     pub fn change_debug_state(&mut self, state: bool) {
         self.debug = state;
     }
@@ -210,8 +215,8 @@ impl RustAutoGui {
         Ok(())
     }
 
-    // checks if region selected out of screen bounds, if template size > screen size (redundant)
-    // and if template size > region size
+    /// checks if region selected out of screen bounds, if template size > screen size (redundant)
+    /// and if template size > region size
     fn check_if_region_out_of_bound(
         &mut self,
         template_width: u32,
@@ -244,13 +249,18 @@ impl RustAutoGui {
                 "Template size larger than region size".to_string(),
             ));
         }
+        if template_height * template_width == 0 {
+            Err(ImageProcessingError::Custom(
+                "Template size = 0. Please check loaded template if its correct".to_string(),
+            ))?;
+        }
         Ok(())
     }
 
     ///////////////////////// prepare single template functions //////////////////////////
 
-    // main prepare template picture which takes ImageBuffer Luma u8. all the other variants
-    // of prepare/store funtions call this function
+    /// main prepare template picture which takes ImageBuffer Luma u8. all the other variants
+    /// of prepare/store funtions call this function
     #[allow(unused_mut)]
     fn prepare_template_picture_bw(
         &mut self,
@@ -274,7 +284,6 @@ impl RustAutoGui {
             match alias {
                 Some(a) => {
                     if a.contains(DEFAULT_BCKP_ALIAS) {
-                        ()
                     } else {
                         template = imports::resize(
                             &template,
@@ -521,7 +530,7 @@ impl RustAutoGui {
     }
 
     /// Searches for prepared template on screen.
-    /// On windows only main monitor search is supported, while on linux, all monitors work
+    /// On windows only main monitor search is supported, while on linux, all monitors work.
     /// more details in README
     #[allow(unused_variables)]
     pub fn find_image_on_screen(
@@ -608,7 +617,7 @@ impl RustAutoGui {
         first_match
     }
 
-    // loops until image is found and returns found values, or until it times out
+    /// loops until image is found and returns found values, or until it times out
     pub fn loop_find_image_on_screen(
         &mut self,
         precision: f32,
@@ -635,6 +644,7 @@ impl RustAutoGui {
         }
     }
 
+    /// find image stored under provided alias
     pub fn find_stored_image_on_screen(
         &mut self,
         precision: f32,
@@ -681,7 +691,7 @@ impl RustAutoGui {
         Ok(points)
     }
 
-    // loops until stored image is found and returns found values, or until it times out
+    /// loops until stored image is found and returns found values, or until it times out
     pub fn loop_find_stored_image_on_screen(
         &mut self,
         precision: f32,
@@ -708,6 +718,7 @@ impl RustAutoGui {
         }
     }
 
+    /// searches for image stored under provided alias and moves mouse to position
     pub fn find_stored_image_on_screen_and_move_mouse(
         &mut self,
         precision: f32,
@@ -808,7 +819,7 @@ impl RustAutoGui {
         return Ok(Some(locations));
     }
 
-    // loops until image is found and returns found values, or until it times out
+    /// loops until image is found and returns found values, or until it times out
     pub fn loop_find_image_on_screen_and_move_mouse(
         &mut self,
         precision: f32,
@@ -882,12 +893,22 @@ impl RustAutoGui {
 
     //////////////////////////////// MOUSE ////////////////////////////////////////
 
-    /// moves mouse to x, y pixel coordinate
+    pub fn get_mouse_position(&self) -> Result<(i32, i32), AutoGuiError> {
+        #[cfg(target_os = "linux")]
+        return self.mouse.get_mouse_position();
+        #[cfg(target_os = "windows")]
+        return Ok(imports::Mouse::get_mouse_position());
+        #[cfg(target_os = "macos")]
+        return imports::Mouse::get_mouse_position();
+    }
+
+    /// Move mouse to x,y pixel coordinate
     pub fn move_mouse_to_pos(&self, x: u32, y: u32, moving_time: f32) -> Result<(), AutoGuiError> {
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
-            return Err(AutoGuiError::OutOfBoundsError(
-                "Mouse movement out of screen boundaries".to_string(),
-            ));
+            return Err(AutoGuiError::OutOfBoundsError(format!(
+                "Out of bounds at positions x,y :{}, {}",
+                x, y
+            )));
         }
 
         #[cfg(target_os = "windows")]
@@ -903,8 +924,143 @@ impl RustAutoGui {
         return imports::Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time);
     }
 
+    /// Very similar to move mouse to pos, but takes Option<x> and Option<y>, where None value just keeps the current mouse x or y value
+    /// So in case you want to more easily move mouse horizontally or vertically
+    pub fn move_mouse_to(
+        &self,
+        x: Option<u32>,
+        y: Option<u32>,
+        moving_time: f32,
+    ) -> Result<(), AutoGuiError> {
+        let (pos_x, pos_y) = self.get_mouse_position()?;
+
+        let x = if let Some(x) = x { x as i32 } else { pos_x };
+
+        let y = if let Some(y) = y { y as i32 } else { pos_y };
+
+        if (x > self.screen.screen_width) | (y > self.screen.screen_height) {
+            return Err(AutoGuiError::OutOfBoundsError(format!(
+                "Out of bounds at positions x,y :{}, {}",
+                x, y
+            )));
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            imports::Mouse::move_mouse_to_pos(x, y, moving_time);
+            Ok(())
+        }
+        #[cfg(target_os = "linux")]
+        return self.mouse.move_mouse_to_pos(x, y, moving_time);
+        #[cfg(target_os = "macos")]
+        return imports::Mouse::move_mouse_to_pos(x, y, moving_time);
+    }
+
+    /// Move mouse in relative position. Accepts both positive and negative values, where negative X moves left, positive moves right
+    /// and negative Y moves up, positive down
+    pub fn move_mouse(&self, x: i32, y: i32, moving_time: f32) -> Result<(), AutoGuiError> {
+        let (pos_x, pos_y) = self.get_mouse_position()?;
+
+        let x = x + pos_x;
+        let y = y + pos_y;
+
+        if (x > self.screen.screen_width) | (y > self.screen.screen_height) | (x < 0) | (y < 0) {
+            return Err(AutoGuiError::OutOfBoundsError(
+                format!("Out of bounds at positions x,y :{}, {}", x, y), // "Mouse movement out of screen boundaries".to_string(),
+            ));
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            imports::Mouse::move_mouse_to_pos(x, y, moving_time);
+            Ok(())
+        }
+        #[cfg(target_os = "linux")]
+        return self.mouse.move_mouse_to_pos(x, y, moving_time);
+        #[cfg(target_os = "macos")]
+        return imports::Mouse::move_mouse_to_pos(x, y, moving_time);
+    }
+
+    /// executes left click down, move to position relative to current position, left click up
+    pub fn drag_mouse(&self, x: i32, y: i32, moving_time: f32) -> Result<(), AutoGuiError> {
+        let (pos_x, pos_y) = self.get_mouse_position()?;
+
+        let x = x + pos_x;
+        let y = y + pos_y;
+        if (x > self.screen.screen_width) | (y > self.screen.screen_height) | (x < 0) | (y < 0) {
+            return Err(AutoGuiError::OutOfBoundsError(
+                format!("Out of bounds at positions x,y :{}, {}", x, y), // "Mouse movement out of screen boundaries".to_string(),
+            ));
+        };
+        #[cfg(target_os = "windows")]
+        {
+            imports::Mouse::drag_mouse(x as i32, y as i32, moving_time);
+
+            Ok(())
+        }
+        #[cfg(target_os = "macos")]
+        {
+            if moving_time < 0.5 && !self.suppress_warnings {
+                eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
+            }
+            return imports::Mouse::drag_mouse(x as i32, y as i32, moving_time);
+        }
+        #[cfg(target_os = "linux")]
+        {
+            if moving_time < 0.5 {
+                if !self.suppress_warnings {
+                    eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
+                }
+            }
+            return self.mouse.drag_mouse(x as i32, y as i32, moving_time);
+        }
+    }
+
+    /// Moves to position x,y. None values maintain current position. Useful for vertical and horizontal movement
+    pub fn drag_mouse_to(
+        &self,
+        x: Option<u32>,
+        y: Option<u32>,
+        moving_time: f32,
+    ) -> Result<(), AutoGuiError> {
+        let (pos_x, pos_y) = self.get_mouse_position()?;
+
+        let x = if let Some(x) = x { x as i32 } else { pos_x };
+
+        let y = if let Some(y) = y { y as i32 } else { pos_y };
+
+        if (x > self.screen.screen_width) | (y > self.screen.screen_height) {
+            return Err(AutoGuiError::OutOfBoundsError(format!(
+                "Out of bounds at positions x,y :{}, {}",
+                x, y
+            )));
+        }
+        #[cfg(target_os = "windows")]
+        {
+            imports::Mouse::drag_mouse(x as i32, y as i32, moving_time);
+
+            Ok(())
+        }
+        #[cfg(target_os = "macos")]
+        {
+            if moving_time < 0.5 && !self.suppress_warnings {
+                eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
+            }
+            return imports::Mouse::drag_mouse(x as i32, y as i32, moving_time);
+        }
+        #[cfg(target_os = "linux")]
+        {
+            if moving_time < 0.5 {
+                if !self.suppress_warnings {
+                    eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
+                }
+            }
+            return self.mouse.drag_mouse(x as i32, y as i32, moving_time);
+        }
+    }
+
     /// moves mouse to x, y pixel coordinate
-    pub fn drag_mouse(&self, x: u32, y: u32, moving_time: f32) -> Result<(), AutoGuiError> {
+    pub fn drag_mouse_to_pos(&self, x: u32, y: u32, moving_time: f32) -> Result<(), AutoGuiError> {
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
             return Err(AutoGuiError::OutOfBoundsError(
                 "Drag Mouse out of screen boundaries".to_string(),
@@ -933,6 +1089,16 @@ impl RustAutoGui {
             }
             return self.mouse.drag_mouse(x as i32, y as i32, moving_time);
         }
+    }
+
+    /// Mouse click. Choose button Mouseclick::{LEFT,RIGHT,MIDDLE}
+    pub fn click(&self, button: MouseClick) -> Result<(), AutoGuiError> {
+        #[cfg(target_os = "linux")]
+        return self.mouse.mouse_click(button);
+        #[cfg(target_os = "windows")]
+        return Ok(mouse::platform::Mouse::mouse_click(button));
+        #[cfg(target_os = "macos")]
+        return mouse::platform::Mouse::mouse_click(button);
     }
 
     /// executes left mouse click
@@ -986,40 +1152,69 @@ impl RustAutoGui {
         return mouse::platform::Mouse::double_click();
     }
 
-    pub fn scroll_up(&self) -> Result<(), AutoGuiError> {
+    pub fn click_down(&self, button: MouseClick) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
-        return Ok(self.mouse.scroll(mouse::MouseScroll::UP));
-        #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::UP));
+        return self.mouse.mouse_down(button);
         #[cfg(target_os = "macos")]
-        return mouse::platform::Mouse::scroll(mouse::MouseScroll::UP);
+        return mouse::platform::Mouse::mouse_down(button);
+        #[cfg(target_os = "windows")]
+        return Ok(mouse::platform::Mouse::mouse_down(button));
+    }
+    pub fn click_up(&self, button: MouseClick) -> Result<(), AutoGuiError> {
+        #[cfg(target_os = "linux")]
+        return self.mouse.mouse_up(button);
+        #[cfg(target_os = "macos")]
+        return mouse::platform::Mouse::mouse_up(button);
+        #[cfg(target_os = "windows")]
+        return Ok(mouse::platform::Mouse::mouse_up(button));
     }
 
-    pub fn scroll_down(&self) -> Result<(), AutoGuiError> {
+    pub fn scroll_up(&self, intensity: u32) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
-        return Ok(self.mouse.scroll(mouse::MouseScroll::DOWN));
+        return Ok(self.mouse.scroll(mouse::MouseScroll::UP, intensity));
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN));
+        return Ok(mouse::platform::Mouse::scroll(
+            mouse::MouseScroll::UP,
+            intensity,
+        ));
         #[cfg(target_os = "macos")]
-        return mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN);
+        return mouse::platform::Mouse::scroll(mouse::MouseScroll::UP, intensity);
     }
 
-    pub fn scroll_left(&self) -> Result<(), AutoGuiError> {
+    pub fn scroll_down(&self, intensity: u32) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
-        return Ok(self.mouse.scroll(mouse::MouseScroll::LEFT));
+        return Ok(self.mouse.scroll(mouse::MouseScroll::DOWN, intensity));
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT));
+        return Ok(mouse::platform::Mouse::scroll(
+            mouse::MouseScroll::DOWN,
+            intensity,
+        ));
         #[cfg(target_os = "macos")]
-        return mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT);
+        return mouse::platform::Mouse::scroll(mouse::MouseScroll::DOWN, intensity);
     }
 
-    pub fn scroll_right(&self) -> Result<(), AutoGuiError> {
+    pub fn scroll_left(&self, intensity: u32) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
-        return Ok(self.mouse.scroll(mouse::MouseScroll::RIGHT));
+        return Ok(self.mouse.scroll(mouse::MouseScroll::LEFT, intensity));
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT));
+        return Ok(mouse::platform::Mouse::scroll(
+            mouse::MouseScroll::LEFT,
+            intensity,
+        ));
         #[cfg(target_os = "macos")]
-        return mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT);
+        return mouse::platform::Mouse::scroll(mouse::MouseScroll::LEFT, intensity);
+    }
+
+    pub fn scroll_right(&self, intensity: u32) -> Result<(), AutoGuiError> {
+        #[cfg(target_os = "linux")]
+        return Ok(self.mouse.scroll(mouse::MouseScroll::RIGHT, intensity));
+        #[cfg(target_os = "windows")]
+        return Ok(mouse::platform::Mouse::scroll(
+            mouse::MouseScroll::RIGHT,
+            intensity,
+        ));
+        #[cfg(target_os = "macos")]
+        return mouse::platform::Mouse::scroll(mouse::MouseScroll::RIGHT, intensity);
     }
 
     //////////////////// Keyboard ////////////////////
@@ -1052,6 +1247,14 @@ impl RustAutoGui {
         };
         // send automatically result of function
         self.keyboard.send_multi_key(input1, input2, input3)
+    }
+
+    pub fn key_down(&self, key: &str) -> Result<(), AutoGuiError> {
+        self.keyboard.key_down(key)
+    }
+
+    pub fn key_up(&self, key: &str) -> Result<(), AutoGuiError> {
+        self.keyboard.key_up(key)
     }
 
     /// DEPRECATED

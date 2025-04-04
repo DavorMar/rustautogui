@@ -81,10 +81,8 @@ fn main() {
     // rustautogui.left_click().unwrap();
     thread::sleep(time::Duration::from_millis(500));
 
-    // scroll down 70 times to the bottom of the page where small terms button is
-    for _ in 0..=70 {
-        rustautogui.scroll_down().unwrap();
-    }
+    // scroll down 80 times to the bottom of the page where small terms button is
+    rustautogui.scroll_down(80).unwrap();
 
     // loop till image found with timeout of 15 seconds
     rustautogui

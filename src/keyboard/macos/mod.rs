@@ -53,6 +53,19 @@ impl Keyboard {
         Ok(())
     }
 
+    pub fn key_down(&self, key: &str) -> Result<(), AutoGuiError> {
+        let value = crate::keyboard::get_keymap_key(self, key)?;
+
+        self.press_key(value.0)?;
+        Ok(())
+    }
+    pub fn key_up(&self, key: &str) -> Result<(), AutoGuiError> {
+        let value = crate::keyboard::get_keymap_key(self, key)?;
+
+        self.release_key(value.0)?;
+        Ok(())
+    }
+
     fn send_shifted_key(&self, keycode: CGKeyCode) -> Result<(), AutoGuiError> {
         self.press_key(KeyCode::SHIFT)?;
         self.send_key(keycode)?;

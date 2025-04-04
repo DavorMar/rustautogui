@@ -33,6 +33,10 @@ pub fn fft_ncc(
     let (image_width, image_height) = image.dimensions();
     let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(&image);
 
+    if (image_width < *template_width) || (image_height < *template_height) {
+        return Vec::new();
+    }
+
     // compute needed integral images for denominator calculation
     let (image_integral, squared_image_integral) = compute_integral_images(&image_vec);
 
@@ -168,8 +172,8 @@ pub fn prepare_template_picture(
             sum_template += template_value;
         }
     }
-    let mean_template_value = sum_template / (template_height * template_width) as f32; //@audit check template_height*template_width!=0
-                                                                                        // create zero mean template
+    let mean_template_value = sum_template / (template_height * template_width) as f32;
+    // create zero mean template
     let mut zero_mean_template: Vec<Vec<f32>> =
         vec![vec![0.0; template_width as usize]; template_height as usize];
     let mut template_sum_squared_deviations: f32 = 0.0;

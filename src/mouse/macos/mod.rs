@@ -222,12 +222,71 @@ impl Mouse {
         Ok(())
     }
 
-    pub fn scroll(direction: MouseScroll) -> Result<(), AutoGuiError> {
+    pub fn mouse_down(button: MouseClick) -> Result<(), AutoGuiError> {
+        let (cg_button, down) = match button {
+            MouseClick::LEFT => (CGMouseButton::Left, CGEventType::LeftMouseDown),
+            MouseClick::RIGHT => (CGMouseButton::Right, CGEventType::RightMouseDown),
+            MouseClick::MIDDLE => (CGMouseButton::Center, CGEventType::OtherMouseDown),
+        };
+
+        // needed as input for where to click
+        let mouse_pos = Mouse::get_mouse_position()?;
+
+        let cg_event_source =
+            CGEventSource::new(CGEventSourceStateID::HIDSystemState).map_err(|_| {
+                AutoGuiError::OSFailure(
+                    "Error creating CGEventSource on mouse movement".to_string(),
+                )
+            })?;
+        let click_down = CGEvent::new_mouse_event(
+            cg_event_source,
+            down,
+            CGPoint::new(mouse_pos.0 as f64, mouse_pos.1 as f64),
+            cg_button,
+        )
+        .map_err(|_| AutoGuiError::OSFailure("Failed the mouse click down CGevent".to_string()))?;
+        click_down.post(CGEventTapLocation::HID);
+        sleep(Duration::from_millis(20));
+        Ok(())
+    }
+
+    pub fn mouse_up(button: MouseClick) -> Result<(), AutoGuiError> {
+        let (cg_button, up) = match button {
+            MouseClick::LEFT => (CGMouseButton::Left, CGEventType::LeftMouseUp),
+            MouseClick::RIGHT => (CGMouseButton::Right, CGEventType::RightMouseUp),
+            MouseClick::MIDDLE => (CGMouseButton::Center, CGEventType::OtherMouseUp),
+        };
+
+        // needed as input for where to click
+        let mouse_pos = Mouse::get_mouse_position()?;
+
+        let cg_event_source =
+            CGEventSource::new(CGEventSourceStateID::HIDSystemState).map_err(|_| {
+                AutoGuiError::OSFailure(
+                    "Error creating CGEventSource on mouse movement".to_string(),
+                )
+            })?;
+
+        let click_up = CGEvent::new_mouse_event(
+            cg_event_source,
+            up,
+            CGPoint::new(mouse_pos.0 as f64, mouse_pos.1 as f64),
+            cg_button,
+        )
+        .map_err(|_| AutoGuiError::OSFailure("Failed the mouse click up CGevent".to_string()))?;
+
+        click_up.post(CGEventTapLocation::HID);
+
+        sleep(Duration::from_millis(20));
+        Ok(())
+    }
+
+    pub fn scroll(direction: MouseScroll, intensity: u32) -> Result<(), AutoGuiError> {
         let delta = match direction {
-            MouseScroll::UP => (10, 0),
-            MouseScroll::DOWN => (-10, 0),
-            MouseScroll::LEFT => (0, 10),
-            MouseScroll::RIGHT => (0, -10),
+            MouseScroll::UP => (10 * intensity as i32, 0),
+            MouseScroll::DOWN => (-10 * intensity as i32, 0),
+            MouseScroll::LEFT => (0, 10 * intensity as i32),
+            MouseScroll::RIGHT => (0, -10 * intensity as i32),
         };
         let cg_event_source =
             CGEventSource::new(CGEventSourceStateID::HIDSystemState).map_err(|_| {
@@ -246,7 +305,7 @@ impl Mouse {
         )
         .map_err(|_| AutoGuiError::OSFailure("Failed creating mouse scroll CGevent".to_string()))?;
         scroll.post(CGEventTapLocation::HID);
-
+        sleep(Duration::from_millis(20));
         Ok(())
     }
 
