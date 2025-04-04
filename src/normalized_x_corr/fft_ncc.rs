@@ -173,7 +173,7 @@ pub fn prepare_template_picture(
         }
     }
     let mean_template_value = sum_template / (template_height * template_width) as f32;
-                                                                                        // create zero mean template
+    // create zero mean template
     let mut zero_mean_template: Vec<Vec<f32>> =
         vec![vec![0.0; template_width as usize]; template_height as usize];
     let mut template_sum_squared_deviations: f32 = 0.0;
