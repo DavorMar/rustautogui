@@ -246,6 +246,7 @@ impl Mouse {
         )
         .map_err(|_| AutoGuiError::OSFailure("Failed the mouse click down CGevent".to_string()))?;
         click_down.post(CGEventTapLocation::HID);
+        sleep(Duration::from_millis(20));
         Ok(())
     }
 
@@ -304,7 +305,7 @@ impl Mouse {
         )
         .map_err(|_| AutoGuiError::OSFailure("Failed creating mouse scroll CGevent".to_string()))?;
         scroll.post(CGEventTapLocation::HID);
-
+        sleep(Duration::from_millis(20));
         Ok(())
     }
 
