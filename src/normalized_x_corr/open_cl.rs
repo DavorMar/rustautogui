@@ -2,7 +2,7 @@ use ocl::{Buffer, Context, Kernel, Program, Queue};
 use image::{ImageBuffer, Luma};
 use crate::normalized_x_corr::{compute_integral_images, sum_region};
 use crate::imgtools;
-
+use std::time;
 
 use ocl;
 
@@ -26,7 +26,16 @@ pub fn hybrid_segmented_template_match(
     let (image_width, image_height) = image.dimensions();
     let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(&image);
     let (image_integral, squared_image_integral) = compute_integral_images(&image_vec);
-
+    let flat_integral: Vec<u64> = image_integral
+        .iter()
+        .flat_map(|row| row.iter())
+        .copied()
+        .collect();
+    let flat_squared_integral: Vec<u64> = squared_image_integral
+        .iter()
+        .flat_map(|row| row.iter())
+        .copied()
+        .collect();
     let (
         template_segments_fast,
         template_segments_slow,
@@ -40,21 +49,27 @@ pub fn hybrid_segmented_template_match(
         segments_mean_slow,
     ) = template_data;
 
-    let min_expected_corr = precision * *fast_expected_corr;
-
+    let min_expected_corr = precision * *fast_expected_corr - 0.001;
+    let slow_expected_corr = precision * *slow_expected_corr - 0.001;
+    
     let gpu_results = opencl_ncc(
-        image,
+        &flat_integral,
+        &flat_squared_integral,
         image_width,
         image_height,
         *template_width,
         *template_height,
         template_segments_fast,
+        *fast_segments_sum_squared_deviations,
+        *segments_mean_fast
     )?;
-
+    
+    
     let mut final_matches = Vec::new();
-
+    
     for (x, y, fast_corr) in gpu_results {
-        if fast_corr >= min_expected_corr {
+        if (fast_corr >= min_expected_corr ) && (fast_corr < 1.1){
+            println!("x,y , corr: {}, {}, {}", x, y, fast_corr);
             let refined_corr = fast_correlation_calculation(
                 &image_integral,
                 &squared_image_integral,
@@ -67,7 +82,7 @@ pub fn hybrid_segmented_template_match(
                 y,
             );
 
-            if refined_corr >= min_expected_corr as f64 {
+            if refined_corr >= slow_expected_corr as f64 {
                 final_matches.push((x, y, refined_corr));
             }
         }
@@ -162,12 +177,15 @@ pub fn fast_correlation_calculation(
 
 /// OpenCL-based segmented NCC template matching that returns a vector of (x, y, correlation).
 pub fn opencl_ncc(
-    image: &[u8],
+    image_integral: &[u64],
+    squared_image_integral: &[u64],
     image_width: u32,
     image_height: u32,
     template_width: u32,
     template_height: u32,
     segments: &[(u32, u32, u32, u32, f32)], // (x, y, width, height, value)
+    segments_sum_squared_deviation: f32,
+    segments_mean: f32,
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
     use ocl::{Context, Queue, Program, Buffer, Kernel};
 
@@ -175,65 +193,79 @@ pub fn opencl_ncc(
     let queue = Queue::new(&context, context.devices()[0], None)?;
 
     let program_source = r#"
-        __kernel void segmented_template_match(
-            __global const uchar* image,
-            __global const int4* segments, // (x, y, width, height)
-            __global const float* segment_values,
-            const int num_segments,
-            __global float* results,
-            const int image_width,
-            const int image_height,
-            const int template_width,
-            const int template_height
-        ) {
-            int idx = get_global_id(0);
-            int total_width = image_width - template_width + 1;
-            int x = idx % total_width;
-            int y = idx / total_width;
+    inline ulong sum_region(
+        __global const ulong* integral,
+        int x,
+        int y,
+        int width,
+        int height,
+        int image_width
+    ) {
+        int x2 = x + width - 1;
+        int y2 = y + height - 1;
 
-            if (x >= total_width || y >= (image_height - template_height + 1))
-                return;
+        ulong sum = integral[y2 * image_width + x2];
 
-            float sum_image = 0.0f;
-            float sum_image_sq = 0.0f;
-            float sum_template = 0.0f;
-            float sum_template_sq = 0.0f;
-            float sum_image_template = 0.0f;
-
-            for (int i = 0; i < num_segments; i++) {
-                int4 seg = segments[i];
-                float tpl_val = segment_values[i];
-
-                for (int dy = 0; dy < seg.w; dy++) {
-                    for (int dx = 0; dx < seg.z; dx++) {
-                        int img_x = x + seg.x + dx;
-                        int img_y = y + seg.y + dy;
-                        float img_val = (float)(image[img_y * image_width + img_x]);
-
-                        sum_image += img_val;
-                        sum_template += tpl_val;
-                        sum_image_sq += img_val * img_val;
-                        sum_template_sq += tpl_val * tpl_val;
-                        sum_image_template += img_val * tpl_val;
-                    }
-                }
-            }
-
-            float num_pixels = (float)(0);
-            for (int i = 0; i < num_segments; i++) {
-                int4 seg = segments[i];
-                num_pixels += (float)(seg.z * seg.w);
-            }
-
-            float mean_image = sum_image / num_pixels;
-            float mean_template = sum_template / num_pixels;
-            float numerator = sum_image_template - num_pixels * mean_image * mean_template;
-            float denom_img = sum_image_sq - num_pixels * mean_image * mean_image;
-            float denom_tpl = sum_template_sq - num_pixels * mean_template * mean_template;
-            float denominator = sqrt(denom_img * denom_tpl);
-            float result = denominator != 0.0f ? numerator / denominator : -1.0f;
-            results[idx] = result;
+        if (x == 0 && y == 0) {
+            // nothing to subtract
+        } else if (y == 0) {
+            sum -= integral[y2 * image_width + (x - 1)];
+        } else if (x == 0) {
+            sum -= integral[(y - 1) * image_width + x2];
+        } else {
+            sum += integral[(y - 1) * image_width + (x - 1)];
+            sum -= integral[y2 * image_width + (x - 1)];
+            sum -= integral[(y - 1) * image_width + x2];
         }
+
+        return sum;
+    }
+
+    __kernel void segmented_match_integral(
+        __global const ulong* integral,
+        __global const ulong* integral_sq,
+        __global const int4* segments,
+        __global const float* segment_values,
+        const int num_segments,
+        const float template_mean,
+        const float template_sq_dev,
+        __global float* results,
+        const int image_width,
+        const int image_height,
+        const int template_width,
+        const int template_height
+    ) {
+        int idx = get_global_id(0);
+        int result_width = image_width - template_width + 1;
+        int result_height = image_height - template_height + 1;
+
+        if (idx >= result_width * result_height) return;
+
+        int x = idx % result_width;
+        int y = idx / result_width;
+
+        ulong patch_sum = sum_region(integral, image_width, x, y, template_width, template_height);
+        ulong patch_sq_sum = sum_region(integral_sq, image_width, x, y, template_width, template_height);
+        float area = (float)(template_width * template_height);
+        float mean_img = (float)(patch_sum) / area;
+        float var_img = (float)(patch_sq_sum) - ((float)(patch_sum) * (float)(patch_sum)) / area;
+
+        float nominator = 0.0f;
+        for (int i = 0; i < num_segments; i++) {
+            int4 seg = segments[i];
+            float seg_val = segment_values[i];
+            int seg_area = seg.z * seg.w;
+
+            ulong region_sum = sum_region(integral, x + seg.x, y + seg.y, seg.z, seg.w, image_width);
+
+            nominator += ((float)(region_sum) - mean_img * seg_area) * (seg_val - template_mean);
+        }
+
+        float denominator = sqrt(var_img * template_sq_dev);
+        float corr = (denominator != 0.0f) ? (nominator / denominator) : -1.0f;
+
+        results[idx] = corr;
+    }
     "#;
 
     let program = Program::builder().src(program_source).build(&context)?;
@@ -242,10 +274,16 @@ pub fn opencl_ncc(
     let result_height = (image_height - template_height + 1) as usize;
     let output_size = result_width * result_height;
 
-    let buffer_image = Buffer::<u8>::builder()
+    let buffer_image_integral = Buffer::<u64>::builder()
         .queue(queue.clone())
-        .len(image.len())
-        .copy_host_slice(image)
+        .len(image_integral.len())
+        .copy_host_slice(image_integral)
+        .build()?;
+
+    let buffer_image_integral_squared = Buffer::<u64>::builder()
+        .queue(queue.clone())
+        .len(squared_image_integral.len())
+        .copy_host_slice(image_integral)
         .build()?;
 
     let segment_int4: Vec<ocl::prm::Int4> = segments
@@ -272,15 +310,19 @@ pub fn opencl_ncc(
         .len(output_size)
         .build()?;
 
+    let start = time::Instant::now();
     let kernel = Kernel::builder()
         .program(&program)
-        .name("segmented_template_match")
+        .name("segmented_match_integral")
         .queue(queue.clone())
         .global_work_size(output_size)
-        .arg(&buffer_image)
+        .arg(&buffer_image_integral)
+        .arg(&buffer_image_integral_squared)
         .arg(&buffer_segments)
         .arg(&buffer_segment_values)
         .arg(&(segment_int4.len() as i32))
+        .arg(&(segments_mean as f32))
+        .arg(&(segments_sum_squared_deviation as f32))
         .arg(&buffer_results)
         .arg(&(image_width as i32))
         .arg(&(image_height as i32))
@@ -289,7 +331,8 @@ pub fn opencl_ncc(
         .build()?;
 
     unsafe { kernel.enq()?; }
-
+    let duration = start.elapsed().as_secs_f32();
+    println!("Opencl part lasted: {}", duration);
     let mut results = vec![0.0f32; output_size];
     buffer_results.read(&mut results).enq()?;
 
