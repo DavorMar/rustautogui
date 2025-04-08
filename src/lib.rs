@@ -393,7 +393,7 @@ impl RustAutoGui {
                     region.3, 
                     template_width, 
                     template_height,
-                    self.ocl_queue.clone(), 
+                    &self.ocl_queue, 
                     &prepared_data.1, 
                     &prepared_data.0 
                 ).unwrap();

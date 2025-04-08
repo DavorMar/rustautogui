@@ -142,7 +142,7 @@ impl GpuMemoryPointers {
         image_height: u32, 
         template_width: u32, 
         template_height: u32, 
-        queue: Queue,
+        queue: &Queue,
         template_segments_slow: &[(u32, u32, u32, u32, f32)],
         template_segments_fast: &[(u32, u32, u32, u32, f32)],
     ) -> Result<Self,ocl::Error> {
@@ -389,7 +389,7 @@ pub fn gui_opencl_ncc(
         .copy_host_slice(squared_image_integral)
         .build()?;
 
-    let start = time::Instant::now();
+    // let start = time::Instant::now();
     let kernel = Kernel::builder()
         .program(&program)
         .name("segmented_match_integral")
@@ -418,8 +418,8 @@ pub fn gui_opencl_ncc(
 
     
     unsafe { kernel.enq()?; }
-    let duration = start.elapsed().as_secs_f32();
-    println!("Opencl part lasted: {}", duration);
+    // let duration = start.elapsed().as_secs_f32();
+    // println!("Opencl part lasted: {}", duration);
     let mut results = vec![0.0f32; output_size];
     gpu_memory_pointers.results_buffer.read(&mut results).enq()?;
 
