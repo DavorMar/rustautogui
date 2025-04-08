@@ -396,8 +396,17 @@ impl RustAutoGui {
                     self.ocl_queue.clone(), 
                     &prepared_data.1, 
                     &prepared_data.0 
-                );
+                ).unwrap();
                 
+                match alias {
+                    Some(name) => {
+                        self.ocl_buffer_storage.insert(name.into(), ocl_buffer_data);
+                    },
+                    None =>  {
+                        self.ocl_buffer_storage.insert(DEFAULT_ALIAS.into(), ocl_buffer_data);
+                    }
+                }
+
                 
                 (PreparedData::Segmented(prepared_data), match_mode)
             }
@@ -583,7 +592,7 @@ impl RustAutoGui {
     pub fn find_image_on_screen(
         &mut self,
         precision: f32,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         /// searches for image on screen and returns found locations in vector format
         let image: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
             self.screen.grab_screen_image_grayscale(&self.region)?;
@@ -618,7 +627,7 @@ impl RustAutoGui {
             None => return Ok(None),
         };
 
-        let locations_ajusted: Vec<(u32, u32, f64)> = locations
+        let locations_ajusted: Vec<(u32, u32, f32)> = locations
             .iter()
             .map(|(mut x, mut y, corr)| {
                 x = x + self.region.0 + (self.template_width / 2);
@@ -669,7 +678,7 @@ impl RustAutoGui {
         &mut self,
         precision: f32,
         timeout: u64,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         if (timeout == 0) & (!self.suppress_warnings) {
             eprintln!(
                 "Warning: setting a timeout to 0 on a loop find image initiates an infinite loop"
@@ -696,7 +705,7 @@ impl RustAutoGui {
         &mut self,
         precision: f32,
         alias: &str,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         let (prepared_data, region) =
             self.prepared_data_stored
                 .get(alias)
@@ -744,7 +753,7 @@ impl RustAutoGui {
         precision: f32,
         timeout: u64,
         alias: &str,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         if (timeout == 0) & (!self.suppress_warnings) {
             eprintln!(
                 "Warning: setting a timeout to 0 on a loop find image initiates an infinite loop"
@@ -771,7 +780,7 @@ impl RustAutoGui {
         precision: f32,
         moving_time: f32,
         alias: &str,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         let (prepared_data, region) =
             self.prepared_data_stored
                 .get(alias)
@@ -822,7 +831,7 @@ impl RustAutoGui {
         moving_time: f32,
         timeout: u64,
         alias: &str,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         if (timeout == 0) & (!self.suppress_warnings) {
             eprintln!(
                 "Warning: setting a timeout to 0 on a loop find image initiates an infinite loop"
@@ -849,7 +858,7 @@ impl RustAutoGui {
         &mut self,
         precision: f32,
         moving_time: f32,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         /// finds coordinates of the image on the screen and moves mouse to it. Returns None if no image found
         ///  Best used in loops
         let found_locations = self.find_image_on_screen(precision)?;
@@ -872,7 +881,7 @@ impl RustAutoGui {
         precision: f32,
         moving_time: f32,
         timeout: u64,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         if (timeout == 0) & (!self.suppress_warnings) {
             eprintln!(
                 "Warning: setting a timeout to 0 on a loop find image initiates an infinite loop"
@@ -897,14 +906,27 @@ impl RustAutoGui {
         &mut self,
         image: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>,
         precision: f32,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         let found_locations = match &self.prepared_data {
             PreparedData::FFT(data) => {
-                let found_locations = normalized_x_corr::fft_ncc::fft_ncc(&image, precision, data);
+                let mut found_locations = normalized_x_corr::fft_ncc::fft_ncc(&image, precision, data);
+                let found_locations = found_locations.into_iter()
+                    .map(|(x, y, value)| (x, y, value as f32))
+                    .collect();
                 found_locations
             },
             PreparedData::Segmented(data) => {
-                let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, precision, &data, &self.debug);
+                let gpu_memory_pointer = self.ocl_buffer_storage.get(&self.alias_used).unwrap();
+                let found_locations:Vec<(u32, u32, f32)> = normalized_x_corr::open_cl::gui_opencl_ncc_template_match(
+                    &self.ocl_queue, 
+                    &self.ocl_program, 
+                    gpu_memory_pointer, 
+                    precision, 
+                    &image, 
+                    data
+                ).unwrap();
+
+                // let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, precision, &data, &self.debug);
                 found_locations
             },
             PreparedData::None => {
@@ -915,7 +937,7 @@ impl RustAutoGui {
 
         if found_locations.len() > 0 {
             if self.debug {
-                let corrected_found_location: (u32, u32, f64);
+                let corrected_found_location: (u32, u32, f32);
                 let x = found_locations[0].0 as u32
                     + (self.template_width / 2) as u32
                     + self.region.0 as u32;

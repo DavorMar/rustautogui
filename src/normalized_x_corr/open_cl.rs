@@ -201,11 +201,9 @@ impl GpuMemoryPointers {
 }
 
 pub fn gui_opencl_ncc_template_match (
-    context: Context,
-    queue: Queue,
-    program: Program,
-
-    gpu_memory_pointers: GpuMemoryPointers,
+    queue: &Queue,
+    program: &Program,
+    gpu_memory_pointers: &GpuMemoryPointers,
     precision: f32,
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
     template_data: &(
@@ -271,6 +269,8 @@ pub fn gui_opencl_ncc_template_match (
     )?;
     
     gpu_results.retain(|&(_, _, value)| value >= slow_expected_corr);
+
+    
 
     gpu_results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
     
@@ -368,9 +368,9 @@ pub fn gui_opencl_ncc(
     segments_mean_fast: f32,
     segments_mean_slow: f32,
     fast_expected_corr:f32,
-    queue: Queue,
-    program: Program,
-    gpu_memory_pointers: GpuMemoryPointers,
+    queue: &Queue,
+    program: &Program,
+    gpu_memory_pointers: &GpuMemoryPointers,
     fast_segment_count: i32,
     slow_segment_count: i32
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
