@@ -29,6 +29,7 @@ use crate::errors::*;
 use imports::Mouse;
 pub use mouse::mouse_position::print_mouse_position;
 pub use mouse::MouseClick;
+use normalized_x_corr::open_cl::GpuMemoryPointers;
 
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
 const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
@@ -133,6 +134,7 @@ pub struct RustAutoGui {
     ocl_program: imports::Program,
     ocl_context: imports::Context,
     ocl_queue: imports::Queue,
+    ocl_buffer_storage: imports::HashMap<String, GpuMemoryPointers>
 }
 impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
@@ -174,6 +176,7 @@ impl RustAutoGui {
             ocl_program: program,
             ocl_context: context,
             ocl_queue: queue,
+            ocl_buffer_storage: imports::HashMap::new(),
         })
     }
 
@@ -217,6 +220,7 @@ impl RustAutoGui {
             ocl_program: program,
             ocl_context: context,
             ocl_queue: queue,
+            ocl_buffer_storage: imports::HashMap::new(),
         })
     }
 
@@ -382,9 +386,26 @@ impl RustAutoGui {
                     Err(ImageProcessingError::new("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"))?;
                 }
                 let match_mode = Some(MatchMode::Segmented);
+                
+
+                let ocl_buffer_data = GpuMemoryPointers::new(
+                    region.2,
+                    region.3, 
+                    template_width, 
+                    template_height,
+                    self.ocl_queue.clone(), 
+                    &prepared_data.1, 
+                    &prepared_data.0 
+                );
+                
+                
                 (PreparedData::Segmented(prepared_data), match_mode)
             }
         };
+
+        
+
+        
 
         // Alias Some -> storing the image , we just save it to Hashmap
         // Alias None -> not storing, then we change struct attributes to fit the single loaded image search

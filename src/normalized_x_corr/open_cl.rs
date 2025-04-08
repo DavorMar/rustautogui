@@ -137,7 +137,7 @@ pub struct GpuMemoryPointers {
     results_buffer: Buffer<f32>,
 }
 impl GpuMemoryPointers {
-    fn new(
+    pub fn new(
         image_width: u32, 
         image_height: u32, 
         template_width: u32, 
@@ -363,7 +363,7 @@ pub fn gui_opencl_ncc(
     image_height: u32,
     template_width: u32,
     template_height: u32,
-    segments_sum_squared_deviation: f32,
+    segments_sum_squared_deviation_fast: f32,
     segments_sum_squared_deviation_slow: f32,
     segments_mean_fast: f32,
     segments_mean_slow: f32,
@@ -405,7 +405,7 @@ pub fn gui_opencl_ncc(
         .arg(&slow_segment_count)
         .arg(&(segments_mean_fast as f32))
         .arg(&(segments_mean_slow as f32))
-        .arg(&(segments_sum_squared_deviation as f32))
+        .arg(&(segments_sum_squared_deviation_fast as f32))
         .arg(&(segments_sum_squared_deviation_slow as f32))
         .arg(&gpu_memory_pointers.results_buffer)
         .arg(&(image_width as i32))
