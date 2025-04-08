@@ -22,7 +22,7 @@ pub fn hybrid_segmented_template_match(
         f32,                             // slow mean
     ),
     debug: &bool,
-) -> ocl::Result<Vec<(u32, u32, f64)>> {
+) -> ocl::Result<Vec<(u32, u32, f32)>> {
     let (image_width, image_height) = image.dimensions();
     let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(&image);
     let (image_integral, squared_image_integral) = compute_integral_images(&image_vec);
@@ -52,7 +52,7 @@ pub fn hybrid_segmented_template_match(
     let min_expected_corr = precision * *fast_expected_corr - 0.001;
     let slow_expected_corr = precision * *slow_expected_corr - 0.001;
     
-    let gpu_results = opencl_ncc(
+    let mut gpu_results = opencl_ncc(
         &flat_integral,
         &flat_squared_integral,
         image_width,
@@ -60,35 +60,42 @@ pub fn hybrid_segmented_template_match(
         *template_width,
         *template_height,
         template_segments_fast,
+        template_segments_slow,
         *fast_segments_sum_squared_deviations,
-        *segments_mean_fast
+        *slow_segments_sum_squared_deviations,
+        *segments_mean_fast,
+        *segments_mean_slow,
+        min_expected_corr
     )?;
     
-    
-    let mut final_matches = Vec::new();
-    
-    for (x, y, fast_corr) in gpu_results {
-        if (fast_corr >= min_expected_corr ) {
-            // println!("x,y , corr: {}, {}, {}", x, y, fast_corr);
-            let refined_corr = fast_correlation_calculation(
-                &image_integral,
-                &squared_image_integral,
-                template_segments_slow,
-                *template_width,
-                *template_height,
-                *slow_segments_sum_squared_deviations,
-                *segments_mean_slow,
-                x,
-                y,
-            );
+    gpu_results.retain(|&(_, _, value)| value >= slow_expected_corr);
 
-            if refined_corr >= slow_expected_corr as f64 {
-                final_matches.push((x, y, refined_corr));
-            }
-        }
-    }
+    gpu_results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+    
+    // let mut final_matches = Vec::new();
+    
+    // for (x, y, fast_corr) in gpu_results {
+    //     if (fast_corr >= min_expected_corr ) {
+    //         // println!("x,y , corr: {}, {}, {}", x, y, fast_corr);
+    //         let refined_corr = fast_correlation_calculation(
+    //             &image_integral,
+    //             &squared_image_integral,
+    //             template_segments_slow,
+    //             *template_width,
+    //             *template_height,
+    //             *slow_segments_sum_squared_deviations,
+    //             *segments_mean_slow,
+    //             x,
+    //             y,
+    //         );
 
-    Ok(final_matches)
+    //         if refined_corr >= slow_expected_corr as f64 {
+    //             final_matches.push((x, y, refined_corr));
+    //         }
+    //     }
+    // }
+
+    Ok(gpu_results)
     // Ok(gpu_results)
 }
 
@@ -164,8 +171,12 @@ pub fn opencl_ncc(
     template_width: u32,
     template_height: u32,
     segments: &[(u32, u32, u32, u32, f32)], // (x, y, width, height, value)
+    template_segments_slow: &[(u32, u32, u32, u32, f32)], 
     segments_sum_squared_deviation: f32,
+    segments_sum_squared_deviation_slow: f32,
     segments_mean: f32,
+    segments_mean_slow: f32,
+    fast_expected_corr:f32,
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
     use ocl::{Context, Queue, Program, Buffer, Kernel};
 
@@ -219,15 +230,21 @@ pub fn opencl_ncc(
         __global const ulong* integral,
         __global const ulong* integral_sq,
         __global const int4* segments,
+        __global const int4* segments_slow,
         __global const float* segment_values,
+        __global const float* segment_values_slow,
         const int num_segments,
+        const int num_segments_slow,
         const float template_mean,
+        const float template_mean_slow,
         const float template_sq_dev,
+        const float template_sq_dev_slow,
         __global float* results,
         const int image_width,
         const int image_height,
         const int template_width,
-        const int template_height
+        const int template_height,
+        const float min_expected_corr
     ) {
         int idx = get_global_id(0);
         int result_width = image_width - template_width + 1;
@@ -263,20 +280,41 @@ pub fn opencl_ncc(
         
         float corr = (denominator != 0.0f) ? (nominator / denominator) : -1.0f;
 
-        if (x == 60 && y == 270) {
-            printf("Debug at x=%d, y=%d: val1 = %lu, val2 = %lu\n", x, y, patch_sum, patch_sq_sum);
-            int x2 = x + template_width - 1;
-            int y2 = y + template_height - 1;
-            printf("sum corners: br=%lu, bl=%lu, tr=%lu, tl=%lu\n",
-                integral[y2 * image_width + x2],
-                integral[y2 * image_width + (x-1)],
-                integral[(y-1) * image_width + x2],
-                integral[(y-1) * image_width + (x-1)]);
-            printf("nominator values: nom=%f\n",nominator);
-            printf("inline corr: corr=%f\n",corr);
+
+
+        if (corr < min_expected_corr) {
+            results[idx] = corr;
+            return;
+        } else {
+            float denominator_slow = sqrt(var_img * template_sq_dev_slow);
+            float nominator_slow = 0.0f;
+            for (int i = 0; i < num_segments_slow; i++) {
+                int4 seg_slow = segments_slow[i];
+                float seg_val_slow = segment_values_slow[i];
+                int seg_area = seg_slow.z * seg_slow.w;
+
+                ulong region_sum = sum_region(integral, x + seg_slow.x, y + seg_slow.y, seg_slow.z, seg_slow.w, image_width);
+
+                nominator_slow += ((float)(region_sum) - mean_img * seg_area) * (seg_val_slow - template_mean);
+            }
+            float corr_slow = (denominator_slow != 0.0f) ? (nominator_slow / denominator_slow) : -1.0f;
+            results[idx] = corr_slow;
         }
 
-        results[idx] = corr;
+        // if (x == 60 && y == 270) {
+        //     printf("Debug at x=%d, y=%d: val1 = %lu, val2 = %lu\n", x, y, patch_sum, patch_sq_sum);
+        //     int x2 = x + template_width - 1;
+        //     int y2 = y + template_height - 1;
+        //     printf("sum corners: br=%lu, bl=%lu, tr=%lu, tl=%lu\n",
+        //         integral[y2 * image_width + x2],
+        //         integral[y2 * image_width + (x-1)],
+        //         integral[(y-1) * image_width + x2],
+        //         integral[(y-1) * image_width + (x-1)]);
+        //     printf("nominator values: nom=%f\n",nominator);
+        //     printf("inline corr: corr=%f\n",corr);
+        // }
+
+        
     }
     "#;
 
@@ -303,7 +341,13 @@ pub fn opencl_ncc(
         .map(|&(x, y, w, h, _)| ocl::prm::Int4::new(x as i32, y as i32, w as i32, h as i32))
         .collect();
 
+    let segment_slow_int4: Vec<ocl::prm::Int4> = template_segments_slow
+        .iter()
+        .map(|&(x, y, w, h, _)| ocl::prm::Int4::new(x as i32, y as i32, w as i32, h as i32))
+        .collect();
+
     let segment_values: Vec<f32> = segments.iter().map(|&(_, _, _, _, v)| v).collect();
+    let segment_values_slow: Vec<f32> = template_segments_slow.iter().map(|&(_, _, _, _, v)| v).collect();
 
     let buffer_segments = Buffer::<ocl::prm::Int4>::builder()
         .queue(queue.clone())
@@ -311,10 +355,22 @@ pub fn opencl_ncc(
         .copy_host_slice(&segment_int4)
         .build()?;
 
+    let buffer_segments_slow = Buffer::<ocl::prm::Int4>::builder()
+        .queue(queue.clone())
+        .len(segment_slow_int4.len())
+        .copy_host_slice(&segment_slow_int4)
+        .build()?;
+
     let buffer_segment_values = Buffer::<f32>::builder()
         .queue(queue.clone())
         .len(segment_values.len())
         .copy_host_slice(&segment_values)
+        .build()?;
+
+    let buffer_segment_values_slow = Buffer::<f32>::builder()
+        .queue(queue.clone())
+        .len(segment_values_slow.len())
+        .copy_host_slice(&segment_values_slow)
         .build()?;
 
     let buffer_results = Buffer::<f32>::builder()
@@ -331,15 +387,21 @@ pub fn opencl_ncc(
         .arg(&buffer_image_integral)
         .arg(&buffer_image_integral_squared)
         .arg(&buffer_segments)
+        .arg(&buffer_segments_slow)
         .arg(&buffer_segment_values)
+        .arg(&buffer_segment_values_slow)
         .arg(&(segment_int4.len() as i32))
+        .arg(&(segment_slow_int4.len() as i32))
         .arg(&(segments_mean as f32))
+        .arg(&(segments_mean_slow as f32))
         .arg(&(segments_sum_squared_deviation as f32))
+        .arg(&(segments_sum_squared_deviation_slow as f32))
         .arg(&buffer_results)
         .arg(&(image_width as i32))
         .arg(&(image_height as i32))
         .arg(&(template_width as i32))
         .arg(&(template_height as i32))
+        .arg(&(fast_expected_corr as f32))
         .build()?;
 
     unsafe { kernel.enq()?; }
