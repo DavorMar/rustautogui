@@ -55,6 +55,10 @@ For Linux additionally run:
 
 `sudo apt-get install libx11-dev libxtst-dev`
 
+And for OpenCL to work:
+
+`sudo apt install libx11-dev libxtst-dev ocl-icd-opencl-dev`
+
 
 For macOS: grant necessary permissions in your settings.
 

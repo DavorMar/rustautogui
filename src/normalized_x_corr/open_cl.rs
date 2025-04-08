@@ -223,6 +223,8 @@ pub fn gui_opencl_ncc_template_match (
     let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(&image);
     let (image_integral, squared_image_integral) = compute_integral_images(&image_vec);
     
+
+    let start = time::Instant::now();
     let flat_integral: Vec<u64> = image_integral
         .iter()
         .flat_map(|row| row.iter())
@@ -249,6 +251,11 @@ pub fn gui_opencl_ncc_template_match (
     let slow_expected_corr = precision * *slow_expected_corr - 0.001;
     let fast_segment_count = template_segments_fast.len();
     let slow_segment_count = template_segments_slow.len();
+
+    let dur = start.elapsed().as_secs_f32();
+    println!("First part took : {}", dur);
+
+    let start = time::Instant::now();
     let mut gpu_results = gui_opencl_ncc(
         &flat_integral,
         &flat_squared_integral,
@@ -267,14 +274,15 @@ pub fn gui_opencl_ncc_template_match (
         fast_segment_count as i32,
         slow_segment_count as i32,
     )?;
-    
+    let dur = start.elapsed().as_secs_f32();
+    println!("whole gpu results part took : {}", dur);
     gpu_results.retain(|&(_, _, value)| value >= slow_expected_corr);
 
     
 
     gpu_results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
-    
-
+    let dur = start.elapsed().as_secs_f32();
+    println!("whole gpu results part 2 took : {}", dur);
     Ok(gpu_results)
     
 
@@ -374,6 +382,7 @@ pub fn gui_opencl_ncc(
     fast_segment_count: i32,
     slow_segment_count: i32
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
+    let start = time::Instant::now();
     let result_width = (image_width - template_width + 1) as usize;
     let result_height = (image_height - template_height + 1) as usize;
     let output_size = result_width * result_height;
@@ -388,8 +397,9 @@ pub fn gui_opencl_ncc(
         .len(squared_image_integral.len())
         .copy_host_slice(squared_image_integral)
         .build()?;
-
-    // let start = time::Instant::now();
+    let dur = start.elapsed().as_secs_f32();
+    println!("before kernel preparation took : {}", dur);
+    let start = time::Instant::now();
     let kernel = Kernel::builder()
         .program(&program)
         .name("segmented_match_integral")
@@ -418,8 +428,8 @@ pub fn gui_opencl_ncc(
 
     
     unsafe { kernel.enq()?; }
-    // let duration = start.elapsed().as_secs_f32();
-    // println!("Opencl part lasted: {}", duration);
+    let duration = start.elapsed().as_secs_f32();
+    println!("Opencl part lasted: {}", duration);
     let mut results = vec![0.0f32; output_size];
     gpu_memory_pointers.results_buffer.read(&mut results).enq()?;
 
