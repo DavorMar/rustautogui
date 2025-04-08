@@ -237,11 +237,8 @@ fn fast_correlation_calculation(
     let denominator = (image_sum_squared_deviations * fast_segments_sum_squared_deviations).sqrt();
     let mut corr: f32 = nominator / denominator;
 
-    
-
     ///////////////
 
-    
     if corr > 1.1 || corr.is_nan() {
         corr = -100.0;
         return corr as f64;

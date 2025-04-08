@@ -17,8 +17,8 @@ mod imports {
         imageops::{resize, FilterType::Nearest},
         DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba,
     };
-    pub use ocl::{Buffer, Context, Kernel, Program, Queue};
     pub use ocl;
+    pub use ocl::{Buffer, Context, Kernel, Program, Queue};
     pub use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
     pub use std::{collections::HashMap, env, fmt, fs, path::Path, str::FromStr};
 }
@@ -133,7 +133,6 @@ pub struct RustAutoGui {
     ocl_program: imports::Program,
     ocl_context: imports::Context,
     ocl_queue: imports::Queue,
-     
 }
 impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
@@ -154,7 +153,10 @@ impl RustAutoGui {
         let context = imports::Context::builder().build().unwrap();
         let queue = imports::Queue::new(&context, context.devices()[0], None).unwrap();
         let program_source = normalized_x_corr::open_cl::OCL_KERNEL;
-        let program: imports::Program = imports::Program::builder().src(program_source).build(&context).unwrap();
+        let program: imports::Program = imports::Program::builder()
+            .src(program_source)
+            .build(&context)
+            .unwrap();
         Ok(Self {
             template: None,
             prepared_data: PreparedData::None,
@@ -194,7 +196,10 @@ impl RustAutoGui {
         let context = imports::Context::builder().build().unwrap();
         let queue = imports::Queue::new(&context, context.devices()[0], None).unwrap();
         let program_source = normalized_x_corr::open_cl::OCL_KERNEL;
-        let program: imports::Program = imports::Program::builder().src(program_source).build(&context).unwrap();
+        let program: imports::Program = imports::Program::builder()
+            .src(program_source)
+            .build(&context)
+            .unwrap();
         Ok(Self {
             template: None,
             prepared_data: PreparedData::None,
@@ -212,7 +217,6 @@ impl RustAutoGui {
             ocl_program: program,
             ocl_context: context,
             ocl_queue: queue,
-            
         })
     }
 
