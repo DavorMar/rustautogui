@@ -68,8 +68,8 @@ pub fn hybrid_segmented_template_match(
     let mut final_matches = Vec::new();
     
     for (x, y, fast_corr) in gpu_results {
-        if (fast_corr >= min_expected_corr ) && (fast_corr < 1.1){
-            println!("x,y , corr: {}, {}, {}", x, y, fast_corr);
+        if (fast_corr >= min_expected_corr ) {
+            // println!("x,y , corr: {}, {}, {}", x, y, fast_corr);
             let refined_corr = fast_correlation_calculation(
                 &image_integral,
                 &squared_image_integral,
@@ -89,6 +89,7 @@ pub fn hybrid_segmented_template_match(
     }
 
     Ok(final_matches)
+    // Ok(gpu_results)
 }
 
 pub fn fast_correlation_calculation(
@@ -108,19 +109,8 @@ pub fn fast_correlation_calculation(
 ) -> f64 {
     let template_area = template_height * template_width;
 
-    /////////// numerator calculation
-    let sum_image: u64 = sum_region(image_integral, x, y, template_width, template_height);
-    let mean_image = sum_image as f32 / (template_height * template_width) as f32;
-    let mut nominator = 0.0;
-
-    
-
-    // if nominator <= 0.0 {
-    //     return -1.0;
-    // }
-
     ////////// denominator calculation
-
+    let sum_image: u64 = sum_region(image_integral, x, y, template_width, template_height);
     let sum_squared_image: u64 = sum_region(
         squared_image_integral,
         x,
@@ -130,15 +120,15 @@ pub fn fast_correlation_calculation(
     );
     let image_sum_squared_deviations =
         sum_squared_image as f32 - (sum_image as f32).powi(2) / template_area as f32;
-   
-    ///////////////
 
-    let mut corr: f32 = -1.0;
+    let denominator =
+        (image_sum_squared_deviations * slow_segments_sum_squared_deviations).sqrt();
 
+    /////////// numerator calculation
     
-    // second calculation with more detailed picture
-    
-        
+    let mean_image = sum_image as f32 / (template_height * template_width) as f32;
+    let mut nominator = 0.0;
+
     for (x1, y1, segment_width, segment_height, segment_value) in template_segments_slow {
         let segment_image_sum = sum_region(
             image_integral,
@@ -154,21 +144,11 @@ pub fn fast_correlation_calculation(
     
         nominator += segment_nominator_value;
     }
-
-    // if nominator <= 0.0 {
-    //     return -1.0;
-    // }
-
-    let denominator =
-        (image_sum_squared_deviations * slow_segments_sum_squared_deviations).sqrt();
-
-    corr = nominator / denominator;
-    
+    let mut corr = nominator / denominator;
     if corr > 1.1 || corr.is_nan() {
         corr = -100.0;
         return corr as f64;
     }
-
     corr as f64
 }
 
@@ -204,22 +184,36 @@ pub fn opencl_ncc(
         int x2 = x + width - 1;
         int y2 = y + height - 1;
 
-        ulong sum = integral[y2 * image_width + x2];
+        ulong br = integral[y2 * image_width + x2];
+        ulong bl = (x == 0) ? 0 : integral[y2 * image_width + (x - 1)];
+        ulong tr = (y == 0) ? 0 : integral[(y - 1) * image_width + x2];
+        ulong tl = (x == 0 || y == 0) ? 0 : integral[(y - 1) * image_width + (x - 1)];
+        long sum = (long)br + (long)tl - (long)bl - (long)tr;
 
-        if (x == 0 && y == 0) {
-            // nothing to subtract
-        } else if (y == 0) {
-            sum -= integral[y2 * image_width + (x - 1)];
-        } else if (x == 0) {
-            sum -= integral[(y - 1) * image_width + x2];
-        } else {
-            sum += integral[(y - 1) * image_width + (x - 1)];
-            sum -= integral[y2 * image_width + (x - 1)];
-            sum -= integral[(y - 1) * image_width + x2];
-        }
 
-        return sum;
+        return (ulong)sum;
     }
+
+
+    inline ulong sum_region_squared(
+        __global const ulong* integral_sq,
+        int x,
+        int y,
+        int width,
+        int height,
+        int image_width
+    ) {
+        int x2 = x + width - 1;
+        int y2 = y + height - 1;
+
+        ulong br = integral_sq[y2 * image_width + x2];
+        ulong bl = (x == 0) ? 0 : integral_sq[y2 * image_width + (x - 1)];
+        ulong tr = (y == 0) ? 0 : integral_sq[(y - 1) * image_width + x2];
+        ulong tl = (x == 0 || y == 0) ? 0 : integral_sq[(y - 1) * image_width + (x - 1)];
+        long sum = (long)br + (long)tl - (long)bl - (long)tr;
+        return (ulong)sum;
+    }
+
 
     __kernel void segmented_match_integral(
         __global const ulong* integral,
@@ -244,12 +238,16 @@ pub fn opencl_ncc(
         int x = idx % result_width;
         int y = idx / result_width;
 
-        ulong patch_sum = sum_region(integral, image_width, x, y, template_width, template_height);
-        ulong patch_sq_sum = sum_region(integral_sq, image_width, x, y, template_width, template_height);
+
+        ulong patch_sum = sum_region(integral, x, y, template_width, template_height, image_width);
+        ulong patch_sq_sum = sum_region_squared(integral_sq, x, y, template_width, template_height, image_width);
+        
+
+
         float area = (float)(template_width * template_height);
         float mean_img = (float)(patch_sum) / area;
         float var_img = (float)(patch_sq_sum) - ((float)(patch_sum) * (float)(patch_sum)) / area;
-
+        
         float nominator = 0.0f;
         for (int i = 0; i < num_segments; i++) {
             int4 seg = segments[i];
@@ -262,7 +260,21 @@ pub fn opencl_ncc(
         }
 
         float denominator = sqrt(var_img * template_sq_dev);
+        
         float corr = (denominator != 0.0f) ? (nominator / denominator) : -1.0f;
+
+        if (x == 60 && y == 270) {
+            printf("Debug at x=%d, y=%d: val1 = %lu, val2 = %lu\n", x, y, patch_sum, patch_sq_sum);
+            int x2 = x + template_width - 1;
+            int y2 = y + template_height - 1;
+            printf("sum corners: br=%lu, bl=%lu, tr=%lu, tl=%lu\n",
+                integral[y2 * image_width + x2],
+                integral[y2 * image_width + (x-1)],
+                integral[(y-1) * image_width + x2],
+                integral[(y-1) * image_width + (x-1)]);
+            printf("nominator values: nom=%f\n",nominator);
+            printf("inline corr: corr=%f\n",corr);
+        }
 
         results[idx] = corr;
     }
@@ -283,7 +295,7 @@ pub fn opencl_ncc(
     let buffer_image_integral_squared = Buffer::<u64>::builder()
         .queue(queue.clone())
         .len(squared_image_integral.len())
-        .copy_host_slice(image_integral)
+        .copy_host_slice(squared_image_integral)
         .build()?;
 
     let segment_int4: Vec<ocl::prm::Int4> = segments

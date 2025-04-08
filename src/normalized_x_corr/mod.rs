@@ -145,6 +145,10 @@ fn sum_region(integral_image: &[Vec<u64>], x: u32, y: u32, width: u32, height: u
      In order to calculate subimage sum, we take 16 - 8 - 8 + 4, which is 4
      */
     let mut sum = integral_image[(y + height - 1) as usize][(x + width - 1) as usize];
+    if x == 60 && y == 270 {
+        // println!("first_sum_value = {}" , sum);
+    }
+
     if x == 0 && y == 0 {
         // do nothing
     } else if y == 0 {

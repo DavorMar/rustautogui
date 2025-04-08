@@ -235,11 +235,30 @@ fn fast_correlation_calculation(
     let image_sum_squared_deviations =
         sum_squared_image as f32 - (sum_image as f32).powi(2) / template_area as f32;
     let denominator = (image_sum_squared_deviations * fast_segments_sum_squared_deviations).sqrt();
+    let mut corr: f32 = nominator / denominator;
+
+    if x == 60 && y == 270 {
+        println!("Debug at 60, 260: {}, {}", sum_image,sum_squared_image);
+        let br = image_integral[(y + template_height - 1) as usize][(x + template_width - 1) as usize]; // bottom right
+        let bl = if x == 0 { 0 } else { image_integral[(y + template_height - 1) as usize][(x - 1) as usize] }; // bottom left
+        let tr = if y == 0 { 0 } else { image_integral[(y - 1) as usize][(x + template_width - 1) as usize] }; // top right
+        let tl = if x == 0 || y == 0 { 0 } else { image_integral[(y - 1) as usize][(x - 1) as usize] }; // top left
+
+        println!("sum_region at x={}, y={}, width={}, height={}", x, y, template_width, template_height);
+        println!("coords: br=({}, {}), bl=({}, {}), tr=({}, {}), tl=({}, {})",
+            x + template_width - 1, y + template_height - 1,
+            x - 1, y + template_height - 1,
+            x + template_width - 1, y - 1,
+            x - 1, y - 1,
+        );
+        println!("values: br={}, bl={}, tr={}, tl={}", br, bl, tr, tl);
+        println!("nominator: {}",nominator);
+        println!("inline corr: {}", corr)
+    }
 
     ///////////////
 
-    let mut corr: f32 = nominator / denominator;
-
+    
     if corr > 1.1 || corr.is_nan() {
         corr = -100.0;
         return corr as f64;
