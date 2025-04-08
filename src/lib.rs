@@ -17,6 +17,8 @@ mod imports {
         imageops::{resize, FilterType::Nearest},
         DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba,
     };
+    pub use ocl::{Buffer, Context, Kernel, Program, Queue};
+    pub use ocl;
     pub use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
     pub use std::{collections::HashMap, env, fmt, fs, path::Path, str::FromStr};
 }
@@ -125,10 +127,13 @@ pub struct RustAutoGui {
     mouse: imports::Mouse,
     screen: imports::Screen,
     match_mode: Option<MatchMode>,
-
     region: (u32, u32, u32, u32),
     suppress_warnings: bool,
     alias_used: String,
+    ocl_program: imports::Program,
+    ocl_context: imports::Context,
+    ocl_queue: imports::Queue,
+     
 }
 impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
@@ -144,6 +149,12 @@ impl RustAutoGui {
         let suppress_warnings = imports::env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
             .map(|val| val == "1" || val.eq_ignore_ascii_case("true"))
             .unwrap_or(false); // Default: warnings are NOT suppressed
+
+        // OCL INITIALIZATION
+        let context = imports::Context::builder().build().unwrap();
+        let queue = imports::Queue::new(&context, context.devices()[0], None).unwrap();
+        let program_source = normalized_x_corr::open_cl::OCL_KERNEL;
+        let program: imports::Program = imports::Program::builder().src(program_source).build(&context).unwrap();
         Ok(Self {
             template: None,
             prepared_data: PreparedData::None,
@@ -155,10 +166,12 @@ impl RustAutoGui {
             mouse: mouse_struct,
             screen,
             match_mode: None,
-
             region: (0, 0, 0, 0),
             suppress_warnings,
             alias_used: DEFAULT_ALIAS.to_string(),
+            ocl_program: program,
+            ocl_context: context,
+            ocl_queue: queue,
         })
     }
 
@@ -176,6 +189,12 @@ impl RustAutoGui {
         let suppress_warnings = imports::env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
             .map(|val| val == "1" || val.eq_ignore_ascii_case("true"))
             .unwrap_or(false); // Default: warnings are NOT suppressed
+
+        // OCL INITIALIZATION
+        let context = imports::Context::builder().build().unwrap();
+        let queue = imports::Queue::new(&context, context.devices()[0], None).unwrap();
+        let program_source = normalized_x_corr::open_cl::OCL_KERNEL;
+        let program: imports::Program = imports::Program::builder().src(program_source).build(&context).unwrap();
         Ok(Self {
             template: None,
             prepared_data: PreparedData::None,
@@ -187,10 +206,13 @@ impl RustAutoGui {
             mouse: mouse_struct,
             screen: screen,
             match_mode: None,
-
             region: (0, 0, 0, 0),
             suppress_warnings: suppress_warnings,
             alias_used: DEFAULT_ALIAS.to_string(),
+            ocl_program: program,
+            ocl_context: context,
+            ocl_queue: queue,
+            
         })
     }
 

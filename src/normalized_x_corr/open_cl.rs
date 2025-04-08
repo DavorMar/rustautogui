@@ -6,7 +6,129 @@ use std::time;
 
 use ocl;
 
-pub fn hybrid_segmented_template_match(
+
+pub const OCL_KERNEL: &str = r#"
+inline ulong sum_region(
+    __global const ulong* integral,
+    int x,
+    int y,
+    int width,
+    int height,
+    int image_width
+) {
+    int x2 = x + width - 1;
+    int y2 = y + height - 1;
+
+    ulong br = integral[y2 * image_width + x2];
+    ulong bl = (x == 0) ? 0 : integral[y2 * image_width + (x - 1)];
+    ulong tr = (y == 0) ? 0 : integral[(y - 1) * image_width + x2];
+    ulong tl = (x == 0 || y == 0) ? 0 : integral[(y - 1) * image_width + (x - 1)];
+    long sum = (long)br + (long)tl - (long)bl - (long)tr;
+
+
+    return (ulong)sum;
+}
+
+
+inline ulong sum_region_squared(
+    __global const ulong* integral_sq,
+    int x,
+    int y,
+    int width,
+    int height,
+    int image_width
+) {
+    int x2 = x + width - 1;
+    int y2 = y + height - 1;
+
+    ulong br = integral_sq[y2 * image_width + x2];
+    ulong bl = (x == 0) ? 0 : integral_sq[y2 * image_width + (x - 1)];
+    ulong tr = (y == 0) ? 0 : integral_sq[(y - 1) * image_width + x2];
+    ulong tl = (x == 0 || y == 0) ? 0 : integral_sq[(y - 1) * image_width + (x - 1)];
+    long sum = (long)br + (long)tl - (long)bl - (long)tr;
+    return (ulong)sum;
+}
+
+
+__kernel void segmented_match_integral(
+    __global const ulong* integral,
+    __global const ulong* integral_sq,
+    __global const int4* segments,
+    __global const int4* segments_slow,
+    __global const float* segment_values,
+    __global const float* segment_values_slow,
+    const int num_segments,
+    const int num_segments_slow,
+    const float template_mean,
+    const float template_mean_slow,
+    const float template_sq_dev,
+    const float template_sq_dev_slow,
+    __global float* results,
+    const int image_width,
+    const int image_height,
+    const int template_width,
+    const int template_height,
+    const float min_expected_corr
+) {
+    int idx = get_global_id(0);
+    int result_width = image_width - template_width + 1;
+    int result_height = image_height - template_height + 1;
+
+    if (idx >= result_width * result_height) return;
+
+    int x = idx % result_width;
+    int y = idx / result_width;
+
+
+    ulong patch_sum = sum_region(integral, x, y, template_width, template_height, image_width);
+    ulong patch_sq_sum = sum_region_squared(integral_sq, x, y, template_width, template_height, image_width);
+    
+
+
+    float area = (float)(template_width * template_height);
+    float mean_img = (float)(patch_sum) / area;
+    float var_img = (float)(patch_sq_sum) - ((float)(patch_sum) * (float)(patch_sum)) / area;
+    
+    float nominator = 0.0f;
+    for (int i = 0; i < num_segments; i++) {
+        int4 seg = segments[i];
+        float seg_val = segment_values[i];
+        int seg_area = seg.z * seg.w;
+
+        ulong region_sum = sum_region(integral, x + seg.x, y + seg.y, seg.z, seg.w, image_width);
+
+        nominator += ((float)(region_sum) - mean_img * seg_area) * (seg_val - template_mean);
+    }
+
+    float denominator = sqrt(var_img * template_sq_dev);
+    
+    float corr = (denominator != 0.0f) ? (nominator / denominator) : -1.0f;
+
+
+
+    if (corr < min_expected_corr) {
+        results[idx] = corr;
+        return;
+    } else {
+        float denominator_slow = sqrt(var_img * template_sq_dev_slow);
+        float nominator_slow = 0.0f;
+        for (int i = 0; i < num_segments_slow; i++) {
+            int4 seg_slow = segments_slow[i];
+            float seg_val_slow = segment_values_slow[i];
+            int seg_area = seg_slow.z * seg_slow.w;
+
+            ulong region_sum = sum_region(integral, x + seg_slow.x, y + seg_slow.y, seg_slow.z, seg_slow.w, image_width);
+
+            nominator_slow += ((float)(region_sum) - mean_img * seg_area) * (seg_val_slow - template_mean);
+        }
+        float corr_slow = (denominator_slow != 0.0f) ? (nominator_slow / denominator_slow) : -1.0f;
+        results[idx] = corr_slow;
+    }    
+}
+"#;
+
+
+pub fn fast_ncc_template_match_ocl(
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
     precision: f32,
     template_data: &(
@@ -72,92 +194,10 @@ pub fn hybrid_segmented_template_match(
 
     gpu_results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
     
-    // let mut final_matches = Vec::new();
-    
-    // for (x, y, fast_corr) in gpu_results {
-    //     if (fast_corr >= min_expected_corr ) {
-    //         // println!("x,y , corr: {}, {}, {}", x, y, fast_corr);
-    //         let refined_corr = fast_correlation_calculation(
-    //             &image_integral,
-    //             &squared_image_integral,
-    //             template_segments_slow,
-    //             *template_width,
-    //             *template_height,
-    //             *slow_segments_sum_squared_deviations,
-    //             *segments_mean_slow,
-    //             x,
-    //             y,
-    //         );
-
-    //         if refined_corr >= slow_expected_corr as f64 {
-    //             final_matches.push((x, y, refined_corr));
-    //         }
-    //     }
-    // }
 
     Ok(gpu_results)
-    // Ok(gpu_results)
 }
 
-pub fn fast_correlation_calculation(
-    image_integral: &[Vec<u64>],
-    squared_image_integral: &[Vec<u64>],
-    
-    template_segments_slow: &[(u32, u32, u32, u32, f32)], // precisely segmented, high number of segments
-    template_width: u32,
-    template_height: u32,
-    
-    slow_segments_sum_squared_deviations: f32,
-    
-    segments_slow_mean: f32,
-    x: u32, // big image x value
-    y: u32, // big image y value
-    
-) -> f64 {
-    let template_area = template_height * template_width;
-
-    ////////// denominator calculation
-    let sum_image: u64 = sum_region(image_integral, x, y, template_width, template_height);
-    let sum_squared_image: u64 = sum_region(
-        squared_image_integral,
-        x,
-        y,
-        template_width,
-        template_height,
-    );
-    let image_sum_squared_deviations =
-        sum_squared_image as f32 - (sum_image as f32).powi(2) / template_area as f32;
-
-    let denominator =
-        (image_sum_squared_deviations * slow_segments_sum_squared_deviations).sqrt();
-
-    /////////// numerator calculation
-    
-    let mean_image = sum_image as f32 / (template_height * template_width) as f32;
-    let mut nominator = 0.0;
-
-    for (x1, y1, segment_width, segment_height, segment_value) in template_segments_slow {
-        let segment_image_sum = sum_region(
-            image_integral,
-            x + x1,
-            y + y1,
-            *segment_width,
-            *segment_height,
-        );
-        let segment_nominator_value: f32 = (segment_image_sum as f32
-            - mean_image * (segment_height * segment_width) as f32)
-            * (*segment_value as f32 - segments_slow_mean as f32);
-
-    
-        nominator += segment_nominator_value;
-    }
-    let mut corr = nominator / denominator;
-    if corr > 1.1 || corr.is_nan() {
-        corr = -100.0;
-        return corr as f64;
-    }
-    corr as f64
-}
 
 
 
@@ -183,142 +223,9 @@ pub fn opencl_ncc(
     let context = Context::builder().build()?;
     let queue = Queue::new(&context, context.devices()[0], None)?;
 
-    let program_source = r#"
-    inline ulong sum_region(
-        __global const ulong* integral,
-        int x,
-        int y,
-        int width,
-        int height,
-        int image_width
-    ) {
-        int x2 = x + width - 1;
-        int y2 = y + height - 1;
+    let program_source = OCL_KERNEL;
 
-        ulong br = integral[y2 * image_width + x2];
-        ulong bl = (x == 0) ? 0 : integral[y2 * image_width + (x - 1)];
-        ulong tr = (y == 0) ? 0 : integral[(y - 1) * image_width + x2];
-        ulong tl = (x == 0 || y == 0) ? 0 : integral[(y - 1) * image_width + (x - 1)];
-        long sum = (long)br + (long)tl - (long)bl - (long)tr;
-
-
-        return (ulong)sum;
-    }
-
-
-    inline ulong sum_region_squared(
-        __global const ulong* integral_sq,
-        int x,
-        int y,
-        int width,
-        int height,
-        int image_width
-    ) {
-        int x2 = x + width - 1;
-        int y2 = y + height - 1;
-
-        ulong br = integral_sq[y2 * image_width + x2];
-        ulong bl = (x == 0) ? 0 : integral_sq[y2 * image_width + (x - 1)];
-        ulong tr = (y == 0) ? 0 : integral_sq[(y - 1) * image_width + x2];
-        ulong tl = (x == 0 || y == 0) ? 0 : integral_sq[(y - 1) * image_width + (x - 1)];
-        long sum = (long)br + (long)tl - (long)bl - (long)tr;
-        return (ulong)sum;
-    }
-
-
-    __kernel void segmented_match_integral(
-        __global const ulong* integral,
-        __global const ulong* integral_sq,
-        __global const int4* segments,
-        __global const int4* segments_slow,
-        __global const float* segment_values,
-        __global const float* segment_values_slow,
-        const int num_segments,
-        const int num_segments_slow,
-        const float template_mean,
-        const float template_mean_slow,
-        const float template_sq_dev,
-        const float template_sq_dev_slow,
-        __global float* results,
-        const int image_width,
-        const int image_height,
-        const int template_width,
-        const int template_height,
-        const float min_expected_corr
-    ) {
-        int idx = get_global_id(0);
-        int result_width = image_width - template_width + 1;
-        int result_height = image_height - template_height + 1;
-
-        if (idx >= result_width * result_height) return;
-
-        int x = idx % result_width;
-        int y = idx / result_width;
-
-
-        ulong patch_sum = sum_region(integral, x, y, template_width, template_height, image_width);
-        ulong patch_sq_sum = sum_region_squared(integral_sq, x, y, template_width, template_height, image_width);
-        
-
-
-        float area = (float)(template_width * template_height);
-        float mean_img = (float)(patch_sum) / area;
-        float var_img = (float)(patch_sq_sum) - ((float)(patch_sum) * (float)(patch_sum)) / area;
-        
-        float nominator = 0.0f;
-        for (int i = 0; i < num_segments; i++) {
-            int4 seg = segments[i];
-            float seg_val = segment_values[i];
-            int seg_area = seg.z * seg.w;
-
-            ulong region_sum = sum_region(integral, x + seg.x, y + seg.y, seg.z, seg.w, image_width);
-
-            nominator += ((float)(region_sum) - mean_img * seg_area) * (seg_val - template_mean);
-        }
-
-        float denominator = sqrt(var_img * template_sq_dev);
-        
-        float corr = (denominator != 0.0f) ? (nominator / denominator) : -1.0f;
-
-
-
-        if (corr < min_expected_corr) {
-            results[idx] = corr;
-            return;
-        } else {
-            float denominator_slow = sqrt(var_img * template_sq_dev_slow);
-            float nominator_slow = 0.0f;
-            for (int i = 0; i < num_segments_slow; i++) {
-                int4 seg_slow = segments_slow[i];
-                float seg_val_slow = segment_values_slow[i];
-                int seg_area = seg_slow.z * seg_slow.w;
-
-                ulong region_sum = sum_region(integral, x + seg_slow.x, y + seg_slow.y, seg_slow.z, seg_slow.w, image_width);
-
-                nominator_slow += ((float)(region_sum) - mean_img * seg_area) * (seg_val_slow - template_mean);
-            }
-            float corr_slow = (denominator_slow != 0.0f) ? (nominator_slow / denominator_slow) : -1.0f;
-            results[idx] = corr_slow;
-        }
-
-        // if (x == 60 && y == 270) {
-        //     printf("Debug at x=%d, y=%d: val1 = %lu, val2 = %lu\n", x, y, patch_sum, patch_sq_sum);
-        //     int x2 = x + template_width - 1;
-        //     int y2 = y + template_height - 1;
-        //     printf("sum corners: br=%lu, bl=%lu, tr=%lu, tl=%lu\n",
-        //         integral[y2 * image_width + x2],
-        //         integral[y2 * image_width + (x-1)],
-        //         integral[(y-1) * image_width + x2],
-        //         integral[(y-1) * image_width + (x-1)]);
-        //     printf("nominator values: nom=%f\n",nominator);
-        //     printf("inline corr: corr=%f\n",corr);
-        // }
-
-        
-    }
-    "#;
-
-    let program = Program::builder().src(program_source).build(&context)?;
+    let program: Program = Program::builder().src(program_source).build(&context)?;
 
     let result_width = (image_width - template_width + 1) as usize;
     let result_height = (image_height - template_height + 1) as usize;
