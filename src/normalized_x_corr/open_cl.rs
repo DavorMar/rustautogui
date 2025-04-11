@@ -253,7 +253,7 @@ pub fn gui_opencl_ncc_template_match (
     let slow_segment_count = template_segments_slow.len();
 
     let dur = start.elapsed().as_secs_f32();
-    println!("First part took : {}", dur);
+    // println!("First part took : {}", dur);
 
     let start = time::Instant::now();
     let mut gpu_results = gui_opencl_ncc(
@@ -275,14 +275,14 @@ pub fn gui_opencl_ncc_template_match (
         slow_segment_count as i32,
     )?;
     let dur = start.elapsed().as_secs_f32();
-    println!("whole gpu results part took : {}", dur);
+    // println!("whole gpu results part took : {}", dur);
     gpu_results.retain(|&(_, _, value)| value >= slow_expected_corr);
 
     
 
     gpu_results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
     let dur = start.elapsed().as_secs_f32();
-    println!("whole gpu results part 2 took : {}", dur);
+    // println!("whole gpu results part 2 took : {}", dur);
     Ok(gpu_results)
     
 
