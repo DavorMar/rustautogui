@@ -180,7 +180,7 @@ impl Keyboard {
         &self,
         key_1: &str,
         key_2: &str,
-        key_3: Option<String>,
+        key_3: Option<&str>,
     ) -> Result<(), AutoGuiError> {
         unsafe {
             let value1 = self.get_keycode(key_1)?;
@@ -191,7 +191,7 @@ impl Keyboard {
                 Some(value) => {
                     third_key = true;
 
-                    self.get_keycode(&value)?
+                    self.get_keycode(value)?
                 }
                 None => (0, &false), // this value should never be pressed
             };

@@ -8,7 +8,7 @@ fn main() {
     // prepare and store template with Opencl matchmode VERSION 2 and custom threshold of 0.8
     gui.store_template_from_file_custom(
         "test.png",
-        Some((500, 100, 1000, 700)),
+        Some((500, 100, 1000, 700).into()),
         rustautogui::MatchMode::SegmentedOclV2,
         "test_img",
         0.8,

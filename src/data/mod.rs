@@ -1,8 +1,8 @@
 #[cfg(feature = "opencl")]
 pub mod opencl;
-#[cfg(not(feature = "lite"))]
-use crate::MatchMode;
 use crate::RustAutoGui;
+#[cfg(not(feature = "lite"))]
+use crate::{MatchMode, Region, Segment};
 #[cfg(feature = "opencl")]
 pub use opencl::*;
 #[cfg(not(feature = "lite"))]
@@ -17,16 +17,16 @@ use std::collections::HashMap;
 pub struct TemplateMatchingData {
     pub template: Option<ImageBuffer<Luma<u8>, Vec<u8>>>,
     pub prepared_data: PreparedData, // used direct load and search
-    pub prepared_data_stored: HashMap<String, (PreparedData, (u32, u32, u32, u32), MatchMode)>, //prepared data, region, matchmode
+    pub prepared_data_stored: HashMap<String, (PreparedData, Region, MatchMode)>, //prepared data, region, matchmode
     pub match_mode: Option<MatchMode>,
-    pub region: (u32, u32, u32, u32),
+    pub region: Region,
     pub alias_used: String,
 }
 
 #[cfg(not(feature = "lite"))]
 pub struct BackupData {
     pub starting_data: PreparedData,
-    pub starting_region: (u32, u32, u32, u32),
+    pub starting_region: Region,
     pub starting_match_mode: Option<MatchMode>,
     pub starting_template_height: u32,
     pub starting_template_width: u32,
@@ -38,8 +38,8 @@ impl BackupData {
         target.template_data.prepared_data = self.starting_data.clone();
         target.template_data.region = self.starting_region;
         target.template_data.match_mode = self.starting_match_mode;
-        target.screen.screen_data.screen_region_width = self.starting_region.2;
-        target.screen.screen_data.screen_region_height = self.starting_region.3;
+        target.screen.screen_data.screen_region_width = self.starting_region.width;
+        target.screen.screen_data.screen_region_height = self.starting_region.height;
         target.template_width = self.starting_template_width;
         target.template_height = self.starting_template_height;
         target.template_data.alias_used = self.starting_alias_used;
@@ -66,8 +66,8 @@ impl Clone for PreparedData {
 
 #[cfg(not(feature = "lite"))]
 pub struct SegmentedData {
-    pub template_segments_fast: Vec<(u32, u32, u32, u32, f32)>,
-    pub template_segments_slow: Vec<(u32, u32, u32, u32, f32)>,
+    pub template_segments_fast: Vec<Segment>,
+    pub template_segments_slow: Vec<Segment>,
     pub template_width: u32,
     pub template_height: u32,
     pub segment_sum_squared_deviations_fast: f32,

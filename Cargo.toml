@@ -1,7 +1,7 @@
 [package]
 name = "rustautogui"
 authors = ["Davor Marusic"]
-version = "2.5.1"
+version = "2.5.0"
 edition = "2021"
 description = "Highly optimized GUI automation library for controlling the mouse and keyboard, with template matching support."
 license = "MIT"
@@ -18,14 +18,14 @@ rustfft = { version = "6.2.0", optional = true }
 rayon = { version = "1.10.0", optional = true }
 num-complex = { version = "0.4.6", optional = true }
 ocl = { version = "0.19.7", optional = true }
-image = { version = "0.25", optional = true}
+image = { version = "0.25", optional = true }
 rand = "0.9"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 x11 = "2.21.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-core-graphics = {version = "0.23.2", features = ["highsierra"]}
+core-graphics = { version = "0.23.2", features = ["highsierra"] }
 
 
 [target.'cfg(windows)'.dependencies]

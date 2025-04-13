@@ -28,7 +28,7 @@ impl crate::RustAutoGui {
         /// searches for image on screen and returns found locations in vector format
         let image: ImageBuffer<Luma<u8>, Vec<u8>> = self
             .screen
-            .grab_screen_image_grayscale(&self.template_data.region)?;
+            .grab_screen_image_grayscale(self.template_data.region)?;
 
         if self.debug {
             let debug_path = Path::new("debug");
@@ -63,8 +63,8 @@ impl crate::RustAutoGui {
         let locations_ajusted: Vec<(u32, u32, f32)> = locations
             .iter()
             .map(|(mut x, mut y, corr)| {
-                x = x + self.template_data.region.0 + (self.template_width / 2);
-                y = y + self.template_data.region.1 + (self.template_height / 2);
+                x = x + self.template_data.region.x + (self.template_width / 2);
+                y = y + self.template_data.region.y + (self.template_height / 2);
                 (x, y, *corr)
             })
             .collect();
@@ -160,8 +160,8 @@ impl crate::RustAutoGui {
 
         self.template_data.alias_used = alias.into();
         self.template_data.prepared_data = prepared_data.clone();
-        self.screen.screen_data.screen_region_width = region.2;
-        self.screen.screen_data.screen_region_height = region.3;
+        self.screen.screen_data.screen_region_width = region.width;
+        self.screen.screen_data.screen_region_height = region.height;
         self.template_data.region = *region;
         self.template_data.match_mode = Some(match_mode.clone());
         match prepared_data {
@@ -236,8 +236,8 @@ impl crate::RustAutoGui {
         self.template_data.alias_used = alias.into();
         self.template_data.prepared_data = prepared_data.clone();
         self.template_data.region = *region;
-        self.screen.screen_data.screen_region_width = region.2;
-        self.screen.screen_data.screen_region_height = region.3;
+        self.screen.screen_data.screen_region_width = region.width;
+        self.screen.screen_data.screen_region_height = region.height;
         self.template_data.match_mode = Some(match_mode.clone());
         match prepared_data {
             PreparedData::FFT(data) => {
@@ -428,9 +428,9 @@ impl crate::RustAutoGui {
         if !found_locations.is_empty() {
             if self.debug {
                 let x =
-                    found_locations[0].0 + (self.template_width / 2) + self.template_data.region.0;
+                    found_locations[0].0 + (self.template_width / 2) + self.template_data.region.x;
                 let y =
-                    found_locations[0].1 + (self.template_height / 2) + self.template_data.region.1;
+                    found_locations[0].1 + (self.template_height / 2) + self.template_data.region.y;
                 let corr = found_locations[0].2;
                 let corrected_found_location = (x, y, corr);
 
