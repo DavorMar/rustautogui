@@ -37,7 +37,7 @@ where
 {
     let buff_len = image.as_raw().len() as u32;
     let (img_w, img_h) = image.dimensions();
-    if (&img_w * &img_h) == 0 {
+    if (img_w * img_h) == 0 {
         let err = "Error: The buffer provided is empty and has no size".to_string();
         return Err(AutoGuiError::ImgError(err));
     }
@@ -59,7 +59,7 @@ where
             // convert from Vec<T> to Vec<u8>
             let raw_img: Result<Vec<u8>, AutoGuiError> = image
                 .as_raw()
-                .into_iter()
+                .iter()
                 .map(|x| {
                     x.to_u8().ok_or(AutoGuiError::ImgError(
                         "Pixel conversion to raw failed".to_string(),
@@ -75,7 +75,7 @@ where
             // Rgb
             let raw_img: Result<Vec<u8>, AutoGuiError> = image
                 .as_raw()
-                .into_iter()
+                .iter()
                 .map(|x| {
                     x.to_u8().ok_or(AutoGuiError::ImgError(
                         "Pixel conversion to raw failed".to_string(),
@@ -91,7 +91,7 @@ where
             // Rgba
             let raw_img: Result<Vec<u8>, AutoGuiError> = image
                 .as_raw()
-                .into_iter()
+                .iter()
                 .map(|x| {
                     x.to_u8().ok_or(AutoGuiError::ImgError(
                         "Pixel conversion to raw failed".to_string(),
@@ -104,11 +104,9 @@ where
                 ))?;
             Ok(DynamicImage::ImageRgba8(rgba_img).to_luma8())
         }
-        _ => {
-            return Err(AutoGuiError::ImgError(
-                "Unknown image format. Load works only for Rgb/Rgba/Luma(BW) formats".to_string(),
-            ))
-        }
+        _ => Err(AutoGuiError::ImgError(
+            "Unknown image format. Load works only for Rgb/Rgba/Luma(BW) formats".to_string(),
+        )),
     }
 }
 
@@ -119,7 +117,7 @@ pub fn convert_rgba_to_bw(
     let (img_w, img_h) = image.dimensions();
     let raw_img: Result<Vec<u8>, AutoGuiError> = image
         .as_raw()
-        .into_iter()
+        .iter()
         .map(|x| {
             x.to_u8().ok_or(AutoGuiError::ImgError(
                 "Pixel conversion to raw failed".to_string(),
@@ -147,9 +145,9 @@ pub fn convert_rgba_to_bw_old(
         let gray_value = ((r * 30 + g * 59 + b * 11) / 100) as u8;
         grayscale_data.push(gray_value);
     }
-    GrayImage::from_raw(image_width as u32, image_height as u32, grayscale_data).ok_or(
-        AutoGuiError::ImgError("Failed to convert to grayscale".to_string()),
-    )
+    GrayImage::from_raw(image_width, image_height, grayscale_data).ok_or(AutoGuiError::ImgError(
+        "Failed to convert to grayscale".to_string(),
+    ))
 }
 
 /// Cuts Region of image. Inputs are top left x , y pixel coordinates on image,

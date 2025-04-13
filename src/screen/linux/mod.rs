@@ -3,7 +3,7 @@ extern crate x11;
 
 use crate::{
     errors::{AutoGuiError, ImageProcessingError},
-    imgtools,
+    imgtools, Region,
 };
 use core::error;
 use image::{GrayImage, ImageBuffer, Luma, Rgba};
@@ -43,12 +43,12 @@ impl Screen {
             let screen_width = XDisplayWidth(display, screen);
             let screen_height = XDisplayHeight(display, screen);
             Screen {
-                screen_width: screen_width,
-                screen_height: screen_height,
+                screen_width,
+                screen_height,
                 screen_region_width: 0,
                 screen_region_height: 0,
                 pixel_data: vec![0u8; (screen_width * screen_height * 4) as usize],
-                display: display,
+                display,
                 root_window: root,
             }
         }
@@ -56,15 +56,13 @@ impl Screen {
 
     /// returns screen dimensions. All monitors included
     pub fn dimension(&self) -> (i32, i32) {
-        let dimensions = (self.screen_width, self.screen_height);
-        dimensions
+        (self.screen_width, self.screen_height)
     }
 
     #[allow(dead_code)]
     /// return region dimension which is set up when template is precalculated
     pub fn region_dimension(&self) -> (u32, u32) {
-        let dimensions = (self.screen_region_width, self.screen_region_height);
-        dimensions
+        (self.screen_region_width, self.screen_region_height)
     }
 
     pub fn destroy(&self) {
@@ -94,15 +92,20 @@ impl Screen {
     /// as inputted region area
     pub fn grab_screen_image_grayscale(
         &mut self,
-        region: &(u32, u32, u32, u32),
+        region: Region,
     ) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
-        let (x, y, width, height) = region;
-        self.screen_region_width = *width;
-        self.screen_region_height = *height;
+        let Region {
+            x,
+            y,
+            width,
+            height,
+        } = region;
+        self.screen_region_width = width;
+        self.screen_region_height = height;
         self.capture_screen()?;
         let image: ImageBuffer<Luma<u8>, Vec<u8>> = self.convert_bitmap_to_grayscale()?;
         let cropped_image: ImageBuffer<Luma<u8>, Vec<u8>> =
-            imgtools::cut_screen_region(*x, *y, *width, *height, &image);
+            imgtools::cut_screen_region(x, y, width, height, &image);
         Ok(cropped_image)
     }
 
@@ -154,7 +157,7 @@ impl Screen {
             self.pixel_data = pixel_data;
             XDestroyImage(ximage);
         }
-        return Ok(());
+        Ok(())
     }
 
     /// convert vector to Luma Imagebuffer

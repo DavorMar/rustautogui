@@ -1,3 +1,4 @@
+use rustautogui::Region;
 use rustautogui::RustAutoGui;
 use std::thread;
 use std::time;
@@ -14,12 +15,12 @@ fn main() {
     rustautogui
         .store_template_from_file(
             "/home/davor/Pictures/stars.png",
-            Some((
-                (0.2 * screen_w as f32) as u32, // start x
-                0,                              // start y
-                (0.5 * screen_w as f32) as u32, // width
-                (0.4 * screen_h as f32) as u32, // height
-            )),
+            Some(Region {
+                x: (0.2 * screen_w as f32) as u32,
+                y: 0,
+                width: (0.5 * screen_w as f32) as u32,
+                height: (0.4 * screen_h as f32) as u32,
+            }),
             rustautogui::MatchMode::Segmented,
             "stars",
         )
@@ -30,12 +31,12 @@ fn main() {
     rustautogui
         .prepare_template_from_file(
             "/home/davor/Pictures/terms.png",
-            Some((
-                (0.1 * screen_w as f32) as u32, // start x
-                (0.7 * screen_h as f32) as u32, // start y
-                (0.5 * screen_w as f32) as u32, // width
-                (0.3 * screen_h as f32) as u32, // height
-            )),
+            Some(Region {
+                x: (0.1 * screen_w as f32) as u32,
+                y: (0.7 * screen_h as f32) as u32,
+                width: (0.5 * screen_w as f32) as u32,
+                height: (0.3 * screen_h as f32) as u32,
+            }),
             rustautogui::MatchMode::Segmented,
         )
         .unwrap();

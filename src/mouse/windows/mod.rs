@@ -79,8 +79,8 @@ impl Mouse {
         unsafe {
             let mut point = POINT { x: 0, y: 0 };
             winapi::um::winuser::GetCursorPos(&mut point);
-            return (point.x, point.y);
-        };
+            (point.x, point.y)
+        }
     }
 
     /// click mouse, either left, right or middle "MouseClick::LEFT/RIGHT/MIDDLE enumerator"
