@@ -16,12 +16,14 @@ pub use macos as platform;
 #[cfg(target_os = "linux")]
 pub use linux as platform;
 
+#[allow(clippy::upper_case_acronyms)]
 pub enum MouseClick {
     LEFT,
     RIGHT,
     MIDDLE,
 }
 
+#[allow(clippy::upper_case_acronyms)]
 pub enum MouseScroll {
     UP,
     DOWN,

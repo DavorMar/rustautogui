@@ -12,7 +12,7 @@ use winapi::um::wingdi::{
 };
 use winapi::um::winuser::{GetDC, ReleaseDC};
 
-use crate::{imgtools, AutoGuiError};
+use crate::{imgtools, AutoGuiError, Region};
 
 #[derive(Debug, Clone)]
 pub struct Screen {
@@ -40,24 +40,24 @@ impl Screen {
             let h_bitmap: *mut winapi::shared::windef::HBITMAP__ =
                 CreateCompatibleBitmap(h_screen_dc, screen_width, screen_height);
             Ok(Screen {
-                screen_height: screen_height,
-                screen_width: screen_width,
+                screen_height,
+                screen_width,
                 screen_region_height: screen_height as u32,
                 screen_region_width: screen_width as u32,
                 pixel_data: vec![0u8; (screen_width * screen_height * 4) as usize],
-                h_screen_dc: h_screen_dc,
+                h_screen_dc,
                 h_memory_dc: h_mem_dc,
-                h_bitmap: h_bitmap,
+                h_bitmap,
             })
         }
     }
     pub fn dimension(&self) -> (i32, i32) {
-        return (self.screen_width, self.screen_height);
+        (self.screen_width, self.screen_height)
     }
 
     #[allow(dead_code)]
     pub fn region_dimension(&self) -> (u32, u32) {
-        return (self.screen_region_width, self.screen_region_height);
+        (self.screen_region_width, self.screen_region_height)
     }
 
     /// clear memory and delete screen
@@ -89,16 +89,21 @@ impl Screen {
     /// captures screen, and returns grayscale Imagebuffer cropped for the selected region
     pub fn grab_screen_image_grayscale(
         &mut self,
-        region: &(u32, u32, u32, u32),
+        region: Region,
     ) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
-        let (x, y, width, height) = region;
-        self.screen_region_width = *width;
-        self.screen_region_height = *height;
+        let Region {
+            x,
+            y,
+            width,
+            height,
+        } = region;
+        self.screen_region_width = width;
+        self.screen_region_height = height;
         self.capture_screen();
         let image = self.convert_bitmap_to_grayscale()?;
 
         let cropped_image: ImageBuffer<Luma<u8>, Vec<u8>> =
-            imgtools::cut_screen_region(*x, *y, *width, *height, &image);
+            imgtools::cut_screen_region(x, y, width, height, &image);
         Ok(cropped_image)
     }
 
