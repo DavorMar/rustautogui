@@ -131,6 +131,7 @@ pub struct RustAutoGui {
     region: (u32, u32, u32, u32),
     suppress_warnings: bool,
     alias_used: String,
+    ocl_active: bool,
     ocl_program: imports::Program,
     ocl_context: imports::Context,
     ocl_queue: imports::Queue,
@@ -217,6 +218,7 @@ impl RustAutoGui {
             region: (0, 0, 0, 0),
             suppress_warnings: suppress_warnings,
             alias_used: DEFAULT_ALIAS.to_string(),
+            ocl_active:true,
             ocl_program: program,
             ocl_context: context,
             ocl_queue: queue,
@@ -380,6 +382,7 @@ impl RustAutoGui {
                 ) = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
                     &template,
                     &self.debug,
+                    self.ocl_active
                 );
                 // mostly happens due to using too complex image with small max segments value
                 if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {

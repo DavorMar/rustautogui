@@ -284,6 +284,7 @@ fn fast_correlation_calculation(
 pub fn prepare_template_picture(
     template: &ImageBuffer<Luma<u8>, Vec<u8>>,
     debug: &bool,
+    ocl: bool,
 ) -> (
     Vec<(u32, u32, u32, u32, f32)>,
     Vec<(u32, u32, u32, u32, f32)>,
@@ -345,7 +346,7 @@ pub fn prepare_template_picture(
 
     // create fast segmented image
     let (
-        picture_segments_fast,
+        mut picture_segments_fast,
         segment_sum_squared_deviations_fast,
         expected_corr_fast,
         segments_mean_fast,
@@ -354,10 +355,11 @@ pub fn prepare_template_picture(
         mean_template_value,
         avg_deviation_of_template,
         "fast",
+        ocl,
     );
     // create slow segmented image
     let (
-        picture_segments_slow,
+        mut picture_segments_slow,
         segment_sum_squared_deviations_slow,
         expected_corr_slow,
         segments_mean_slow,
@@ -366,21 +368,25 @@ pub fn prepare_template_picture(
         mean_template_value,
         avg_deviation_of_template,
         "slow",
+        ocl,
     );
 
-    // merge pictures segments
-    let mut picture_segments_fast = merge_picture_segments(picture_segments_fast);
-    picture_segments_fast.sort_by(|a, b| {
-        let area_a = a.2 * a.3; // width * height for segment a
-        let area_b = b.2 * b.3; // width * height for segment b
-        area_a.cmp(&area_b) // Compare the areas
-    });
-    let mut picture_segments_slow = merge_picture_segments(picture_segments_slow);
-    picture_segments_slow.sort_by(|a, b| {
-        let area_a = a.2 * a.3; // width * height for segment a
-        let area_b = b.2 * b.3; // width * height for segment b
-        area_a.cmp(&area_b) // Compare the areas
-    });
+    if !ocl {
+        // merge pictures segments
+        picture_segments_fast = merge_picture_segments(picture_segments_fast);
+        picture_segments_fast.sort_by(|a, b| {
+            let area_a = a.2 * a.3; // width * height for segment a
+            let area_b = b.2 * b.3; // width * height for segment b
+            area_a.cmp(&area_b) // Compare the areas
+        });
+        picture_segments_slow = merge_picture_segments(picture_segments_slow);
+        picture_segments_slow.sort_by(|a, b| {
+            let area_a = a.2 * a.3; // width * height for segment a
+            let area_b = b.2 * b.3; // width * height for segment b
+            area_a.cmp(&area_b) // Compare the areas
+        });
+    }
+    
 
     if *debug {
         let fast_segment_number = picture_segments_fast.len();
@@ -412,6 +418,7 @@ pub fn prepare_template_picture(
         segments_mean_fast,
         segments_mean_slow,
     );
+    println!("Expected corrs: {}, {}", expected_corr_fast, expected_corr_slow);
     return_value
 }
 
@@ -421,6 +428,7 @@ fn create_picture_segments(
     mean_template_value: f32,
     avg_deviation_of_template: f32,
     template_type: &str,
+    ocl: bool,
 ) -> (Vec<(u32, u32, u32, u32, f32)>, f32, f32, f32) {
     /// returns (picture_segments,segment_sum_squared_deviations, expected_corr, segments_mean)
     /// calls recursive divide and conquer binary segmentation function which divides
@@ -434,9 +442,17 @@ fn create_picture_segments(
 
     let mut target_corr = 0.0;
     let mut threshold = 0.0;
+    
     if template_type == "fast" {
-        threshold = 0.99;
-        target_corr = -0.95;
+        println!("OCL State: {}", ocl);
+        if ocl {
+            threshold = 0.95;
+            target_corr = 0.80;
+        } else {
+            threshold = 0.99;
+            target_corr = -0.95;
+        }
+        
     } else if template_type == "slow" {
         threshold = 0.85;
         target_corr = 0.99;
@@ -453,6 +469,7 @@ fn create_picture_segments(
             0,
             0,
             threshold * avg_deviation_of_template,
+            ocl,
         );
 
         threshold -= 0.05;
@@ -502,7 +519,7 @@ fn create_picture_segments(
             picture_segments = Vec::new();
         }
     }
-
+    println!("Number of segments for {}: {}", template_type, picture_segments.len());
     return (
         picture_segments,
         segment_sum_squared_deviations,
@@ -517,6 +534,7 @@ fn divide_and_conquer(
     x: u32,
     y: u32,
     threshhold: f32,
+    ocl:bool,
 ) {
     /*
     function that segments template image into areas that have similar color
@@ -554,7 +572,9 @@ fn divide_and_conquer(
         (sum_squared_deviations as f32 / (segment_width * segment_height) as f32).sqrt();
     let mut additional_pixel = 0;
 
-    if average_deviation > threshhold {
+    if (average_deviation > threshhold)
+     || (ocl && (segment_width > 50 || segment_height > 50))
+    {
         //split image
         // let (image_1, image_2) =
         if segment_width >= segment_height || segment_height == 1 {
@@ -580,8 +600,8 @@ fn divide_and_conquer(
 
             let x1 = &x + segment_width / 2 + additional_pixel;
             // go recursively into first and second image halfs
-            divide_and_conquer(picture_segments, &image_1, x, y, threshhold);
-            divide_and_conquer(picture_segments, &image_2, x1, y, threshhold);
+            divide_and_conquer(picture_segments, &image_1, x, y, threshhold, ocl);
+            divide_and_conquer(picture_segments, &image_2, x1, y, threshhold, ocl);
 
             //if image taller than wider
         } else {
@@ -606,8 +626,8 @@ fn divide_and_conquer(
             );
             let y1 = y + segment_height / 2 + additional_pixel;
             // go recursively into first and second image halfs
-            divide_and_conquer(picture_segments, &image_1, x, y, threshhold);
-            divide_and_conquer(picture_segments, &image_2, x, y1, threshhold);
+            divide_and_conquer(picture_segments, &image_1, x, y, threshhold, ocl);
+            divide_and_conquer(picture_segments, &image_2, x, y1, threshhold, ocl);
         };
 
     // recursion exit
