@@ -20,7 +20,7 @@ num-complex = "0.4.6"
 rayon = "1.10.0"
 rand = "0.9"
 x11 = "2.21.0"
-ocl = "0.19.7"
+ocl = {version = "0.19.7", optional = true}
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-graphics = {version = "0.23.2", features = ["highsierra"]}
@@ -30,3 +30,6 @@ core-graphics = {version = "0.23.2", features = ["highsierra"]}
 winapi = { version = "0.3", features = ["winuser", "windef"] }
 
 
+[features]
+default = []
+opencl = ["ocl"]

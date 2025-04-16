@@ -35,7 +35,7 @@ pub fn fast_ncc_template_match(
         f32,
     ),
     debug: &bool,
-) -> Vec<(u32, u32, f64)> {
+) -> Vec<(u32, u32, f32)> {
     /// Process:
     /// Template preparation : done before calling template match
     /// Template is
@@ -82,7 +82,7 @@ pub fn fast_ncc_template_match(
     let coords: Vec<(u32, u32)> = (0..=(image_height - template_height))
         .flat_map(|y| (0..=(image_width - template_width)).map(move |x| (x, y)))
         .collect();
-    let mut found_points: Vec<(u32, u32, f64)> = coords
+    let mut found_points: Vec<(u32, u32, f32)> = coords
         .par_iter()
         .map(|&(x, y)| {
             let corr = fast_correlation_calculation(
@@ -100,9 +100,9 @@ pub fn fast_ncc_template_match(
                 y,
                 adjusted_fast_expected_corr,
             );
-            (x, y, corr)
+            (x, y, corr as f32)
         })
-        .filter(|&(_, _, corr)| corr >= adjusted_slow_expected_corr as f64)
+        .filter(|&(_, _, corr)| corr as f32 >= adjusted_slow_expected_corr)
         .collect();
 
     // returned list of found points
@@ -418,7 +418,6 @@ pub fn prepare_template_picture(
         segments_mean_fast,
         segments_mean_slow,
     );
-    println!("Expected corrs: {}, {}", expected_corr_fast, expected_corr_slow);
     return_value
 }
 
@@ -519,7 +518,6 @@ fn create_picture_segments(
             picture_segments = Vec::new();
         }
     }
-    println!("Number of segments for {}: {}", template_type, picture_segments.len());
     return (
         picture_segments,
         segment_sum_squared_deviations,

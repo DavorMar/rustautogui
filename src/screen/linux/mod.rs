@@ -1,5 +1,6 @@
 extern crate image;
 extern crate x11;
+use rayon::prelude::*;
 
 use crate::{
     errors::{AutoGuiError, ImageProcessingError},
@@ -141,9 +142,9 @@ impl Screen {
                 (*ximage).height as u32,
             );
             let (image_width, image_height) = img.dimensions();
+
             let mut pixel_data: Vec<u8> =
                 Vec::with_capacity((image_width * image_height * 4) as usize);
-
             for (x, y, _pixel) in img.enumerate_pixels_mut() {
                 let index = ((y * image_width + x) * 4) as usize;
                 pixel_data.push(slice[index + 2]); // R

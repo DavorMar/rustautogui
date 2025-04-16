@@ -1,7 +1,8 @@
 pub mod fast_segment_x_corr;
 pub mod fft_ncc;
-pub mod open_cl;
 pub mod slow_ncc;
+#[cfg(feature = "opencl")]
+pub mod open_cl;
 
 fn compute_integral_image(image: &[Vec<u8>]) -> Vec<Vec<u64>> {
     /*

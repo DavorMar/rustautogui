@@ -238,8 +238,6 @@ pub fn gui_opencl_ncc_template_match (
     let (image_integral, squared_image_integral) = compute_integral_images_ocl(&image);
     
 
-    let start = time::Instant::now();
-
     let (
         template_segments_fast,
         template_segments_slow,
