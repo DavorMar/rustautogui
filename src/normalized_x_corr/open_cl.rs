@@ -1,7 +1,7 @@
-use ocl::{Buffer, Context, Kernel, Program, Queue};
-use image::{ImageBuffer, Luma};
-use crate::normalized_x_corr::{compute_integral_images, sum_region};
 use crate::imgtools;
+use crate::normalized_x_corr::{compute_integral_images, sum_region};
+use image::{ImageBuffer, Luma};
+use ocl::{Buffer, Context, Kernel, Program, Queue};
 use std::time;
 
 use ocl;
@@ -127,27 +127,25 @@ __kernel void segmented_match_integral(
 }
 "#;
 
-
-
 pub struct GpuMemoryPointers {
     segments_fast_buffer: Buffer<ocl::prm::Int4>,
     segments_slow_buffer: Buffer<ocl::prm::Int4>,
     segment_fast_values_buffer: Buffer<f32>,
     segment_slow_values_buffer: Buffer<f32>,
     results_buffer: Buffer<f32>,
-    buffer_image_integral:Buffer<u64>,
-    buffer_image_integral_squared:Buffer<u64>,
+    buffer_image_integral: Buffer<u64>,
+    buffer_image_integral_squared: Buffer<u64>,
 }
 impl GpuMemoryPointers {
     pub fn new(
-        image_width: u32, 
-        image_height: u32, 
-        template_width: u32, 
-        template_height: u32, 
+        image_width: u32,
+        image_height: u32,
+        template_width: u32,
+        template_height: u32,
         queue: &Queue,
         template_segments_slow: &[(u32, u32, u32, u32, f32)],
         template_segments_fast: &[(u32, u32, u32, u32, f32)],
-    ) -> Result<Self,ocl::Error> {
+    ) -> Result<Self, ocl::Error> {
         let result_width = (image_width - template_width + 1) as usize;
         let result_height = (image_height - template_height + 1) as usize;
         let output_size = result_width * result_height;
@@ -161,8 +159,14 @@ impl GpuMemoryPointers {
             .map(|&(x, y, w, h, _)| ocl::prm::Int4::new(x as i32, y as i32, w as i32, h as i32))
             .collect();
 
-        let segment_values_fast: Vec<f32> = template_segments_fast.iter().map(|&(_, _, _, _, v)| v).collect();
-        let segment_values_slow: Vec<f32> = template_segments_slow.iter().map(|&(_, _, _, _, v)| v).collect();
+        let segment_values_fast: Vec<f32> = template_segments_fast
+            .iter()
+            .map(|&(_, _, _, _, v)| v)
+            .collect();
+        let segment_values_slow: Vec<f32> = template_segments_slow
+            .iter()
+            .map(|&(_, _, _, _, v)| v)
+            .collect();
 
         let buffer_segments_fast: Buffer<ocl::prm::Int4> = Buffer::<ocl::prm::Int4>::builder()
             .queue(queue.clone())
@@ -195,12 +199,12 @@ impl GpuMemoryPointers {
 
         let buffer_image_integral = Buffer::<u64>::builder()
             .queue(queue.clone())
-            .len(image_width*image_height)
+            .len(image_width * image_height)
             .build()?;
-    
+
         let buffer_image_integral_squared = Buffer::<u64>::builder()
             .queue(queue.clone())
-            .len(image_width*image_height)
+            .len(image_width * image_height)
             .build()?;
         Ok(Self {
             segments_fast_buffer: buffer_segments_fast,
@@ -209,34 +213,33 @@ impl GpuMemoryPointers {
             segment_slow_values_buffer: buffer_segment_values_slow,
             results_buffer: buffer_results,
             buffer_image_integral,
-            buffer_image_integral_squared
+            buffer_image_integral_squared,
         })
     }
 }
 
-pub fn gui_opencl_ncc_template_match (
+pub fn gui_opencl_ncc_template_match(
     queue: &Queue,
     program: &Program,
     gpu_memory_pointers: &GpuMemoryPointers,
     precision: f32,
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
     template_data: &(
-            Vec<(u32, u32, u32, u32, f32)>, // fast segments (x, y, w, h, val)
-            Vec<(u32, u32, u32, u32, f32)>, // slow segments (x, y, w, h, val)
-            u32,                             // template width
-            u32,                             // template height
-            f32,                             // fast sum_squared_deviations
-            f32,                             // slow sum_squared_deviations
-            f32,                             // fast expected corr
-            f32,                             // slow expected corr
-            f32,                             // fast mean
-            f32,                             // slow mean
-        )
+        Vec<(u32, u32, u32, u32, f32)>, // fast segments (x, y, w, h, val)
+        Vec<(u32, u32, u32, u32, f32)>, // slow segments (x, y, w, h, val)
+        u32,                            // template width
+        u32,                            // template height
+        f32,                            // fast sum_squared_deviations
+        f32,                            // slow sum_squared_deviations
+        f32,                            // fast expected corr
+        f32,                            // slow expected corr
+        f32,                            // fast mean
+        f32,                            // slow mean
+    ),
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
     let (image_width, image_height) = image.dimensions();
-    
+
     let (image_integral, squared_image_integral) = compute_integral_images_ocl(&image);
-    
 
     let (
         template_segments_fast,
@@ -276,14 +279,7 @@ pub fn gui_opencl_ncc_template_match (
     gpu_results.retain(|&(_, _, value)| value >= slow_expected_corr);
     gpu_results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
     Ok(gpu_results)
-    
-
-
 }
-
-
-
-
 
 pub fn gui_opencl_ncc(
     image_integral: &[u64],
@@ -296,18 +292,26 @@ pub fn gui_opencl_ncc(
     segments_sum_squared_deviation_slow: f32,
     segments_mean_fast: f32,
     segments_mean_slow: f32,
-    fast_expected_corr:f32,
+    fast_expected_corr: f32,
     queue: &Queue,
     program: &Program,
     gpu_memory_pointers: &GpuMemoryPointers,
     fast_segment_count: i32,
-    slow_segment_count: i32
+    slow_segment_count: i32,
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
     let result_width = (image_width - template_width + 1) as usize;
     let result_height = (image_height - template_height + 1) as usize;
     let output_size = result_width * result_height;
-    gpu_memory_pointers.buffer_image_integral.write(image_integral).enq().unwrap();
-    gpu_memory_pointers.buffer_image_integral_squared.write(squared_image_integral).enq().unwrap();
+    gpu_memory_pointers
+        .buffer_image_integral
+        .write(image_integral)
+        .enq()
+        .unwrap();
+    gpu_memory_pointers
+        .buffer_image_integral_squared
+        .write(squared_image_integral)
+        .enq()
+        .unwrap();
     let kernel = Kernel::builder()
         .program(&program)
         .name("segmented_match_integral")
@@ -333,11 +337,14 @@ pub fn gui_opencl_ncc(
         .arg(&(fast_expected_corr as f32))
         .build()?;
 
-
-    
-    unsafe { kernel.enq()?; }
+    unsafe {
+        kernel.enq()?;
+    }
     let mut results = vec![0.0f32; output_size];
-    gpu_memory_pointers.results_buffer.read(&mut results).enq()?;
+    gpu_memory_pointers
+        .results_buffer
+        .read(&mut results)
+        .enq()?;
 
     let final_results: Vec<(u32, u32, f32)> = results
         .into_iter()
@@ -348,14 +355,12 @@ pub fn gui_opencl_ncc(
             (x, y, corr)
         })
         .collect();
-    
+
     Ok(final_results)
 }
 
-
-
-fn compute_integral_images_ocl(image: &ImageBuffer<Luma<u8>,Vec<u8>>) -> (Vec<u64>, Vec<u64>) {
-    let (width, height )= image.dimensions();
+fn compute_integral_images_ocl(image: &ImageBuffer<Luma<u8>, Vec<u8>>) -> (Vec<u64>, Vec<u64>) {
+    let (width, height) = image.dimensions();
     let image = image.as_raw();
     let mut integral_image = vec![0u64; (width * height) as usize];
     let mut squared_integral_image = vec![0u64; (width * height) as usize];
@@ -382,7 +387,7 @@ fn compute_integral_images_ocl(image: &ImageBuffer<Luma<u8>,Vec<u8>>) -> (Vec<u6
                         + integral_image[(y * width + (x - 1)) as usize]
                         - integral_image[((y - 1) * width + (x - 1)) as usize],
                     pixel_value_squared
-                        + squared_integral_image[((y - 1) * width+ x) as usize]
+                        + squared_integral_image[((y - 1) * width + x) as usize]
                         + squared_integral_image[(y * width + (x - 1)) as usize]
                         - squared_integral_image[((y - 1) * width + (x - 1)) as usize],
                 )

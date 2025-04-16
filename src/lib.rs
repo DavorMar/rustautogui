@@ -1,7 +1,6 @@
 #![allow(unused_doc_comments, unused_imports)]
 #![doc = include_str!("../README.md")]
 
-
 pub mod errors;
 pub mod imgtools;
 mod keyboard;
@@ -145,7 +144,7 @@ pub struct RustAutoGui {
     #[cfg(feature = "opencl")]
     ocl_queue: imports::Queue,
     #[cfg(feature = "opencl")]
-    ocl_buffer_storage: imports::HashMap<String, GpuMemoryPointers>
+    ocl_buffer_storage: imports::HashMap<String, GpuMemoryPointers>,
 }
 impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
@@ -207,14 +206,14 @@ impl RustAutoGui {
             .unwrap_or(false); // Default: warnings are NOT suppressed
 
         // OCL INITIALIZATION
-        #[cfg(feature = "opencl")]        
+        #[cfg(feature = "opencl")]
         let (context, queue, program) = Self::setup_opencl();
 
-        #[cfg(feature = "opencl")]        
+        #[cfg(feature = "opencl")]
         let ocl_active = true;
-        #[cfg(not(feature = "opencl"))]        
+        #[cfg(not(feature = "opencl"))]
         let ocl_active = false;
-        
+
         Ok(Self {
             template: None,
             prepared_data: PreparedData::None,
@@ -229,7 +228,7 @@ impl RustAutoGui {
             region: (0, 0, 0, 0),
             suppress_warnings: suppress_warnings,
             alias_used: DEFAULT_ALIAS.to_string(),
-            ocl_active:ocl_active,
+            ocl_active: ocl_active,
             #[cfg(feature = "opencl")]
             ocl_program: program,
             #[cfg(feature = "opencl")]
@@ -240,7 +239,6 @@ impl RustAutoGui {
             ocl_buffer_storage: imports::HashMap::new(),
         })
     }
-
 
     #[cfg(feature = "opencl")]
     fn setup_opencl() -> (imports::Context, imports::Queue, imports::Program) {
@@ -254,7 +252,6 @@ impl RustAutoGui {
 
         (context, queue, program)
     }
-
 
     /// set true to turn off warnings.
     pub fn set_suppress_warnings(&mut self, suppress: bool) {
@@ -412,45 +409,41 @@ impl RustAutoGui {
                 ) = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
                     &template,
                     &self.debug,
-                    self.ocl_active
+                    self.ocl_active,
                 );
                 // mostly happens due to using too complex image with small max segments value
                 if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
                     Err(ImageProcessingError::new("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"))?;
                 }
                 let match_mode = Some(MatchMode::Segmented);
-                
+
                 #[cfg(feature = "opencl")]
                 {
                     let ocl_buffer_data = GpuMemoryPointers::new(
                         region.2,
-                        region.3, 
-                        template_width, 
+                        region.3,
+                        template_width,
                         template_height,
-                        &self.ocl_queue, 
-                        &prepared_data.1, 
-                        &prepared_data.0 
-                    ).unwrap();
-                    
+                        &self.ocl_queue,
+                        &prepared_data.1,
+                        &prepared_data.0,
+                    )
+                    .unwrap();
+
                     match alias {
                         Some(name) => {
                             self.ocl_buffer_storage.insert(name.into(), ocl_buffer_data);
-                        },
-                        None =>  {
-                            self.ocl_buffer_storage.insert(DEFAULT_ALIAS.into(), ocl_buffer_data);
+                        }
+                        None => {
+                            self.ocl_buffer_storage
+                                .insert(DEFAULT_ALIAS.into(), ocl_buffer_data);
                         }
                     }
                 }
-                
 
-                
                 (PreparedData::Segmented(prepared_data), match_mode)
             }
         };
-
-        
-
-        
 
         // Alias Some -> storing the image , we just save it to Hashmap
         // Alias None -> not storing, then we change struct attributes to fit the single loaded image search
@@ -632,7 +625,7 @@ impl RustAutoGui {
         /// searches for image on screen and returns found locations in vector format
         let image: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
             self.screen.grab_screen_image_grayscale(&self.region)?;
-        
+
         if self.debug {
             let debug_path = imports::Path::new("debug");
             if !debug_path.exists() {
@@ -662,7 +655,6 @@ impl RustAutoGui {
             Some(x) => x,
             None => return Ok(None),
         };
-        
 
         let locations_ajusted: Vec<(u32, u32, f32)> = locations
             .iter()
@@ -953,23 +945,22 @@ impl RustAutoGui {
                 found_locations
             },
             PreparedData::Segmented(data) => {
-                
                 let found_locations:Vec<(u32, u32, f32)>;
                 #[cfg(feature = "opencl")]
                 if self.ocl_active {
                     let gpu_memory_pointer = self.ocl_buffer_storage.get(&self.alias_used).unwrap();
                     found_locations = normalized_x_corr::open_cl::gui_opencl_ncc_template_match(
-                        &self.ocl_queue, 
-                        &self.ocl_program, 
-                        gpu_memory_pointer, 
-                        precision, 
-                        &image, 
+                        &self.ocl_queue,
+                        &self.ocl_program,
+                        gpu_memory_pointer,
+                        precision,
+                        &image,
                         data
                     ).unwrap();
                 } else {
                     found_locations = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(
-                        &image, 
-                        precision, 
+                        &image,
+                        precision,
                         data,
                         &self.debug,
                     );
@@ -977,15 +968,12 @@ impl RustAutoGui {
                 #[cfg(not(feature = "opencl"))]
                 {
                     found_locations = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(
-                        &image, 
-                        precision, 
+                        &image,
+                        precision,
                         data,
                         &self.debug,
                     );
                 }
-                
-
-
                 // let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, precision, &data, &self.debug);
                 found_locations
             },

@@ -386,7 +386,6 @@ pub fn prepare_template_picture(
             area_a.cmp(&area_b) // Compare the areas
         });
     }
-    
 
     if *debug {
         let fast_segment_number = picture_segments_fast.len();
@@ -441,9 +440,8 @@ fn create_picture_segments(
 
     let mut target_corr = 0.0;
     let mut threshold = 0.0;
-    
+
     if template_type == "fast" {
-        println!("OCL State: {}", ocl);
         if ocl {
             threshold = 0.95;
             target_corr = 0.80;
@@ -451,7 +449,6 @@ fn create_picture_segments(
             threshold = 0.99;
             target_corr = -0.95;
         }
-        
     } else if template_type == "slow" {
         threshold = 0.85;
         target_corr = 0.99;
@@ -532,7 +529,7 @@ fn divide_and_conquer(
     x: u32,
     y: u32,
     threshhold: f32,
-    ocl:bool,
+    ocl: bool,
 ) {
     /*
     function that segments template image into areas that have similar color
@@ -570,9 +567,7 @@ fn divide_and_conquer(
         (sum_squared_deviations as f32 / (segment_width * segment_height) as f32).sqrt();
     let mut additional_pixel = 0;
 
-    if (average_deviation > threshhold)
-     || (ocl && (segment_width > 50 || segment_height > 50))
-    {
+    if (average_deviation > threshhold) || (ocl && (segment_width > 50 || segment_height > 50)) {
         //split image
         // let (image_1, image_2) =
         if segment_width >= segment_height || segment_height == 1 {

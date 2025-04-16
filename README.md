@@ -47,7 +47,7 @@ Either run
 
 or add the crate in your Cargo.toml:
 
-`rustautogui = "2.4.0"`
+`rustautogui = "2.5.0"`
 
 For Linux additionally run:
 
@@ -55,8 +55,8 @@ For Linux additionally run:
 
 `sudo apt-get install libx11-dev libxtst-dev`
 
-And for OpenCL to work:
 
+And for OpenCL to work:
 `sudo apt install libx11-dev libxtst-dev ocl-icd-opencl-dev`
 
 
