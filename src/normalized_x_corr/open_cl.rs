@@ -305,13 +305,11 @@ pub fn gui_opencl_ncc(
     gpu_memory_pointers
         .buffer_image_integral
         .write(image_integral)
-        .enq()
-        .unwrap();
+        .enq()?;
     gpu_memory_pointers
         .buffer_image_integral_squared
         .write(squared_image_integral)
-        .enq()
-        .unwrap();
+        .enq()?;
     let kernel = Kernel::builder()
         .program(&program)
         .name("segmented_match_integral")

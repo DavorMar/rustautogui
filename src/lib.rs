@@ -263,6 +263,10 @@ impl RustAutoGui {
         self.debug = state;
     }
 
+    pub fn change_ocl_state(&mut self, state: bool) {
+        self.ocl_active = state;
+    }
+
     /// returns screen width and height
     pub fn get_screen_size(&mut self) -> (i32, i32) {
         self.screen.dimension()
@@ -948,15 +952,31 @@ impl RustAutoGui {
                 let found_locations:Vec<(u32, u32, f32)>;
                 #[cfg(feature = "opencl")]
                 if self.ocl_active {
-                    let gpu_memory_pointer = self.ocl_buffer_storage.get(&self.alias_used).unwrap();
-                    found_locations = normalized_x_corr::open_cl::gui_opencl_ncc_template_match(
-                        &self.ocl_queue,
-                        &self.ocl_program,
-                        gpu_memory_pointer,
-                        precision,
-                        &image,
-                        data
-                    ).unwrap();
+                    let gpu_memory_pointer = self.ocl_buffer_storage.get(&self.alias_used);
+                    match gpu_memory_pointer {
+                        Some(pointers) => {
+                            found_locations = normalized_x_corr::open_cl::gui_opencl_ncc_template_match(
+                                &self.ocl_queue,
+                                &self.ocl_program,
+                                pointers,
+                                precision,
+                                &image,
+                                data
+                            )?;
+                        }, 
+                        None => {
+                            if !self.suppress_warnings {
+                                eprintln!("WARNING: No data prepared for GPU memory allocation for chosen template. Please prepare the template with OCL state ON. Falling back to CPU template match");
+                            }
+                            found_locations = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(
+                                &image,
+                                precision,
+                                data,
+                                &self.debug,
+                            );        
+                        }
+                    }
+                    
                 } else {
                     found_locations = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(
                         &image,

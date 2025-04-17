@@ -392,7 +392,6 @@ pub fn prepare_template_picture(
         let slow_segment_number = picture_segments_slow.len();
         println!("reduced number of segments to {fast_segment_number} for fast image and {slow_segment_number} for slow image" );
     }
-    if (picture_segments_fast.len() == 1) | (picture_segments_slow.len() == 1) {}
 
     let return_value: (
         Vec<(u32, u32, u32, u32, f32)>,
