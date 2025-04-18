@@ -140,6 +140,8 @@ pub struct RustAutoGui {
     #[cfg(feature = "opencl")]
     ocl_program: imports::Program,
     #[cfg(feature = "opencl")]
+    max_workgroup_size: u32,
+    #[cfg(feature = "opencl")]
     ocl_context: imports::Context,
     #[cfg(feature = "opencl")]
     ocl_queue: imports::Queue,
@@ -162,13 +164,14 @@ impl RustAutoGui {
             .unwrap_or(false); // Default: warnings are NOT suppressed
 
         // OCL INITIALIZATION
-        let context = imports::Context::builder().build().unwrap();
-        let queue = imports::Queue::new(&context, context.devices()[0], None).unwrap();
-        let program_source = normalized_x_corr::open_cl::OCL_KERNEL;
-        let program: imports::Program = imports::Program::builder()
-            .src(program_source)
-            .build(&context)
-            .unwrap();
+        #[cfg(feature = "opencl")]
+        let (context, queue, program, device, workgroup_size) = Self::setup_opencl()?;
+
+        #[cfg(feature = "opencl")]
+        let ocl_active = true;
+        #[cfg(not(feature = "opencl"))]
+        let ocl_active = false;
+
         Ok(Self {
             template: None,
             prepared_data: PreparedData::None,
@@ -183,9 +186,16 @@ impl RustAutoGui {
             region: (0, 0, 0, 0),
             suppress_warnings,
             alias_used: DEFAULT_ALIAS.to_string(),
+            ocl_active: ocl_active,
+            #[cfg(feature = "opencl")]
             ocl_program: program,
+            #[cfg(feature = "opencl")]
+            max_workgroup_size: workgroup_size,
+            #[cfg(feature = "opencl")]
             ocl_context: context,
+            #[cfg(feature = "opencl")]
             ocl_queue: queue,
+            #[cfg(feature = "opencl")]
             ocl_buffer_storage: imports::HashMap::new(),
         })
     }
@@ -207,7 +217,7 @@ impl RustAutoGui {
 
         // OCL INITIALIZATION
         #[cfg(feature = "opencl")]
-        let (context, queue, program) = Self::setup_opencl();
+        let (context, queue, program, device, workgroup_size) = Self::setup_opencl()?;
 
         #[cfg(feature = "opencl")]
         let ocl_active = true;
@@ -232,6 +242,8 @@ impl RustAutoGui {
             #[cfg(feature = "opencl")]
             ocl_program: program,
             #[cfg(feature = "opencl")]
+            max_workgroup_size: workgroup_size,
+            #[cfg(feature = "opencl")]
             ocl_context: context,
             #[cfg(feature = "opencl")]
             ocl_queue: queue,
@@ -241,16 +253,40 @@ impl RustAutoGui {
     }
 
     #[cfg(feature = "opencl")]
-    fn setup_opencl() -> (imports::Context, imports::Queue, imports::Program) {
+    fn setup_opencl() -> Result<(
+        imports::Context,
+        imports::Queue,
+        imports::Program,
+        imports::ocl::Device,
+        u32,
+    ), AutoGuiError>{
         let context = imports::Context::builder().build().unwrap();
-        let queue = imports::Queue::new(&context, context.devices()[0], None).unwrap();
+        let device = context.devices()[0];
+        let queue = imports::Queue::new(&context, device, None).unwrap();
         let program_source = crate::normalized_x_corr::open_cl::OCL_KERNEL;
         let program = imports::Program::builder()
             .src(program_source)
             .build(&context)
             .unwrap();
 
-        (context, queue, program)
+        let mut workgroup_size: u32 = device
+            .info(ocl::core::DeviceInfo::MaxWorkGroupSize)?
+            .to_string()
+            .parse()
+            .map_err(|e: std::num::ParseIntError| AutoGuiError::OSFailure(e.to_string()))?;
+
+        let local_memory_size: u32 = device
+            .info(ocl::core::DeviceInfo::LocalMemSize)?
+            .to_string()
+            .parse()
+            .map_err(|e: std::num::ParseIntError| AutoGuiError::OSFailure(e.to_string()))?;
+
+        let localmem_require = workgroup_size * (u64::BITS / 8);
+        if local_memory_size <= localmem_require {
+            workgroup_size = (local_memory_size / (u64::BITS / 8))
+        }
+
+        Ok((context, queue, program, device, workgroup_size))
     }
 
     /// set true to turn off warnings.
@@ -958,10 +994,12 @@ impl RustAutoGui {
                             found_locations = normalized_x_corr::open_cl::gui_opencl_ncc_template_match(
                                 &self.ocl_queue,
                                 &self.ocl_program,
+                                self.max_workgroup_size,
                                 pointers,
                                 precision,
                                 &image,
-                                data
+                                data,
+                                
                             )?;
                         }, 
                         None => {

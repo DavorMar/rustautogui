@@ -1,12 +1,29 @@
 use crate::imgtools;
 use crate::normalized_x_corr::{compute_integral_images, sum_region};
 use image::{ImageBuffer, Luma};
-use ocl::{Buffer, Context, Kernel, Program, Queue};
+use ocl::{Buffer, Context, Device, Kernel, Program, Queue};
 use std::time;
 
 use ocl;
 
-/// same algorithm as segmented but in OpenCL C
+
+/*
+Different versions of OpenCL algorithm adaptation have been thought of or tried to implement but 
+no success. Local memory usage is hard to utilize due to large integral images. Distributing work
+into smaller tasks requires buffers to store values between those same tasks. The size 
+of stored data can explode. For instance, 4000x3000 image x 50000 segments is like 4.5 TB of data.
+reworking integral image algorithms requires additional calculations in a process that cannot be 
+*/
+
+
+
+
+
+
+
+
+
+// same algorithm as segmented but in OpenCL C
 pub const OCL_KERNEL: &str = r#"
 inline ulong sum_region(
     __global const ulong* integral,
@@ -68,9 +85,23 @@ __kernel void segmented_match_integral(
     const int image_height,
     const int template_width,
     const int template_height,
-    const float min_expected_corr
+    const float min_expected_corr,
+    const int remainder_segments_fast,
+    const int remainder_segments_slow,
+    const int segments_per_thread,
+    const int segments_per_thread_fast,
+    const int segments_per_thread_slow,
+    const int pixels_per_workgroup
 ) {
     int idx = get_global_id(0);
+    int 
+
+
+
+
+
+
+
     int result_width = image_width - template_width + 1;
     int result_height = image_height - template_height + 1;
 
@@ -221,6 +252,7 @@ impl GpuMemoryPointers {
 pub fn gui_opencl_ncc_template_match(
     queue: &Queue,
     program: &Program,
+    max_workgroup_size: u32,
     gpu_memory_pointers: &GpuMemoryPointers,
     precision: f32,
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
@@ -238,7 +270,6 @@ pub fn gui_opencl_ncc_template_match(
     ),
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
     let (image_width, image_height) = image.dimensions();
-
     let (image_integral, squared_image_integral) = compute_integral_images_ocl(&image);
 
     let (
@@ -258,6 +289,32 @@ pub fn gui_opencl_ncc_template_match(
     let fast_segment_count = template_segments_fast.len();
     let slow_segment_count = template_segments_slow.len();
 
+
+
+    let mut remainder_segments_fast = 0;
+    let mut remainder_segments_slow = 0;
+    let mut segments_processed_by_thread_fast = 1;
+    let mut segments_processed_by_thread_slow = 1;
+    let mut pixels_processed_by_workgroup = 1;
+    
+    let max_workgroup_size = max_workgroup_size as usize;
+    
+    if fast_segment_count > max_workgroup_size {
+        segments_processed_by_thread_fast = fast_segment_count / max_workgroup_size;
+        remainder_segments_fast = fast_segment_count % max_workgroup_size;
+    } else {
+        pixels_processed_by_workgroup = max_workgroup_size / fast_segment_count;
+        
+    }
+    let total_slow_segment_count_in_workgroup = slow_segment_count * pixels_processed_by_workgroup;
+    if total_slow_segment_count_in_workgroup > max_workgroup_size {
+        segments_processed_by_thread_slow = slow_segment_count / max_workgroup_size;
+        remainder_segments_slow = slow_segment_count % max_workgroup_size;
+    } else {
+        
+    }   
+
+
     let mut gpu_results = gui_opencl_ncc(
         &image_integral,
         &squared_image_integral,
@@ -275,6 +332,12 @@ pub fn gui_opencl_ncc_template_match(
         gpu_memory_pointers,
         fast_segment_count as i32,
         slow_segment_count as i32,
+        remainder_segments_fast as i32,
+        remainder_segments_slow as i32,
+        segments_processed_by_thread_fast as i32,
+        segments_processed_by_thread_slow as i32,
+        pixels_processed_by_workgroup as i32,
+
     )?;
     gpu_results.retain(|&(_, _, value)| value >= slow_expected_corr);
     gpu_results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
@@ -298,6 +361,11 @@ pub fn gui_opencl_ncc(
     gpu_memory_pointers: &GpuMemoryPointers,
     fast_segment_count: i32,
     slow_segment_count: i32,
+    remainder_segments_fast: i32,
+    remainder_segments_slow:i32,
+    segments_processed_by_thread_fast: i32,
+    segments_processed_by_thread_slow: i32,
+    pixels_processed_by_workgroup: i32,
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
     let result_width = (image_width - template_width + 1) as usize;
     let result_height = (image_height - template_height + 1) as usize;
@@ -333,6 +401,11 @@ pub fn gui_opencl_ncc(
         .arg(&(template_width as i32))
         .arg(&(template_height as i32))
         .arg(&(fast_expected_corr as f32))
+        .arg(&remainder_segments_fast)
+        .arg(&remainder_segments_slow)
+        .arg(&segments_processed_by_thread_fast)
+        .arg(&segments_processed_by_thread_slow)
+        .arg(&pixels_processed_by_workgroup)
         .build()?;
 
     unsafe {
