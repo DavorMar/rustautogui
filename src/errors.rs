@@ -3,6 +3,10 @@ use std::{
     fmt,
 };
 
+#[cfg(feature="opencl")]
+use ocl;
+
+
 #[derive(Debug)]
 pub enum AutoGuiError {
     OSFailure(String),
@@ -13,6 +17,8 @@ pub enum AutoGuiError {
     ImageError(ImageProcessingError),
     ImgError(String),
     NulError(NulError),
+    #[cfg(feature="opencl")]
+    OclError(ocl::Error),
 }
 
 impl fmt::Display for AutoGuiError {
@@ -26,6 +32,8 @@ impl fmt::Display for AutoGuiError {
             AutoGuiError::ImageError(err) => write!(f, "Image Error: {}", err),
             AutoGuiError::ImgError(err) => write!(f, "Image Error: {}", err),
             AutoGuiError::NulError(err) => write!(f, "Convert to C String nulerror: {}", err),
+            #[cfg(feature="opencl")]
+            AutoGuiError::OclError(err) => write!(f, "OpenCL Error: {}", err),
         }
     }
 }
@@ -51,6 +59,12 @@ impl From<ImageProcessingError> for AutoGuiError {
 impl From<std::io::Error> for AutoGuiError {
     fn from(err: std::io::Error) -> Self {
         AutoGuiError::IoError(err)
+    }
+}
+
+impl From<ocl::Error> for AutoGuiError {
+    fn from(err: ocl::Error) -> Self {
+        AutoGuiError::OclError(err)
     }
 }
 

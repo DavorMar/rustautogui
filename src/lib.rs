@@ -19,6 +19,10 @@ mod imports {
         imageops::{resize, FilterType::Nearest},
         DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba,
     };
+    #[cfg(feature = "opencl")]
+    pub use ocl;
+    #[cfg(feature = "opencl")]
+    pub use ocl::{Buffer, Context, Kernel, Program, Queue};
     pub use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
     pub use std::{collections::HashMap, env, fmt, fs, path::Path, str::FromStr};
 }
@@ -29,6 +33,8 @@ use crate::errors::*;
 use imports::Mouse;
 pub use mouse::mouse_position::print_mouse_position;
 pub use mouse::MouseClick;
+#[cfg(feature = "opencl")]
+use normalized_x_corr::open_cl::GpuMemoryPointers;
 
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
 const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
@@ -127,10 +133,18 @@ pub struct RustAutoGui {
     mouse: imports::Mouse,
     screen: imports::Screen,
     match_mode: Option<MatchMode>,
-
     region: (u32, u32, u32, u32),
     suppress_warnings: bool,
     alias_used: String,
+    ocl_active: bool,
+    #[cfg(feature = "opencl")]
+    ocl_program: imports::Program,
+    #[cfg(feature = "opencl")]
+    ocl_context: imports::Context,
+    #[cfg(feature = "opencl")]
+    ocl_queue: imports::Queue,
+    #[cfg(feature = "opencl")]
+    ocl_buffer_storage: imports::HashMap<String, GpuMemoryPointers>,
 }
 impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
@@ -146,6 +160,15 @@ impl RustAutoGui {
         let suppress_warnings = imports::env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
             .map(|val| val == "1" || val.eq_ignore_ascii_case("true"))
             .unwrap_or(false); // Default: warnings are NOT suppressed
+
+        // OCL INITIALIZATION
+        let context = imports::Context::builder().build().unwrap();
+        let queue = imports::Queue::new(&context, context.devices()[0], None).unwrap();
+        let program_source = normalized_x_corr::open_cl::OCL_KERNEL;
+        let program: imports::Program = imports::Program::builder()
+            .src(program_source)
+            .build(&context)
+            .unwrap();
         Ok(Self {
             template: None,
             prepared_data: PreparedData::None,
@@ -157,10 +180,13 @@ impl RustAutoGui {
             mouse: mouse_struct,
             screen,
             match_mode: None,
-
             region: (0, 0, 0, 0),
             suppress_warnings,
             alias_used: DEFAULT_ALIAS.to_string(),
+            ocl_program: program,
+            ocl_context: context,
+            ocl_queue: queue,
+            ocl_buffer_storage: imports::HashMap::new(),
         })
     }
 
@@ -178,6 +204,16 @@ impl RustAutoGui {
         let suppress_warnings = imports::env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
             .map(|val| val == "1" || val.eq_ignore_ascii_case("true"))
             .unwrap_or(false); // Default: warnings are NOT suppressed
+
+        // OCL INITIALIZATION
+        #[cfg(feature = "opencl")]
+        let (context, queue, program) = Self::setup_opencl();
+
+        #[cfg(feature = "opencl")]
+        let ocl_active = true;
+        #[cfg(not(feature = "opencl"))]
+        let ocl_active = false;
+
         Ok(Self {
             template: None,
             prepared_data: PreparedData::None,
@@ -189,11 +225,32 @@ impl RustAutoGui {
             mouse: mouse_struct,
             screen: screen,
             match_mode: None,
-
             region: (0, 0, 0, 0),
             suppress_warnings: suppress_warnings,
             alias_used: DEFAULT_ALIAS.to_string(),
+            ocl_active: ocl_active,
+            #[cfg(feature = "opencl")]
+            ocl_program: program,
+            #[cfg(feature = "opencl")]
+            ocl_context: context,
+            #[cfg(feature = "opencl")]
+            ocl_queue: queue,
+            #[cfg(feature = "opencl")]
+            ocl_buffer_storage: imports::HashMap::new(),
         })
+    }
+
+    #[cfg(feature = "opencl")]
+    fn setup_opencl() -> (imports::Context, imports::Queue, imports::Program) {
+        let context = imports::Context::builder().build().unwrap();
+        let queue = imports::Queue::new(&context, context.devices()[0], None).unwrap();
+        let program_source = crate::normalized_x_corr::open_cl::OCL_KERNEL;
+        let program = imports::Program::builder()
+            .src(program_source)
+            .build(&context)
+            .unwrap();
+
+        (context, queue, program)
     }
 
     /// set true to turn off warnings.
@@ -204,6 +261,10 @@ impl RustAutoGui {
     /// changes debug mode. True activates debug
     pub fn change_debug_state(&mut self, state: bool) {
         self.debug = state;
+    }
+
+    pub fn change_ocl_state(&mut self, state: bool) {
+        self.ocl_active = state;
     }
 
     /// returns screen width and height
@@ -352,12 +413,38 @@ impl RustAutoGui {
                 ) = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
                     &template,
                     &self.debug,
+                    self.ocl_active,
                 );
                 // mostly happens due to using too complex image with small max segments value
                 if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
                     Err(ImageProcessingError::new("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"))?;
                 }
                 let match_mode = Some(MatchMode::Segmented);
+
+                #[cfg(feature = "opencl")]
+                {
+                    let ocl_buffer_data = GpuMemoryPointers::new(
+                        region.2,
+                        region.3,
+                        template_width,
+                        template_height,
+                        &self.ocl_queue,
+                        &prepared_data.1,
+                        &prepared_data.0,
+                    )
+                    .unwrap();
+
+                    match alias {
+                        Some(name) => {
+                            self.ocl_buffer_storage.insert(name.into(), ocl_buffer_data);
+                        }
+                        None => {
+                            self.ocl_buffer_storage
+                                .insert(DEFAULT_ALIAS.into(), ocl_buffer_data);
+                        }
+                    }
+                }
+
                 (PreparedData::Segmented(prepared_data), match_mode)
             }
         };
@@ -538,7 +625,7 @@ impl RustAutoGui {
     pub fn find_image_on_screen(
         &mut self,
         precision: f32,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         /// searches for image on screen and returns found locations in vector format
         let image: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
             self.screen.grab_screen_image_grayscale(&self.region)?;
@@ -573,7 +660,7 @@ impl RustAutoGui {
             None => return Ok(None),
         };
 
-        let locations_ajusted: Vec<(u32, u32, f64)> = locations
+        let locations_ajusted: Vec<(u32, u32, f32)> = locations
             .iter()
             .map(|(mut x, mut y, corr)| {
                 x = x + self.region.0 + (self.template_width / 2);
@@ -624,7 +711,7 @@ impl RustAutoGui {
         &mut self,
         precision: f32,
         timeout: u64,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         if (timeout == 0) & (!self.suppress_warnings) {
             eprintln!(
                 "Warning: setting a timeout to 0 on a loop find image initiates an infinite loop"
@@ -651,7 +738,7 @@ impl RustAutoGui {
         &mut self,
         precision: f32,
         alias: &str,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         let (prepared_data, region) =
             self.prepared_data_stored
                 .get(alias)
@@ -699,7 +786,7 @@ impl RustAutoGui {
         precision: f32,
         timeout: u64,
         alias: &str,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         if (timeout == 0) & (!self.suppress_warnings) {
             eprintln!(
                 "Warning: setting a timeout to 0 on a loop find image initiates an infinite loop"
@@ -726,7 +813,7 @@ impl RustAutoGui {
         precision: f32,
         moving_time: f32,
         alias: &str,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         let (prepared_data, region) =
             self.prepared_data_stored
                 .get(alias)
@@ -777,7 +864,7 @@ impl RustAutoGui {
         moving_time: f32,
         timeout: u64,
         alias: &str,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         if (timeout == 0) & (!self.suppress_warnings) {
             eprintln!(
                 "Warning: setting a timeout to 0 on a loop find image initiates an infinite loop"
@@ -804,7 +891,7 @@ impl RustAutoGui {
         &mut self,
         precision: f32,
         moving_time: f32,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         /// finds coordinates of the image on the screen and moves mouse to it. Returns None if no image found
         ///  Best used in loops
         let found_locations = self.find_image_on_screen(precision)?;
@@ -827,7 +914,7 @@ impl RustAutoGui {
         precision: f32,
         moving_time: f32,
         timeout: u64,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         if (timeout == 0) & (!self.suppress_warnings) {
             eprintln!(
                 "Warning: setting a timeout to 0 on a loop find image initiates an infinite loop"
@@ -852,14 +939,62 @@ impl RustAutoGui {
         &mut self,
         image: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>,
         precision: f32,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         let found_locations = match &self.prepared_data {
             PreparedData::FFT(data) => {
                 let found_locations = normalized_x_corr::fft_ncc::fft_ncc(&image, precision, data);
+                let found_locations = found_locations.into_iter()
+                    .map(|(x, y, value)| (x, y, value as f32))
+                    .collect();
                 found_locations
             },
             PreparedData::Segmented(data) => {
-                let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, precision, &data, &self.debug);
+                let found_locations:Vec<(u32, u32, f32)>;
+                #[cfg(feature = "opencl")]
+                if self.ocl_active {
+                    let gpu_memory_pointer = self.ocl_buffer_storage.get(&self.alias_used);
+                    match gpu_memory_pointer {
+                        Some(pointers) => {
+                            found_locations = normalized_x_corr::open_cl::gui_opencl_ncc_template_match(
+                                &self.ocl_queue,
+                                &self.ocl_program,
+                                pointers,
+                                precision,
+                                &image,
+                                data
+                            )?;
+                        }, 
+                        None => {
+                            if !self.suppress_warnings {
+                                eprintln!("WARNING: No data prepared for GPU memory allocation for chosen template. Please prepare the template with OCL state ON. Falling back to CPU template match");
+                            }
+                            found_locations = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(
+                                &image,
+                                precision,
+                                data,
+                                &self.debug,
+                            );        
+                        }
+                    }
+                    
+                } else {
+                    found_locations = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(
+                        &image,
+                        precision,
+                        data,
+                        &self.debug,
+                    );
+                }
+                #[cfg(not(feature = "opencl"))]
+                {
+                    found_locations = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(
+                        &image,
+                        precision,
+                        data,
+                        &self.debug,
+                    );
+                }
+                // let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, precision, &data, &self.debug);
                 found_locations
             },
             PreparedData::None => {
@@ -870,7 +1005,7 @@ impl RustAutoGui {
 
         if found_locations.len() > 0 {
             if self.debug {
-                let corrected_found_location: (u32, u32, f64);
+                let corrected_found_location: (u32, u32, f32);
                 let x = found_locations[0].0 as u32
                     + (self.template_width / 2) as u32
                     + self.region.0 as u32;
