@@ -88,37 +88,84 @@ __kernel void segmented_match_integral(
     const float min_expected_corr,
     const int remainder_segments_fast,
     const int remainder_segments_slow,
-    const int segments_per_thread,
     const int segments_per_thread_fast,
     const int segments_per_thread_slow,
-    const int pixels_per_workgroup
+    const int pixels_per_workgroup,
+    __local ulong* sum_template_region_buff,
+    __local ulong* sum_sq_template_region_buff,
+    __local ulong* thread_segment_sum_buff
 ) {
-    int idx = get_global_id(0);
-    int 
+    int global_id = get_global_id(0);
+    int local_id = get_local_id(0);
+    int workgroup_id = get_group_id(0);
+
+    // num_segments is also count of threads per pixel for fast img
+    if (local_id >= num_segments * pixels_per_workgroup) return; 
 
 
+    int pixel_pos = (workgroup_id * pixels_per_workgroup) + (local_id / num_segments) ;
+    int image_x = pixel_pos % image_width;
+    int image_y = pixel_pos / image_width;
 
+    int pixel_idx = local_id % pixels_per_workgroup;
 
-
-
-
+    // first sum the region of template area for numerator calculations
+    // we do it with first threads for each x,y position which workgroup processes
+    // if there are 5 pixels processed, local_id 0-4 should process sum regions for each position, 5-9 for squared
+    if (local_id < pixels_per_workgroup) {
+        ulong patch_sum = sum_region(integral, image_x, image_y, template_width, template_height, image_width);
+        sum_template_region_buff[pixel_idx] = patch_sum;
+    }
+    
+    // there will never be less than 2 segments 
+    // meaning pixels per workgroup is never greater than workgroup_size / 2 
+    if (local_id >= pixels_per_workgroup) && (local_id < pixels_per_workgroup * 2) {
+        ulong patch_sq_sum = sum_region_squared(integral_sq, image_x, image_y, template_width, template_height, image_width);
+        sum_sq_template_region_buff[pixel_idx] = patch_sq_sum;
+    }
+    
     int result_width = image_width - template_width + 1;
     int result_height = image_height - template_height + 1;
+    float area = (float)(template_width * template_height);
 
-    if (idx >= result_width * result_height) return;
+    // wait  for threads to complete writing sum_area
+    barrier(CLK_LOCAL_MEM_FENCE);
 
-    int x = idx % result_width;
-    int y = idx / result_width;
+    
+    float mean_img = (float)(sum_template_region_buff[pixel_idx]) / area;
+    
+    
+    if (segments_per_thread_fast == 1) {
+        if (pixels_per_workgroup == 1) {
+            int4 segment = segments[local_id];
+        }
+        else {
+            int4 segment = segments[local_id % num_segments ];
+        }
+    }
+    else {
+        
+        int start_segment = local_id * segments_per_thread_fast;
+        int end_segment = start_segment + segments_per_thread_fast;
+
+    }
 
 
-    ulong patch_sum = sum_region(integral, x, y, template_width, template_height, image_width);
-    ulong patch_sq_sum = sum_region_squared(integral_sq, x, y, template_width, template_height, image_width);
+
+    // if (idx >= result_width * result_height) return;
+
+    // int x = idx % result_width;
+    // int y = idx / result_width;
+
+
+    // ulong patch_sum = sum_region(integral, x, y, template_width, template_height, image_width);
+    // ulong patch_sq_sum = sum_region_squared(integral_sq, x, y, template_width, template_height, image_width);
     
 
 
-    float area = (float)(template_width * template_height);
-    float mean_img = (float)(patch_sum) / area;
-    float var_img = (float)(patch_sq_sum) - ((float)(patch_sum) * (float)(patch_sum)) / area;
+    // float area = (float)(template_width * template_height);
+    // float mean_img = (float)(patch_sum) / area;
+    
     
     float nominator = 0.0f;
     for (int i = 0; i < num_segments; i++) {
@@ -131,6 +178,8 @@ __kernel void segmented_match_integral(
         nominator += ((float)(region_sum) - mean_img * seg_area) * (seg_val - template_mean);
     }
 
+
+    float var_img = (float)(patch_sq_sum) - ((float)(patch_sum) * (float)(patch_sum)) / area;
     float denominator = sqrt(var_img * template_sq_dev);
     
     float corr = (denominator != 0.0f) ? (nominator / denominator) : -1.0f;
@@ -296,16 +345,25 @@ pub fn gui_opencl_ncc_template_match(
     let mut segments_processed_by_thread_fast = 1;
     let mut segments_processed_by_thread_slow = 1;
     let mut pixels_processed_by_workgroup = 1;
-    
+    let mut threads_per_pixel = max_workgroup_size;;
     let max_workgroup_size = max_workgroup_size as usize;
     
+    // if we have more segments than workgroup size, then that workgroup only processes
+    // that single pixel. Each thread inside workgroup processes certain amount of equally distributed segments
     if fast_segment_count > max_workgroup_size {
         segments_processed_by_thread_fast = fast_segment_count / max_workgroup_size;
         remainder_segments_fast = fast_segment_count % max_workgroup_size;
+    // else, if we have low thread count then 1 workgroup can process multiple pixels. IE workgroup with 256 threads 
+    // can process 64 pixels with 4 segments
     } else {
         pixels_processed_by_workgroup = max_workgroup_size / fast_segment_count;
-        
+        // threads per pixel = fast_segmented_count   
     }
+
+    // if the workgroup finds a succesfull correlation with fast pass, it will have to calculate it 
+    // with the slow pass aswell for that same x,y pos. But if we had low fast segment count
+    // that workgroup will not be utilized nicely.  Will have to rework this part
+    
     let total_slow_segment_count_in_workgroup = slow_segment_count * pixels_processed_by_workgroup;
     if total_slow_segment_count_in_workgroup > max_workgroup_size {
         segments_processed_by_thread_slow = slow_segment_count / max_workgroup_size;
@@ -313,6 +371,15 @@ pub fn gui_opencl_ncc_template_match(
     } else {
         
     }   
+
+    let result_width = (image_width - template_width + 1) as usize;
+    let result_height = (image_height - template_height + 1) as usize;
+    let output_size = result_width * result_height;
+    // round up division for how many workgroups needs to be spawned
+    let global_workgroup_count = (output_size * pixels_processed_by_workgroup - 1) / pixels_processed_by_workgroup;
+    // total amount of threads that need to be spawned
+    let global_work_size = global_workgroup_count * max_workgroup_size;
+
 
 
     let mut gpu_results = gui_opencl_ncc(
@@ -337,6 +404,8 @@ pub fn gui_opencl_ncc_template_match(
         segments_processed_by_thread_fast as i32,
         segments_processed_by_thread_slow as i32,
         pixels_processed_by_workgroup as i32,
+        global_work_size as i32,
+        max_workgroup_size as i32,
 
     )?;
     gpu_results.retain(|&(_, _, value)| value >= slow_expected_corr);
@@ -366,6 +435,8 @@ pub fn gui_opencl_ncc(
     segments_processed_by_thread_fast: i32,
     segments_processed_by_thread_slow: i32,
     pixels_processed_by_workgroup: i32,
+    global_work_size: i32,
+    workgroup_size: i32
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
     let result_width = (image_width - template_width + 1) as usize;
     let result_height = (image_height - template_height + 1) as usize;
@@ -406,6 +477,9 @@ pub fn gui_opencl_ncc(
         .arg(&segments_processed_by_thread_fast)
         .arg(&segments_processed_by_thread_slow)
         .arg(&pixels_processed_by_workgroup)
+        .arg_local::<u64>(pixels_processed_by_workgroup as usize) // __local ulong* sum_template_region_buff
+        .arg_local::<u64>(pixels_processed_by_workgroup as usize)
+        .arg_local::<u64>(workgroup_size as usize)
         .build()?;
 
     unsafe {
