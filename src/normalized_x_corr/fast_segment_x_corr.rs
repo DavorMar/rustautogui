@@ -442,8 +442,8 @@ fn create_picture_segments(
 
     if template_type == "fast" {
         if ocl {
-            threshold = 0.95;
-            target_corr = 0.80;
+            threshold = 0.99;
+            target_corr = -0.95;
         } else {
             threshold = 0.99;
             target_corr = -0.95;

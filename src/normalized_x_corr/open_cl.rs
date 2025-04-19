@@ -2,9 +2,10 @@ use crate::imgtools;
 use crate::normalized_x_corr::{compute_integral_images, sum_region};
 use image::{ImageBuffer, Luma};
 use ocl::{Buffer, Context, Device, Kernel, Program, Queue};
-use std::time;
+use std::time::{self, Duration};
 
 use ocl;
+use ocl::core::Int2;
 
 
 /*
@@ -14,13 +15,6 @@ into smaller tasks requires buffers to store values between those same tasks. Th
 of stored data can explode. For instance, 4000x3000 image x 50000 segments is like 4.5 TB of data.
 reworking integral image algorithms requires additional calculations in a process that cannot be 
 */
-
-
-
-
-
-
-
 
 
 // same algorithm as segmented but in OpenCL C
@@ -88,7 +82,7 @@ __kernel void segmented_match_integral_fast_pass(
     __local ulong* sum_template_region_buff,
     __local ulong* sum_sq_template_region_buff,
     __local ulong* thread_segment_sum_buff,
-    __global atomic_int* valid_corr_count  
+    __global int* valid_corr_count  
 ) {
     int global_id = get_global_id(0);
     int local_id = get_local_id(0);
@@ -98,7 +92,7 @@ __kernel void segmented_match_integral_fast_pass(
     
 
     // num_segments is also count of threads per pixel for fast img
-    if (local_id * segments_per_thread +  remainder_segments_fast >= num_segments * pixels_per_workgroup) return ; // this solves more segments per thread
+    if (local_id * segments_per_thread_fast +  remainder_segments_fast >= num_segments * pixels_per_workgroup) return ; // this solves more segments per thread
 
     int pixel_pos = (workgroup_id * pixels_per_workgroup) + (local_id / num_segments) ;
     int image_x = pixel_pos % result_w;
@@ -112,12 +106,12 @@ __kernel void segmented_match_integral_fast_pass(
     ulong patch_sum = 0;
     if (local_id < pixels_per_workgroup) {
         patch_sum = sum_region(integral, image_x, image_y, template_width, template_height, image_width);
-        sum_template_region_buff[local_id]
+        sum_template_region_buff[local_id];
     }
     
     // there will never be less than 2 segments 
     // meaning pixels per workgroup is never greater than workgroup_size / 2 
-    if (local_id >= pixels_per_workgroup) && (local_id < pixels_per_workgroup * 2) {
+    if (local_id >= pixels_per_workgroup && local_id < pixels_per_workgroup * 2) {
         ulong patch_sq_sum = sum_region_squared(integral_sq, image_x, image_y, template_width, template_height, image_width);
         sum_sq_template_region_buff[local_id % pixels_per_workgroup] = patch_sq_sum;
     }
@@ -131,10 +125,21 @@ __kernel void segmented_match_integral_fast_pass(
 
     
     float mean_img = (float)(sum_template_region_buff[pixel_idx]) / area;
-    
+
+    // this is to cover if we have more than 1 segment per thread. This method 
+    // with remainder allows us to keep all threads working
+    int remainder_offset = 0;
+    int remainder_addition = 0;
+    if (local_id >= remainder_segments_fast && remainder_segments_fast > 0) {
+        remainder_offset = remainder_segments_fast;
+    } else {
+        remainder_offset = local_id;
+        remainder_addition = 1; 
+    }
+
     // AUDIT - DOUBLE CHECK THIS LOGIC
-    int thread_segment_start = (local_id * segments_per_thread_fast) % num_segments;
-    int thread_segment_end = thread_segment_start +  segments_per_thread_fast;
+    int thread_segment_start = (local_id * segments_per_thread_fast + remainder_offset ) % num_segments;
+    int thread_segment_end = thread_segment_start +  segments_per_thread_fast + remainder_addition;
 
     float nominator = 0.0f;
     for (int i = thread_segment_start; i< thread_segment_end; i++) {
@@ -150,7 +155,7 @@ __kernel void segmented_match_integral_fast_pass(
     if (local_id < pixels_per_workgroup) {
         float nominator_sum = 0.0f;
         int sum_start = local_id * num_segments;
-        int sum_end = sum_start + (num_segments / segments_per_thread_fast );
+        int sum_end = sum_start + (num_segments / segments_per_thread_fast ) - remainder_segments_fast;
         for (int i = sum_start; i< sum_end; i++) {
             nominator_sum = nominator_sum + thread_segment_sum_buff[i] ;
         }
@@ -163,7 +168,7 @@ __kernel void segmented_match_integral_fast_pass(
         
         float corr = (denominator != 0.0f) ? (nominator_sum / denominator) : -1.0f;
         if (corr >= min_expected_corr) {
-            int index = atomic_fetch_add(valid_corr_count, 1);
+            int index = atomic_add(valid_corr_count, 1);
             results[index] = (int2)(image_x, image_y);
         }
     } 
@@ -413,6 +418,13 @@ pub fn gui_opencl_ncc(
     global_work_size: i32,
     workgroup_size: i32
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
+    println!("workgroup_size: {}",workgroup_size);
+    println!("pixels_processed_by_workgroup: {}",pixels_processed_by_workgroup);
+    println!("segments_processed_by_threads_fast: {}",segments_processed_by_thread_fast);
+    println!("remainder_segments: {}",remainder_segments_fast);
+    println!("fast_segment_count: {}",fast_segment_count);
+
+
     let result_width = (image_width - template_width + 1) as usize;
     let result_height = (image_height - template_height + 1) as usize;
     let output_size = result_width * result_height;
@@ -433,7 +445,7 @@ pub fn gui_opencl_ncc(
         .fill_val(0i32) // Init to 0
         .build()?;
 
-
+    println!("Building Kernel");
     let kernel = Kernel::builder()
         .program(&program)
         .name("segmented_match_integral_fast_pass")
@@ -462,9 +474,12 @@ pub fn gui_opencl_ncc(
         .arg(&valid_corr_count_buf)  // <-- atomic int
         .build()?;
 
+        println!("Running kernel");
     unsafe {
         kernel.enq()?;
     }
+    std::thread::sleep(Duration::from_secs_f32(1.5));
+    println!("Run finished");
 
     // get how many points have been found with fast pass
     let mut valid_corr_count_host = vec![0i32; 1]; 
@@ -479,22 +494,27 @@ pub fn gui_opencl_ncc(
         .enq()?;
     
     let total_number_of_segments_to_calculate_slow = valid_corr_count * slow_segment_count as usize;
+    println!("items_to_calculate = {}", valid_corr_count);
+    for item in fast_pass_results {
+        if (item[0] == 206 && item[1] == 1) {
+            println!("Position found at {}, {}", item[0] , item[1]);
+        }
+        
+    }
 
-    
 
 
 
-
-    let final_results: Vec<(u32, u32, f32)> = results
-        .into_iter()
-        .enumerate()
-        .map(|(idx, corr)| {
-            let x = (idx % result_width) as u32;
-            let y = (idx / result_width) as u32;
-            (x, y, corr)
-        })
-        .collect();
-
+    // let final_results: Vec<(u32, u32, f32)> = results
+    //     .into_iter()
+    //     .enumerate()
+    //     .map(|(idx, corr)| {
+    //         let x = (idx % result_width) as u32;
+    //         let y = (idx / result_width) as u32;
+    //         (x, y, corr)
+    //     })
+    //     .collect();
+    let final_results = Vec::new();
     Ok(final_results)
 }
 
