@@ -71,15 +71,10 @@ __kernel void segmented_match_integral(
     __global const ulong* integral,
     __global const ulong* integral_sq,
     __global const int4* segments,
-    __global const int4* segments_slow,
     __global const float* segment_values,
-    __global const float* segment_values_slow,
     const int num_segments,
-    const int num_segments_slow,
     const float template_mean,
-    const float template_mean_slow,
     const float template_sq_dev,
-    const float template_sq_dev_slow,
     __global float* results,
     const int image_width,
     const int image_height,
@@ -87,13 +82,12 @@ __kernel void segmented_match_integral(
     const int template_height,
     const float min_expected_corr,
     const int remainder_segments_fast,
-    const int remainder_segments_slow,
     const int segments_per_thread_fast,
-    const int segments_per_thread_slow,
     const int pixels_per_workgroup,
     __local ulong* sum_template_region_buff,
     __local ulong* sum_sq_template_region_buff,
-    __local ulong* thread_segment_sum_buff
+    __local ulong* thread_segment_sum_buff,
+    __global atomic_int* valid_corr_count  
 ) {
     int global_id = get_global_id(0);
     int local_id = get_local_id(0);
@@ -107,14 +101,14 @@ __kernel void segmented_match_integral(
     int image_x = pixel_pos % image_width;
     int image_y = pixel_pos / image_width;
 
-    int pixel_idx = local_id % pixels_per_workgroup;
+    int pixel_idx = local_id / num_segments;
 
     // first sum the region of template area for numerator calculations
     // we do it with first threads for each x,y position which workgroup processes
     // if there are 5 pixels processed, local_id 0-4 should process sum regions for each position, 5-9 for squared
+    ulong patch_sum = 0;
     if (local_id < pixels_per_workgroup) {
-        ulong patch_sum = sum_region(integral, image_x, image_y, template_width, template_height, image_width);
-        sum_template_region_buff[pixel_idx] = patch_sum;
+        patch_sum = sum_region(integral, image_x, image_y, template_width, template_height, image_width);
     }
     
     // there will never be less than 2 segments 
@@ -134,76 +128,41 @@ __kernel void segmented_match_integral(
     
     float mean_img = (float)(sum_template_region_buff[pixel_idx]) / area;
     
-    
-    if (segments_per_thread_fast == 1) {
-        if (pixels_per_workgroup == 1) {
-            int4 segment = segments[local_id];
-        }
-        else {
-            int4 segment = segments[local_id % num_segments ];
-        }
-    }
-    else {
-        
-        int start_segment = local_id * segments_per_thread_fast;
-        int end_segment = start_segment + segments_per_thread_fast;
+    // AUDIT - DOUBLE CHECK THIS LOGIC
+    int thread_segment_start = (local_id * segments_per_thread_fast) % num_segments;
+    int thread_segment_end = thread_segment_start +  segments_per_thread_fast;
 
-    }
-
-
-
-    // if (idx >= result_width * result_height) return;
-
-    // int x = idx % result_width;
-    // int y = idx / result_width;
-
-
-    // ulong patch_sum = sum_region(integral, x, y, template_width, template_height, image_width);
-    // ulong patch_sq_sum = sum_region_squared(integral_sq, x, y, template_width, template_height, image_width);
-    
-
-
-    // float area = (float)(template_width * template_height);
-    // float mean_img = (float)(patch_sum) / area;
-    
-    
     float nominator = 0.0f;
-    for (int i = 0; i < num_segments; i++) {
+    for (int i = thread_segment_start; i< thread_segment_end; i++) {
         int4 seg = segments[i];
         float seg_val = segment_values[i];
-        int seg_area = seg.z * seg.w;
-
-        ulong region_sum = sum_region(integral, x + seg.x, y + seg.y, seg.z, seg.w, image_width);
-
+        int seg_area = seg.z* seg.w;
+        ulong region_sum = sum_region(integral, image_x + seg.x, image_y + seg.y, seg.z, seg.w, image_width);
         nominator += ((float)(region_sum) - mean_img * seg_area) * (seg_val - template_mean);
     }
+    thread_segment_sum_buff[local_id] = nominator;
+    barrier(CLK_LOCAL_MEM_FENCE);
 
-
-    float var_img = (float)(patch_sq_sum) - ((float)(patch_sum) * (float)(patch_sum)) / area;
-    float denominator = sqrt(var_img * template_sq_dev);
-    
-    float corr = (denominator != 0.0f) ? (nominator / denominator) : -1.0f;
-
-
-
-    if (corr < min_expected_corr) {
-        results[idx] = corr;
-        return;
-    } else {
-        float denominator_slow = sqrt(var_img * template_sq_dev_slow);
-        float nominator_slow = 0.0f;
-        for (int i = 0; i < num_segments_slow; i++) {
-            int4 seg_slow = segments_slow[i];
-            float seg_val_slow = segment_values_slow[i];
-            int seg_area = seg_slow.z * seg_slow.w;
-
-            ulong region_sum = sum_region(integral, x + seg_slow.x, y + seg_slow.y, seg_slow.z, seg_slow.w, image_width);
-
-            nominator_slow += ((float)(region_sum) - mean_img * seg_area) * (seg_val_slow - template_mean);
+    if (local_id < pixels_per_workgroup) {
+        float nominator_sum = 0.0f;
+        int sum_start = local_id * num_segments;
+        int sum_end = sum_start + (num_segments / segments_per_thread_fast );
+        for (int i = sum_start; i< sum_end; i++) {
+            nominator_sum = nominator_sum + thread_segment_sum_buff[i] ;
         }
-        float corr_slow = (denominator_slow != 0.0f) ? (nominator_slow / denominator_slow) : -1.0f;
-        results[idx] = corr_slow;
-    }    
+
+
+        ulong patch_sq_sum_extracted = sum_sq_template_region_buff[local_id];
+        float var_img = (float)(patch_sq_sum_extracted - (patch_sum*patch_sum))/area;
+
+        float denominator = sqrt(var_img * patch_sq_sum_extracted);
+        
+        float corr = (denominator != 0.0f) ? (nominator_sum / denominator) : -1.0f;
+        if (corr >= min_expected_corr) {
+            int index = atomic_fetch_add(valid_corr_count, 1);
+            results[index] = corr;
+        }
+    } 
 }
 "#;
 
@@ -457,15 +416,10 @@ pub fn gui_opencl_ncc(
         .arg(&gpu_memory_pointers.buffer_image_integral)
         .arg(&gpu_memory_pointers.buffer_image_integral_squared)
         .arg(&gpu_memory_pointers.segments_fast_buffer)
-        .arg(&gpu_memory_pointers.segments_slow_buffer)
         .arg(&gpu_memory_pointers.segment_fast_values_buffer)
-        .arg(&gpu_memory_pointers.segment_slow_values_buffer)
         .arg(&fast_segment_count)
-        .arg(&slow_segment_count)
         .arg(&(segments_mean_fast as f32))
-        .arg(&(segments_mean_slow as f32))
         .arg(&(segments_sum_squared_deviation_fast as f32))
-        .arg(&(segments_sum_squared_deviation_slow as f32))
         .arg(&gpu_memory_pointers.results_buffer)
         .arg(&(image_width as i32))
         .arg(&(image_height as i32))
@@ -473,18 +427,18 @@ pub fn gui_opencl_ncc(
         .arg(&(template_height as i32))
         .arg(&(fast_expected_corr as f32))
         .arg(&remainder_segments_fast)
-        .arg(&remainder_segments_slow)
         .arg(&segments_processed_by_thread_fast)
-        .arg(&segments_processed_by_thread_slow)
         .arg(&pixels_processed_by_workgroup)
-        .arg_local::<u64>(pixels_processed_by_workgroup as usize) // __local ulong* sum_template_region_buff
+        .arg_local::<u64>(pixels_processed_by_workgroup as usize)
         .arg_local::<u64>(pixels_processed_by_workgroup as usize)
         .arg_local::<u64>(workgroup_size as usize)
+        .arg_local::<u64>(pixels_processed_by_workgroup as usize)
         .build()?;
 
     unsafe {
         kernel.enq()?;
     }
+    let mut valid_correlations = 
     let mut results = vec![0.0f32; output_size];
     gpu_memory_pointers
         .results_buffer
