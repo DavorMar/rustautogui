@@ -82,12 +82,15 @@ __kernel void segmented_match_integral_fast_pass(
     __local ulong* sum_template_region_buff,
     __local ulong* sum_sq_template_region_buff,
     __local ulong* thread_segment_sum_buff,
-    __global int* valid_corr_count  
+    __global int* valid_corr_count,
+    __global float* corr_values_buff  
 ) {
     int global_id = get_global_id(0);
     int local_id = get_local_id(0);
     int workgroup_id = get_group_id(0);
-
+    if ((local_id == 0) && (workgroup_id > 134138)) {
+        
+    }
     int result_w = image_width - template_width;
     
 
@@ -98,21 +101,27 @@ __kernel void segmented_match_integral_fast_pass(
     int image_x = pixel_pos % result_w;
     int image_y = pixel_pos / result_w;
 
-    int pixel_idx = local_id / num_segments;
-
     // first sum the region of template area for numerator calculations
     // we do it with first threads for each x,y position which workgroup processes
     // if there are 5 pixels processed, local_id 0-4 should process sum regions for each position, 5-9 for squared
     ulong patch_sum = 0;
     if (local_id < pixels_per_workgroup) {
         patch_sum = sum_region(integral, image_x, image_y, template_width, template_height, image_width);
-        sum_template_region_buff[local_id];
+        if (image_x == 206 && image_y == 1) {
+            printf("At (206, 1): wg_id = %u, patch_sum = %lu, pixel_pos = %u\n",workgroup_id, patch_sum, pixel_pos );
+            
+        }
+        sum_template_region_buff[local_id] = patch_sum;
+        
     }
     
     // there will never be less than 2 segments 
     // meaning pixels per workgroup is never greater than workgroup_size / 2 
     if (local_id >= pixels_per_workgroup && local_id < pixels_per_workgroup * 2) {
         ulong patch_sq_sum = sum_region_squared(integral_sq, image_x, image_y, template_width, template_height, image_width);
+        if (image_x == 206 && image_y == 1) {
+            printf("At (206, 1): wg_id = %u, l_id = %u, patch_sq_sum = %lu\n",workgroup_id, local_id, patch_sq_sum );
+        }
         sum_sq_template_region_buff[local_id % pixels_per_workgroup] = patch_sq_sum;
     }
     
@@ -124,22 +133,36 @@ __kernel void segmented_match_integral_fast_pass(
     barrier(CLK_LOCAL_MEM_FENCE);
 
     
-    float mean_img = (float)(sum_template_region_buff[pixel_idx]) / area;
+    float mean_img = (float)(sum_template_region_buff[local_id / num_segments]) / area;
+
+    if (image_x == 206 && image_y == 1 && local_id == 0) {
+            printf("At (206, 1): wg_id = %u, l_id = %u, mean_image = %f\n",workgroup_id, local_id, mean_img);
+        }
 
     // this is to cover if we have more than 1 segment per thread. This method 
     // with remainder allows us to keep all threads working
     int remainder_offset = 0;
     int remainder_addition = 0;
-    if (local_id >= remainder_segments_fast && remainder_segments_fast > 0) {
-        remainder_offset = remainder_segments_fast;
-    } else {
-        remainder_offset = local_id;
-        remainder_addition = 1; 
+    if (remainder_segments_fast > 0) {
+        if (local_id >= remainder_segments_fast) {
+            remainder_offset = remainder_segments_fast;
+        } else {
+            remainder_offset = local_id;
+            remainder_addition = 1; 
+        }
+    
     }
+
+    
 
     // AUDIT - DOUBLE CHECK THIS LOGIC
     int thread_segment_start = (local_id * segments_per_thread_fast + remainder_offset ) % num_segments;
     int thread_segment_end = thread_segment_start +  segments_per_thread_fast + remainder_addition;
+
+    // if (image_x == 206 && image_y == 1) {
+    //     printf("segment_start = %u, segment_end =%u, id=%u\n", thread_segment_start, thread_segment_end, local_id);
+    // }
+
 
     float nominator = 0.0f;
     for (int i = thread_segment_start; i< thread_segment_end; i++) {
@@ -148,6 +171,9 @@ __kernel void segmented_match_integral_fast_pass(
         int seg_area = seg.z* seg.w;
         ulong region_sum = sum_region(integral, image_x + seg.x, image_y + seg.y, seg.z, seg.w, image_width);
         nominator += ((float)(region_sum) - mean_img * seg_area) * (seg_val - template_mean);
+    }
+    if (workgroup_id == 585 && local_id == 0) {
+        printf("Nominator under wg is %f\n", nominator);
     }
     thread_segment_sum_buff[local_id] = nominator;
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -161,23 +187,26 @@ __kernel void segmented_match_integral_fast_pass(
         }
 
 
-        ulong patch_sq_sum_extracted = sum_sq_template_region_buff[local_id];
-        float var_img = (float)(patch_sq_sum_extracted - (patch_sum*patch_sum))/area;
 
-        float denominator = sqrt(var_img * patch_sq_sum_extracted);
+        ulong patch_sq_sum_extracted = sum_sq_template_region_buff[local_id];
+        float var_img = (float)patch_sq_sum_extracted - ((float)patch_sum * (float)patch_sum)/ (float)area;
+
+        float denominator = sqrt(var_img * (float)template_sq_dev);
+        
         
         float corr = (denominator != 0.0f) ? (nominator_sum / denominator) : -1.0f;
+        if (image_x == 206 && image_y == 1) {
+            printf("At (206, 1): nominator_sum = %f, denominator = %f, corr=%f, var_img=%f, sum_sq_dev=%ul\n", nominator, denominator, corr, var_img, patch_sq_sum_extracted );
+        }
         if (corr >= min_expected_corr) {
+            
+
             int index = atomic_add(valid_corr_count, 1);
             results[index] = (int2)(image_x, image_y);
+            corr_values_buff[index] = corr;
         }
     } 
 }
-
-
-
-
-
 "#;
 
 pub struct GpuMemoryPointers {
@@ -190,6 +219,8 @@ pub struct GpuMemoryPointers {
     buffer_image_integral: Buffer<u64>,
     buffer_image_integral_squared: Buffer<u64>,
 }
+
+
 impl GpuMemoryPointers {
     pub fn new(
         image_width: u32,
@@ -437,6 +468,11 @@ pub fn gui_opencl_ncc(
         .write(squared_image_integral)
         .enq()?;
 
+    let buffer_corr_values: Buffer<f32> = Buffer::<f32>::builder()
+        .queue(queue.clone())
+        .len(output_size)
+        .build().unwrap();
+
 
     let valid_corr_count_buf: Buffer<i32> = Buffer::builder()
         .queue(queue.clone())
@@ -444,7 +480,7 @@ pub fn gui_opencl_ncc(
         .len(1)
         .fill_val(0i32) // Init to 0
         .build()?;
-
+    let start = time::Instant::now();
     println!("Building Kernel");
     let kernel = Kernel::builder()
         .program(&program)
@@ -472,35 +508,43 @@ pub fn gui_opencl_ncc(
         .arg_local::<u64>(pixels_processed_by_workgroup as usize) // sum_sq_template_region_buff
         .arg_local::<u64>(workgroup_size as usize) // thread_segment_sum_buff
         .arg(&valid_corr_count_buf)  // <-- atomic int
+        .arg(&buffer_corr_values)  // <-- atomic int
         .build()?;
 
         println!("Running kernel");
     unsafe {
         kernel.enq()?;
     }
-    std::thread::sleep(Duration::from_secs_f32(1.5));
+    // std::thread::sleep(Duration::from_secs_f32(1.5));
     println!("Run finished");
 
     // get how many points have been found with fast pass
     let mut valid_corr_count_host = vec![0i32; 1]; 
     valid_corr_count_buf.read(&mut valid_corr_count_host).enq()?; 
     let valid_corr_count = valid_corr_count_host[0] as usize;
-
+    println!("Inner time test: {}", start.elapsed().as_secs_f32());
     // gather those points
-    let mut fast_pass_results = vec![ocl::core::Int2::zero(); valid_corr_count]; 
+    let mut fast_pass_corrs = vec![0.0; valid_corr_count];
+    let mut fast_pass_positions = vec![ocl::core::Int2::zero(); valid_corr_count]; 
     gpu_memory_pointers
         .results_buffer_fast
-        .read(&mut fast_pass_results)
+        .read(&mut fast_pass_positions)
+        .enq()?;
+    buffer_corr_values
+        .read(&mut fast_pass_corrs)
         .enq()?;
     
-    let total_number_of_segments_to_calculate_slow = valid_corr_count * slow_segment_count as usize;
+    // let total_number_of_segments_to_calculate_slow = valid_corr_count * slow_segment_count as usize;
     println!("items_to_calculate = {}", valid_corr_count);
-    for item in fast_pass_results {
-        if (item[0] == 206 && item[1] == 1) {
-            println!("Position found at {}, {}", item[0] , item[1]);
+    let new_valid_corr_count = 0;
+    for i in 0.. fast_pass_positions.len() {
+
+        if (fast_pass_positions[i][0] == 206 && fast_pass_positions[i][1] == 1) {
+            println!("Position found at {}, {}, {}", fast_pass_positions[i][0] , fast_pass_positions[i][1], fast_pass_corrs[i]);
         }
         
     }
+
 
 
 

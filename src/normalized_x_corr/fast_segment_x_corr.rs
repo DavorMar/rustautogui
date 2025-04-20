@@ -10,6 +10,7 @@ use crate::normalized_x_corr::{compute_integral_images, sum_region};
 
 use crate::imgtools;
 use image::{ImageBuffer, Luma};
+use ocl::ffi::libc::printf;
 use rand::prelude::*;
 use rayon::prelude::*;
 use rustfft::num_traits::Pow;
@@ -200,8 +201,9 @@ fn fast_correlation_calculation(
     /////////// numerator calculation
     let sum_image: u64 = sum_region(image_integral, x, y, template_width, template_height);
     let mean_image = sum_image as f32 / (template_height * template_width) as f32;
+    
     let mut nominator = 0.0;
-
+    
     for (x1, y1, segment_width, segment_height, segment_value) in template_segments_fast {
         let segment_image_sum = sum_region(
             image_integral,
@@ -232,11 +234,22 @@ fn fast_correlation_calculation(
         template_width,
         template_height,
     );
+    if x==206 && y==1 {
+        println!("Sum template and sum squared, and mean_img: {}, {}, {}", sum_image, sum_squared_image, mean_image);
+    }
+    
     let image_sum_squared_deviations =
         sum_squared_image as f32 - (sum_image as f32).powi(2) / template_area as f32;
     let denominator = (image_sum_squared_deviations * fast_segments_sum_squared_deviations).sqrt();
+    if x==206 && y==1 {
+        println!("Var img :{}, sum_sq_dev: {}", image_sum_squared_deviations, fast_segments_sum_squared_deviations);
+    }
+    
     let mut corr: f32 = nominator / denominator;
-
+    
+    if x==206 && y==1 {
+        println!("fast corr: {}, nominator: {}, denom: {}" , corr, nominator , denominator);
+    }
     ///////////////
 
     if corr > 1.1 || corr.is_nan() {
@@ -255,6 +268,8 @@ fn fast_correlation_calculation(
                 *segment_width,
                 *segment_height,
             );
+            
+            
             let segment_nominator_value: f32 = (segment_image_sum as f32
                 - mean_image * (segment_height * segment_width) as f32)
                 * (*segment_value as f32 - segments_slow_mean as f32);
@@ -270,7 +285,6 @@ fn fast_correlation_calculation(
 
         let denominator =
             (image_sum_squared_deviations * slow_segments_sum_squared_deviations).sqrt();
-
         corr = nominator / denominator;
     }
     if corr > 1.1 || corr.is_nan() {
@@ -392,7 +406,7 @@ pub fn prepare_template_picture(
         let slow_segment_number = picture_segments_slow.len();
         println!("reduced number of segments to {fast_segment_number} for fast image and {slow_segment_number} for slow image" );
     }
-
+    println!("Fast and slow segments : {}, {}", picture_segments_fast.len(), picture_segments_slow.len());
     let return_value: (
         Vec<(u32, u32, u32, u32, f32)>,
         Vec<(u32, u32, u32, u32, f32)>,
@@ -416,6 +430,7 @@ pub fn prepare_template_picture(
         segments_mean_fast,
         segments_mean_slow,
     );
+    
     return_value
 }
 
@@ -443,10 +458,10 @@ fn create_picture_segments(
     if template_type == "fast" {
         if ocl {
             threshold = 0.99;
-            target_corr = -0.95;
+            target_corr = 0.99;
         } else {
             threshold = 0.99;
-            target_corr = -0.95;
+            target_corr = 0.99;
         }
     } else if template_type == "slow" {
         threshold = 0.85;
@@ -566,7 +581,9 @@ fn divide_and_conquer(
         (sum_squared_deviations as f32 / (segment_width * segment_height) as f32).sqrt();
     let mut additional_pixel = 0;
 
-    if (average_deviation > threshhold) || (ocl && (segment_width > 50 || segment_height > 50)) {
+    if (average_deviation > threshhold) 
+    // || (ocl && (segment_width > 50 || segment_height > 50)) 
+    {
         //split image
         // let (image_1, image_2) =
         if segment_width >= segment_height || segment_height == 1 {
