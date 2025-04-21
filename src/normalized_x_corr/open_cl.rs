@@ -156,22 +156,10 @@ __kernel void segmented_match_integral_fast_pass(
         
 
         nominator += ((float)(region_sum) - mean_img * seg_area) * (seg_val - template_mean);
-        if (image_x == 1273 && image_y == 1667) {
-            // printf("thread local_id: %u, seg: %u, seg_val: %f, region_sum:%lu, nominator: %f, mean_img: %f\n", local_id, i, seg_val, region_sum, ((float)(region_sum) - mean_img * seg_area) * (seg_val - template_mean), mean_img);
-            // printf("%u | %f\n", i, ((float)(region_sum) - mean_img * seg_area) * (seg_val - template_mean));
-        }
+
     }
     
     thread_segment_sum_buff[local_id] = nominator;
-    if (image_x == 1273 && image_y == 1667 && local_id == 0) {
-        float nom = 0.0;
-        int i=0;
-        for (i=0; i< 256; i++) {
-            nom += thread_segment_sum_buff[i];
-        }
-        printf("extra nom check : nom = %f", nom);
-
-    }
 
     barrier(CLK_LOCAL_MEM_FENCE);
 
@@ -192,18 +180,11 @@ __kernel void segmented_match_integral_fast_pass(
 
         ulong patch_sq_sum_extracted = sum_sq_template_region_buff[local_id];
         float var_img = (float)patch_sq_sum_extracted - ((float)patch_sum * (float)patch_sum)/ (float)area;
-
         float denominator = sqrt(var_img * (float)template_sq_dev);
-        
-        
         float corr = (denominator != 0.0f) ? (nominator_sum / denominator) : -1.0f;        
 
-        // if (image_x == 1273 && image_y == 1667) {
-        //     printf("corr: %f, nom: %f, denom: %f, sum_s: %u, sum_e:%u\n", corr, nominator_sum, denominator, sum_start, sum_end);
-        // }
-
         if (corr >= min_expected_corr && corr < 2) {
-            printf("Found position at x: %u, y: %u, corr:%f\n", image_x, image_y, corr);
+            // printf("Found position at x: %u, y: %u, corr:%f\n", image_x, image_y, corr);
             int index = atomic_add(valid_corr_count, 1);
             results[index] = (int2)(image_x, image_y);
         }
@@ -526,6 +507,7 @@ pub fn gui_opencl_ncc(
     
     
     let total_number_of_segments_to_calculate_slow = valid_corr_count * slow_segment_count as usize;
+
     println!("items_to_calculate = {}", valid_corr_count);
     // let new_valid_corr_count = 0;
     // for i in 0.. fast_pass_positions.len() {
