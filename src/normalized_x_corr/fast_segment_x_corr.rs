@@ -443,7 +443,7 @@ fn create_picture_segments(
     if template_type == "fast" {
         if ocl {
             threshold = 0.95;
-            target_corr = 0.80;
+            target_corr = -0.95;
         } else {
             threshold = 0.99;
             target_corr = -0.95;
@@ -465,6 +465,8 @@ fn create_picture_segments(
             0,
             threshold * avg_deviation_of_template,
             ocl,
+            template_width,
+            template_height
         );
 
         threshold -= 0.05;
@@ -529,6 +531,8 @@ fn divide_and_conquer(
     y: u32,
     threshhold: f32,
     ocl: bool,
+    template_width: u32,
+    template_height: u32
 ) {
     /*
     function that segments template image into areas that have similar color
@@ -566,7 +570,9 @@ fn divide_and_conquer(
         (sum_squared_deviations as f32 / (segment_width * segment_height) as f32).sqrt();
     let mut additional_pixel = 0;
 
-    if (average_deviation > threshhold) || (ocl && (segment_width > 50 || segment_height > 50)) {
+    if (average_deviation > threshhold) 
+    || (ocl && (segment_width > (0.1 * template_width as f32) as u32 || segment_height > (0.1 * template_height as f32) as u32)) 
+    {
         //split image
         // let (image_1, image_2) =
         if segment_width >= segment_height || segment_height == 1 {
@@ -592,8 +598,8 @@ fn divide_and_conquer(
 
             let x1 = &x + segment_width / 2 + additional_pixel;
             // go recursively into first and second image halfs
-            divide_and_conquer(picture_segments, &image_1, x, y, threshhold, ocl);
-            divide_and_conquer(picture_segments, &image_2, x1, y, threshhold, ocl);
+            divide_and_conquer(picture_segments, &image_1, x, y, threshhold, ocl, template_width, template_height);
+            divide_and_conquer(picture_segments, &image_2, x1, y, threshhold, ocl, template_width, template_height);
 
             //if image taller than wider
         } else {
@@ -618,8 +624,8 @@ fn divide_and_conquer(
             );
             let y1 = y + segment_height / 2 + additional_pixel;
             // go recursively into first and second image halfs
-            divide_and_conquer(picture_segments, &image_1, x, y, threshhold, ocl);
-            divide_and_conquer(picture_segments, &image_2, x, y1, threshhold, ocl);
+            divide_and_conquer(picture_segments, &image_1, x, y, threshhold, ocl, template_width, template_height);
+            divide_and_conquer(picture_segments, &image_2, x, y1, threshhold, ocl, template_width, template_height);
         };
 
     // recursion exit
