@@ -277,10 +277,6 @@ fn fast_correlation_calculation(
                 - mean_image * (segment_height * segment_width) as f32)
                 * (*segment_value as f32 - segments_slow_mean as f32);
             nominator += segment_nominator_value;
-            // if x==1273 && y==1667 {
-            //     println!("segment_i: {}, segment_image_sum : {}, mean_image: {}, segment_value: {}, nominator: {}",i, segment_image_sum, mean_image, segment_value, segment_nominator_value)
-            //     // println!("{} | {}",i,segment_nominator_value);
-            // }
             i+=1;
         }
 
@@ -292,9 +288,6 @@ fn fast_correlation_calculation(
             (image_sum_squared_deviations * slow_segments_sum_squared_deviations).sqrt();
         corr = nominator / denominator;
 
-        if x==1273 && y==1667 {
-            println!("corr: {}, num: {}, denom: {}, mean_img : {}", corr, nominator, denominator, mean_image)            
-        }
 
 
 
@@ -398,28 +391,27 @@ pub fn prepare_template_picture(
         ocl,
     );
 
-    // if !ocl {
-    //     // merge pictures segments
-    //     picture_segments_fast = merge_picture_segments(picture_segments_fast);
-    //     picture_segments_fast.sort_by(|a, b| {
-    //         let area_a = a.2 * a.3; // width * height for segment a
-    //         let area_b = b.2 * b.3; // width * height for segment b
-    //         area_a.cmp(&area_b) // Compare the areas
-    //     });
-    //     picture_segments_slow = merge_picture_segments(picture_segments_slow);
-    //     picture_segments_slow.sort_by(|a, b| {
-    //         let area_a = a.2 * a.3; // width * height for segment a
-    //         let area_b = b.2 * b.3; // width * height for segment b
-    //         area_a.cmp(&area_b) // Compare the areas
-    //     });
-    // }
+    if !ocl {
+        // merge pictures segments
+        picture_segments_fast = merge_picture_segments(picture_segments_fast);
+        picture_segments_fast.sort_by(|a, b| {
+            let area_a = a.2 * a.3; // width * height for segment a
+            let area_b = b.2 * b.3; // width * height for segment b
+            area_a.cmp(&area_b) // Compare the areas
+        });
+        picture_segments_slow = merge_picture_segments(picture_segments_slow);
+        picture_segments_slow.sort_by(|a, b| {
+            let area_a = a.2 * a.3; // width * height for segment a
+            let area_b = b.2 * b.3; // width * height for segment b
+            area_a.cmp(&area_b) // Compare the areas
+        });
+    }
 
     if *debug {
         let fast_segment_number = picture_segments_fast.len();
         let slow_segment_number = picture_segments_slow.len();
         println!("reduced number of segments to {fast_segment_number} for fast image and {slow_segment_number} for slow image" );
     }
-    println!("Fast and slow segments : {}, {}", picture_segments_fast.len(), picture_segments_slow.len());
     let return_value: (
         Vec<(u32, u32, u32, u32, f32)>,
         Vec<(u32, u32, u32, u32, f32)>,
@@ -495,7 +487,7 @@ fn create_picture_segments(
             ocl,
         );
 
-        threshold -= 0.02;
+        threshold -= 0.05;
         if threshold <= 0.1 {
             break;
         }
@@ -597,7 +589,7 @@ fn divide_and_conquer(
     let mut additional_pixel = 0;
 
     if (average_deviation > threshhold) 
-    // || (ocl && (segment_width > 50 || segment_height > 50)) 
+    || (ocl && (segment_width > 50 || segment_height > 50)) 
     {
         //split image
         // let (image_1, image_2) =

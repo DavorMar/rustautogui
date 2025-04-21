@@ -183,7 +183,7 @@ __kernel void segmented_match_integral_fast_pass(
         float corr = (denominator != 0.0f) ? (nominator_sum / denominator) : -1.0f;        
         
         if (corr >= min_expected_corr - 0.005 && corr < 2) {
-            // printf("Found position at x: %u, y: %u, corr:%f\n", image_x, image_y, corr);
+        
             int index = atomic_add(valid_corr_count, 1);
             results[index] = (int2)(image_x, image_y);
             
@@ -305,13 +305,11 @@ __kernel void segmented_match_integral_slow_pass (
         float var_img = (float)patch_sq_sum_extracted - ((float)patch_sum * (float)patch_sum)/ (float)area;
         float denominator = sqrt(var_img * (float)template_sq_dev);
         float corr = (denominator != 0.0f) ? (nominator_sum / denominator) : -1.0f;        
-        if (image_x == 13 && image_y == 1065) {
-            printf("position corr: %f\n", corr);
-        }
+
         if (corr >= min_expected_corr  && corr < 2) {
-            // printf("Found position at x: %u, y: %u, corr:%f\n", image_x, image_y, corr);
             int index = atomic_add(valid_corr_count, 1);
             position_results[index] = (int2)(image_x, image_y);
+            corr_results[index] = corr;
         }
     } 
 }
@@ -508,9 +506,6 @@ pub fn gui_opencl_ncc_template_match(
     let global_workgroup_count = (output_size + pixels_processed_by_workgroup - 1) / pixels_processed_by_workgroup;
     // total amount of threads that need to be spawned
     let global_work_size = global_workgroup_count * max_workgroup_size;
-    println!("PPW: {}, remainder: {}, S_P_T:{}", pixels_processed_by_workgroup, remainder_segments_fast, segments_processed_by_thread_fast);
-    println!("Global work size: {}, workgroup_count:{} ", global_work_size, global_workgroup_count);
-
     let mut gpu_results = gui_opencl_ncc(
         &image_integral,
         &squared_image_integral,
@@ -639,18 +634,19 @@ pub fn gui_opencl_ncc(
     let valid_corr_count = valid_corr_count_host[0] as usize;
     // gather those points
     if valid_corr_count > 0 {
-        let mut fast_pass_corrs = vec![0.0; valid_corr_count];
         let mut fast_pass_positions = vec![ocl::core::Int2::zero(); valid_corr_count]; 
         gpu_memory_pointers
             .results_buffer_fast
             .read(&mut fast_pass_positions)
             .enq()?;            
+    } else {
+        let final_results: Vec<(u32,u32,f32)> = Vec::new();
+        return Ok(final_results);
     }
     
     
-    let total_number_of_segments_to_calculate_slow = valid_corr_count * slow_segment_count as usize;
+
     let new_global_work_size = valid_corr_count * workgroup_size as usize;
-    println!("expected slow corr: {}", slow_expected_corr);
 
     let kernel_slow = Kernel::builder()
         .program(&program)
@@ -688,34 +684,34 @@ pub fn gui_opencl_ncc(
     let mut valid_corr_count_host_slow = vec![0i32; 1]; 
     valid_corr_count_buf_slow.read(&mut valid_corr_count_host_slow).enq()?; 
     let valid_corr_count_slow = valid_corr_count_host_slow[0] as usize;
-    // gather those points
+    if valid_corr_count_slow > 0 {
+        let mut slow_pass_corrs = vec![0.0; valid_corr_count_slow];
+        let mut slow_pass_positions = vec![ocl::core::Int2::zero(); valid_corr_count_slow]; 
+        gpu_memory_pointers
+            .results_buffer_slow_positions
+            .read(&mut slow_pass_positions)
+            .enq()?;
 
-    println!("items_to_calculate = {}", valid_corr_count);
-    println!("items_to_calculate slow = {}", valid_corr_count_slow);
-    // let new_valid_corr_count = 0;
-    // for i in 0.. fast_pass_positions.len() {
+        gpu_memory_pointers
+            .results_buffer_slow_corrs
+            .read(&mut slow_pass_corrs)
+            .enq()?;
 
-    //     if (fast_pass_positions[i][0] == 206 && fast_pass_positions[i][1] == 1) {
-    //         println!("Position found at {}, {}", fast_pass_positions[i][0] , fast_pass_positions[i][1]);
-    //     }
+        let mut result_vec: Vec<(u32, u32, f32)> = slow_pass_positions
+            .iter()
+            .zip(slow_pass_corrs.iter())
+            .map(|(pos, &corr)| (pos[0] as u32, pos[1] as u32, corr))
+            .collect();
         
-    // }
+        result_vec.sort_unstable_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+        return Ok(result_vec)
 
+    } else {
+        let final_results: Vec<(u32,u32,f32)> = Vec::new();
+        return Ok(final_results);
+    }
+    
 
-
-
-
-    // let final_results: Vec<(u32, u32, f32)> = results
-    //     .into_iter()
-    //     .enumerate()
-    //     .map(|(idx, corr)| {
-    //         let x = (idx % result_width) as u32;
-    //         let y = (idx / result_width) as u32;
-    //         (x, y, corr)
-    //     })
-    //     .collect();
-    let final_results = Vec::new();
-    Ok(final_results)
 }
 
 fn compute_integral_images_ocl(image: &ImageBuffer<Luma<u8>, Vec<u8>>) -> (Vec<u64>, Vec<u64>) {
