@@ -203,7 +203,8 @@ fn fast_correlation_calculation(
     let mean_image = sum_image as f32 / (template_height * template_width) as f32;
     
     let mut nominator = 0.0;
-    
+    let mut total_sum = 0;
+    let mut i = 0;
     for (x1, y1, segment_width, segment_height, segment_value) in template_segments_fast {
         let segment_image_sum = sum_region(
             image_integral,
@@ -212,14 +213,21 @@ fn fast_correlation_calculation(
             *segment_width,
             *segment_height,
         );
+        
+        
+        
+        
+        total_sum += segment_image_sum;
         let segment_nominator_value: f32 = (segment_image_sum as f32
             - mean_image * (segment_height * segment_width) as f32)
             * (*segment_value - segments_fast_mean);
 
-        // let segment_nominator_value: f64 =
-        //     (segment_image_sum as f64 * (*segment_value as f64 - segments_mean as f64)) - (mean_image as f64 * (segment_height*segment_width) as f64 * (*segment_value as f64 - segments_mean as f64) );
+        
+        i+=1;
         nominator += segment_nominator_value;
     }
+    
+
 
     // if nominator <= 0.0 {
     //     return -1.0;
@@ -234,23 +242,16 @@ fn fast_correlation_calculation(
         template_width,
         template_height,
     );
-    if x==206 && y==1 {
-        println!("Sum template and sum squared, and mean_img: {}, {}, {}", sum_image, sum_squared_image, mean_image);
-    }
+    
     
     let image_sum_squared_deviations =
         sum_squared_image as f32 - (sum_image as f32).powi(2) / template_area as f32;
     let denominator = (image_sum_squared_deviations * fast_segments_sum_squared_deviations).sqrt();
-    if x==206 && y==1 {
-        println!("Var img :{}, sum_sq_dev: {}", image_sum_squared_deviations, fast_segments_sum_squared_deviations);
-    }
+    
     
     let mut corr: f32 = nominator / denominator;
     
-    if x==206 && y==1 {
-        println!("fast corr: {}, nominator: {}, denom: {}" , corr, nominator , denominator);
-    }
-    ///////////////
+    
 
     if corr > 1.1 || corr.is_nan() {
         corr = -100.0;
@@ -258,8 +259,10 @@ fn fast_correlation_calculation(
     }
 
     // second calculation with more detailed picture
+    
     if corr >= min_expected_corr {
         nominator = 0.0;
+        let mut i = 0;
         for (x1, y1, segment_width, segment_height, segment_value) in template_segments_slow {
             let segment_image_sum = sum_region(
                 image_integral,
@@ -273,10 +276,12 @@ fn fast_correlation_calculation(
             let segment_nominator_value: f32 = (segment_image_sum as f32
                 - mean_image * (segment_height * segment_width) as f32)
                 * (*segment_value as f32 - segments_slow_mean as f32);
-
-            // let segment_nominator_value: f64 =
-            //     (segment_image_sum as f64 * (*segment_value as f64 - segments_mean as f64)) - (mean_image as f64 * (segment_height*segment_width) as f64 * (*segment_value as f64 - segments_mean as f64) );
             nominator += segment_nominator_value;
+            // if x==1273 && y==1667 {
+            //     println!("segment_i: {}, segment_image_sum : {}, mean_image: {}, segment_value: {}, nominator: {}",i, segment_image_sum, mean_image, segment_value, segment_nominator_value)
+            //     // println!("{} | {}",i,segment_nominator_value);
+            // }
+            i+=1;
         }
 
         // if nominator <= 0.0 {
@@ -286,7 +291,15 @@ fn fast_correlation_calculation(
         let denominator =
             (image_sum_squared_deviations * slow_segments_sum_squared_deviations).sqrt();
         corr = nominator / denominator;
+
+        if x==1273 && y==1667 {
+            println!("corr: {}, num: {}, denom: {}, mean_img : {}", corr, nominator, denominator, mean_image)            
+        }
+
+
+
     }
+  
     if corr > 1.1 || corr.is_nan() {
         corr = -100.0;
         return corr as f64;
@@ -385,21 +398,21 @@ pub fn prepare_template_picture(
         ocl,
     );
 
-    if !ocl {
-        // merge pictures segments
-        picture_segments_fast = merge_picture_segments(picture_segments_fast);
-        picture_segments_fast.sort_by(|a, b| {
-            let area_a = a.2 * a.3; // width * height for segment a
-            let area_b = b.2 * b.3; // width * height for segment b
-            area_a.cmp(&area_b) // Compare the areas
-        });
-        picture_segments_slow = merge_picture_segments(picture_segments_slow);
-        picture_segments_slow.sort_by(|a, b| {
-            let area_a = a.2 * a.3; // width * height for segment a
-            let area_b = b.2 * b.3; // width * height for segment b
-            area_a.cmp(&area_b) // Compare the areas
-        });
-    }
+    // if !ocl {
+    //     // merge pictures segments
+    //     picture_segments_fast = merge_picture_segments(picture_segments_fast);
+    //     picture_segments_fast.sort_by(|a, b| {
+    //         let area_a = a.2 * a.3; // width * height for segment a
+    //         let area_b = b.2 * b.3; // width * height for segment b
+    //         area_a.cmp(&area_b) // Compare the areas
+    //     });
+    //     picture_segments_slow = merge_picture_segments(picture_segments_slow);
+    //     picture_segments_slow.sort_by(|a, b| {
+    //         let area_a = a.2 * a.3; // width * height for segment a
+    //         let area_b = b.2 * b.3; // width * height for segment b
+    //         area_a.cmp(&area_b) // Compare the areas
+    //     });
+    // }
 
     if *debug {
         let fast_segment_number = picture_segments_fast.len();
@@ -457,11 +470,11 @@ fn create_picture_segments(
 
     if template_type == "fast" {
         if ocl {
-            threshold = 0.99;
+            threshold = 0.85;
             target_corr = 0.99;
         } else {
             threshold = 0.99;
-            target_corr = 0.99;
+            target_corr = -0.99;
         }
     } else if template_type == "slow" {
         threshold = 0.85;
@@ -482,7 +495,7 @@ fn create_picture_segments(
             ocl,
         );
 
-        threshold -= 0.05;
+        threshold -= 0.02;
         if threshold <= 0.1 {
             break;
         }
@@ -522,6 +535,8 @@ fn create_picture_segments(
                 }
             }
         }
+   
+
         assert!(count == template_height * template_width);
         let denominator = (denom1 * denom2).sqrt();
         expected_corr = numerator / denominator;
