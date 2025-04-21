@@ -169,23 +169,33 @@ impl RustAutoGui {
             .src(program_source)
             .build(&context)
             .unwrap();
+        #[cfg(feature = "opencl")]
+        let ocl_active = true;
+        #[cfg(not(feature = "opencl"))]
+        let ocl_active = false;
+
         Ok(Self {
             template: None,
             prepared_data: PreparedData::None,
             prepared_data_stored: imports::HashMap::new(),
-            debug,
+            debug: debug,
             template_width: 0,
             template_height: 0,
-            keyboard,
+            keyboard: keyboard,
             mouse: mouse_struct,
-            screen,
+            screen: screen,
             match_mode: None,
             region: (0, 0, 0, 0),
-            suppress_warnings,
+            suppress_warnings: suppress_warnings,
             alias_used: DEFAULT_ALIAS.to_string(),
+            ocl_active: ocl_active,
+            #[cfg(feature = "opencl")]
             ocl_program: program,
+            #[cfg(feature = "opencl")]
             ocl_context: context,
+            #[cfg(feature = "opencl")]
             ocl_queue: queue,
+            #[cfg(feature = "opencl")]
             ocl_buffer_storage: imports::HashMap::new(),
         })
     }
