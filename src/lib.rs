@@ -717,7 +717,7 @@ impl RustAutoGui {
         &mut self,
         image: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>,
         precision: f32,
-    ) -> Result<Option<Vec<(u32, u32, f64)>>, AutoGuiError> {
+    ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         let first_match = self.run_x_corr(image, precision);
         // if retina and if this is not already a recursively ran backup
         if ((self.screen.scaling_factor_x > 1.0) | (self.screen.scaling_factor_y > 1.0))
