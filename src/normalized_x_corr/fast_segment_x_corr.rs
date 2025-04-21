@@ -14,6 +14,8 @@ use ocl::ffi::libc::printf;
 use rand::prelude::*;
 use rayon::prelude::*;
 use rustfft::num_traits::Pow;
+use winapi::shared::ktmtypes::PTRANSACTION_NOTIFICATION;
+use x11::xlib::XkbAllocGeomOverlayRows;
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
@@ -301,6 +303,33 @@ fn fast_correlation_calculation(
     corr as f64
 }
 
+
+fn calculate_entropy(template: &ImageBuffer<Luma<u8>, Vec<u8>>) -> f64 {
+    let mut histogram = [0u32; 256];
+    let mut total_pixels = 0u32;
+
+    // Build histogram
+    for pixel in template.pixels() {
+        let intensity = pixel[0] as usize;
+        histogram[intensity] += 1;
+        total_pixels += 1;
+    }
+
+    // Normalize and calculate entropy
+    let mut entropy = 0.0;
+    for &count in &histogram {
+        if count > 0 {
+            let p = count as f64 / total_pixels as f64;
+            entropy -= p * p.log2();
+        }
+    }
+
+    entropy
+}
+
+
+
+
 pub fn prepare_template_picture(
     template: &ImageBuffer<Luma<u8>, Vec<u8>>,
     debug: &bool,
@@ -339,7 +368,8 @@ pub fn prepare_template_picture(
     /// After that merging is performed, which connects neighbouring segments of same contact axis size and same value
     let (template_width, template_height) = template.dimensions();
     let mut sum_template = 0.0;
-
+    let entropy = calculate_entropy(template);
+    println!("entropy of image: {}", entropy);
     if *debug {
         let pixel_number = template_height * template_width;
         println! {"starting with {pixel_number}"};
@@ -376,6 +406,7 @@ pub fn prepare_template_picture(
         avg_deviation_of_template,
         "fast",
         ocl,
+        entropy
     );
     // create slow segmented image
     let (
@@ -389,6 +420,7 @@ pub fn prepare_template_picture(
         avg_deviation_of_template,
         "slow",
         ocl,
+        entropy
     );
 
     if !ocl {
@@ -412,6 +444,7 @@ pub fn prepare_template_picture(
         let slow_segment_number = picture_segments_slow.len();
         println!("reduced number of segments to {fast_segment_number} for fast image and {slow_segment_number} for slow image" );
     }
+    println!("Number of segments: {}, {}", picture_segments_fast.len(), picture_segments_slow.len());
     let return_value: (
         Vec<(u32, u32, u32, u32, f32)>,
         Vec<(u32, u32, u32, u32, f32)>,
@@ -446,6 +479,7 @@ fn create_picture_segments(
     avg_deviation_of_template: f32,
     template_type: &str,
     ocl: bool,
+    entropy:f64,
 ) -> (Vec<(u32, u32, u32, u32, f32)>, f32, f32, f32) {
     /// returns (picture_segments,segment_sum_squared_deviations, expected_corr, segments_mean)
     /// calls recursive divide and conquer binary segmentation function which divides
@@ -461,13 +495,17 @@ fn create_picture_segments(
     let mut threshold = 0.0;
 
     if template_type == "fast" {
-        if ocl {
-            threshold = 0.99;
-            target_corr = 0.8;
-        } else {
-            threshold = 0.99;
-            target_corr = -0.99;
-        }
+        println!("Average_deviation_of_template: {}", avg_deviation_of_template);
+        // if ocl {
+        //     threshold = 0.99;
+        //     target_corr = -0.95;
+        // } else {
+        //     threshold = 0.99;
+        //     target_corr = -0.99;
+        // }
+        threshold = 0.99;
+        target_corr = ((1.0 - (entropy/8.0)) * 1.0) as f32;
+        println!("target fast corr: {}" ,target_corr);
     } else if template_type == "slow" {
         threshold = 0.85;
         target_corr = 0.99;
@@ -477,6 +515,7 @@ fn create_picture_segments(
     let mut segments_sum = 0;
     let mut segment_sum_squared_deviations = 0.0;
     let mut segments_mean = 0.0;
+    
     while expected_corr < target_corr {
         divide_and_conquer(
             &mut picture_segments,
@@ -485,6 +524,11 @@ fn create_picture_segments(
             0,
             threshold * avg_deviation_of_template,
             ocl,
+            template_width,
+            template_height,
+            500.0,
+            entropy as f32,
+            template_type
         );
 
         threshold -= 0.05;
@@ -551,6 +595,11 @@ fn divide_and_conquer(
     y: u32,
     threshhold: f32,
     ocl: bool,
+    template_width: u32,
+    template_height: u32,
+    previous_mean_value: f32,
+    entropy:f32,
+    segmenting_type: &str
 ) {
     /*
     function that segments template image into areas that have similar color
@@ -589,7 +638,8 @@ fn divide_and_conquer(
     let mut additional_pixel = 0;
 
     if (average_deviation > threshhold) 
-    || (ocl && (segment_width > 50 || segment_height > 50)) 
+    || (segmenting_type == "fast" && (segment_mean - previous_mean_value).abs() > previous_mean_value / entropy )
+    // || (ocl && (segment_width >= (0.45 * template_width as f32) as u32 || segment_height >= (0.45 * template_height as f32) as u32)) 
     {
         //split image
         // let (image_1, image_2) =
@@ -616,8 +666,8 @@ fn divide_and_conquer(
 
             let x1 = &x + segment_width / 2 + additional_pixel;
             // go recursively into first and second image halfs
-            divide_and_conquer(picture_segments, &image_1, x, y, threshhold, ocl);
-            divide_and_conquer(picture_segments, &image_2, x1, y, threshhold, ocl);
+            divide_and_conquer(picture_segments, &image_1, x, y, threshhold, ocl, template_width,template_height,segment_mean, entropy, segmenting_type);
+            divide_and_conquer(picture_segments, &image_2, x1, y, threshhold, ocl,template_width,template_height,segment_mean, entropy,segmenting_type);
 
             //if image taller than wider
         } else {
@@ -642,8 +692,8 @@ fn divide_and_conquer(
             );
             let y1 = y + segment_height / 2 + additional_pixel;
             // go recursively into first and second image halfs
-            divide_and_conquer(picture_segments, &image_1, x, y, threshhold, ocl);
-            divide_and_conquer(picture_segments, &image_2, x, y1, threshhold, ocl);
+            divide_and_conquer(picture_segments, &image_1, x, y, threshhold, ocl, template_width, template_height, segment_mean, entropy, segmenting_type);
+            divide_and_conquer(picture_segments, &image_2, x, y1, threshhold, ocl, template_width, template_height, segment_mean, entropy,segmenting_type);
         };
 
     // recursion exit
