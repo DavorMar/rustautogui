@@ -1,4 +1,4 @@
-use crate::imgtools;
+use crate::{imgtools, print_mouse_position};
 use crate::normalized_x_corr::{compute_integral_images, sum_region};
 use image::{ImageBuffer, Luma};
 use ocl::{Buffer, Context, Device, Kernel, Program, Queue};
@@ -83,7 +83,6 @@ __kernel void segmented_match_integral_fast_pass(
     __local ulong* sum_sq_template_region_buff,
     __local float* thread_segment_sum_buff,
     __global int* valid_corr_count
-    // __global float* corr_values_buff  
 ) {
     int global_id = get_global_id(0);
     int local_id = get_local_id(0);
@@ -182,14 +181,141 @@ __kernel void segmented_match_integral_fast_pass(
         float var_img = (float)patch_sq_sum_extracted - ((float)patch_sum * (float)patch_sum)/ (float)area;
         float denominator = sqrt(var_img * (float)template_sq_dev);
         float corr = (denominator != 0.0f) ? (nominator_sum / denominator) : -1.0f;        
-
-        if (corr >= min_expected_corr && corr < 2) {
+        
+        if (corr >= min_expected_corr - 0.005 && corr < 2) {
             // printf("Found position at x: %u, y: %u, corr:%f\n", image_x, image_y, corr);
             int index = atomic_add(valid_corr_count, 1);
             results[index] = (int2)(image_x, image_y);
+            
         }
     } 
 }
+
+
+
+__kernel void segmented_match_integral_slow_pass (
+    __global const ulong* integral,
+    __global const ulong* integral_sq,
+    __global const int4* segments,
+    __global const float* segment_values,
+    const int num_segments,
+    const float template_mean,
+    const float template_sq_dev,
+    __global int2* position_results,
+    __global float* corr_results,
+    const int image_width,
+    const int image_height,
+    const int template_width,
+    const int template_height,
+    const float min_expected_corr,
+    const int remainder_segments_slow,
+    const int segments_per_thread_slow,
+    const int workgroup_size,
+    __local ulong* sum_template_region_buff,
+    __local ulong* sum_sq_template_region_buff,
+    __local float* thread_segment_sum_buff,
+    __global int* valid_corr_count,
+    __global int* valid_corr_count_fast,
+    __global int2* fast_pass_results
+) {
+
+    int global_id = get_global_id(0);
+    int local_id = get_local_id(0);
+    int workgroup_id = get_group_id(0);
+
+    int image_x = fast_pass_results[workgroup_id].x;
+    int image_y = fast_pass_results[workgroup_id].y;
+
+    int result_w = image_width - template_width;
+
+    // num_segments is also count of threads per pixel for fast img
+    if (local_id * segments_per_thread_slow +  remainder_segments_slow >= num_segments) return ; // this solves more segments per thread
+
+
+    // first sum the region of template area for numerator calculations
+    // we do it with first threads for each x,y position which workgroup processes
+    // if there are 5 pixels processed, local_id 0-4 should process sum regions for each position, 5-9 for squared
+    ulong patch_sum = 0;
+    if (local_id == 0) {
+        patch_sum = sum_region(integral, image_x, image_y, template_width, template_height, image_width);
+        sum_template_region_buff[0] = patch_sum;
+        
+    }
+    
+    // there will never be less than 2 segments 
+    // meaning pixels per workgroup is never greater than workgroup_size / 2 
+    if (local_id == 1) {
+        ulong patch_sq_sum = sum_region_squared(integral_sq, image_x, image_y, template_width, template_height, image_width);
+        sum_sq_template_region_buff[0] = patch_sq_sum;
+    }
+    int result_width = image_width - template_width + 1;
+    int result_height = image_height - template_height + 1;
+    float area = (float)(template_width * template_height);
+    // wait  for threads to complete writing sum_area
+    barrier(CLK_LOCAL_MEM_FENCE);
+    float mean_img = (float)(sum_template_region_buff[0]) / area;
+    // this is to cover if we have more than 1 segment per thread. This method 
+
+
+    // with remainder allows us to keep all threads working
+    int remainder_offset = 0;
+    int remainder_addition = 0;
+    if (remainder_segments_slow > 0) {
+        if (local_id >= remainder_segments_slow) {
+            remainder_offset = remainder_segments_slow;
+        } else {
+            remainder_offset = local_id;
+            remainder_addition = 1; 
+        }
+    
+    }
+
+    int thread_segment_start = (local_id * segments_per_thread_slow + remainder_offset ) % num_segments;
+    int thread_segment_end = thread_segment_start +  segments_per_thread_slow + remainder_addition;
+
+
+    float nominator = 0.0f;
+    for (int i = thread_segment_start; i< thread_segment_end; i++) {
+        
+        int4 seg = segments[i];
+        float seg_val = segment_values[i];
+        int seg_area = seg.z* seg.w;
+        ulong region_sum = sum_region(integral, image_x + seg.x, image_y + seg.y, seg.z, seg.w, image_width);
+        
+
+        nominator += ((float)(region_sum) - mean_img * seg_area) * (seg_val - template_mean);
+
+    }
+    
+    thread_segment_sum_buff[local_id] = nominator;
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+    if (local_id == 0) {
+        float nominator_sum = 0.0f;
+        int sum_start = 0;
+        int sum_end = sum_start + (num_segments / segments_per_thread_slow ) - (remainder_segments_slow/segments_per_thread_slow);
+        for (int i = sum_start; i< sum_end; i++) {
+            nominator_sum = nominator_sum + thread_segment_sum_buff[i] ;
+        }
+
+        
+
+
+        ulong patch_sq_sum_extracted = sum_sq_template_region_buff[0];
+        float var_img = (float)patch_sq_sum_extracted - ((float)patch_sum * (float)patch_sum)/ (float)area;
+        float denominator = sqrt(var_img * (float)template_sq_dev);
+        float corr = (denominator != 0.0f) ? (nominator_sum / denominator) : -1.0f;        
+        if (image_x == 13 && image_y == 1065) {
+            printf("position corr: %f\n", corr);
+        }
+        if (corr >= min_expected_corr  && corr < 2) {
+            // printf("Found position at x: %u, y: %u, corr:%f\n", image_x, image_y, corr);
+            int index = atomic_add(valid_corr_count, 1);
+            position_results[index] = (int2)(image_x, image_y);
+        }
+    } 
+}
+
 "#;
 
 pub struct GpuMemoryPointers {
@@ -198,7 +324,8 @@ pub struct GpuMemoryPointers {
     segment_fast_values_buffer: Buffer<f32>,
     segment_slow_values_buffer: Buffer<f32>,
     results_buffer_fast: Buffer<ocl::core::Int2>,
-    results_buffer_slow: Buffer<f32>,
+    results_buffer_slow_positions: Buffer<ocl::core::Int2>,
+    results_buffer_slow_corrs: Buffer<f32>,
     buffer_image_integral: Buffer<u64>,
     buffer_image_integral_squared: Buffer<u64>,
 }
@@ -265,7 +392,12 @@ impl GpuMemoryPointers {
             .len(output_size)
             .build()?;
 
-        let buffer_results_slow = Buffer::<f32>::builder()
+        let buffer_results_slow_positions = Buffer::<ocl::core::Int2>::builder()
+            .queue(queue.clone())
+            .len(output_size)
+            .build()?;
+
+        let buffer_results_slow_corrs = Buffer::<f32>::builder()
             .queue(queue.clone())
             .len(output_size)
             .build()?;
@@ -285,7 +417,8 @@ impl GpuMemoryPointers {
             segment_fast_values_buffer: buffer_segment_values_fast,
             segment_slow_values_buffer: buffer_segment_values_slow,
             results_buffer_fast: buffer_results_fast,
-            results_buffer_slow: buffer_results_slow,
+            results_buffer_slow_positions: buffer_results_slow_positions,
+            results_buffer_slow_corrs: buffer_results_slow_corrs,
             buffer_image_integral,
             buffer_image_integral_squared,
         })
@@ -327,7 +460,7 @@ pub fn gui_opencl_ncc_template_match(
         segments_mean_fast,
         segments_mean_slow,
     ) = template_data;
-    let min_expected_corr = precision * *fast_expected_corr - 0.001;
+    let fast_expected_corr = precision * *fast_expected_corr - 0.001;
     let slow_expected_corr = precision * *slow_expected_corr - 0.001;
     let fast_segment_count = template_segments_fast.len();
     let slow_segment_count = template_segments_slow.len();
@@ -335,13 +468,15 @@ pub fn gui_opencl_ncc_template_match(
 
 
     let mut remainder_segments_fast = 0;
-    let mut remainder_segments_slow = 0;
-    let mut segments_processed_by_thread_fast = 1;
-    let mut segments_processed_by_thread_slow = 1;
-    let mut pixels_processed_by_workgroup = 1;
-    let mut threads_per_pixel = max_workgroup_size;;
-    let max_workgroup_size = max_workgroup_size as usize;
     
+    let mut segments_processed_by_thread_fast = 1;
+    
+    let mut pixels_processed_by_workgroup = 1;
+    let max_workgroup_size = max_workgroup_size as usize;
+    let mut remainder_segments_slow = 0;
+    let mut segments_processed_by_thread_slow = 1;
+
+
     // if we have more segments than workgroup size, then that workgroup only processes
     // that single pixel. Each thread inside workgroup processes certain amount of equally distributed segments
     if fast_segment_count > max_workgroup_size {
@@ -387,7 +522,8 @@ pub fn gui_opencl_ncc_template_match(
         *slow_segments_sum_squared_deviations,
         *segments_mean_fast,
         *segments_mean_slow,
-        min_expected_corr,
+        fast_expected_corr,
+        slow_expected_corr,
         queue,
         program,
         gpu_memory_pointers,
@@ -419,6 +555,7 @@ pub fn gui_opencl_ncc(
     segments_mean_fast: f32,
     segments_mean_slow: f32,
     fast_expected_corr: f32,
+    slow_expected_corr: f32,
     queue: &Queue,
     program: &Program,
     gpu_memory_pointers: &GpuMemoryPointers,
@@ -456,10 +593,15 @@ pub fn gui_opencl_ncc(
         .build()?;
 
 
+    let valid_corr_count_buf_slow: Buffer<i32> = Buffer::builder()
+        .queue(queue.clone())
+        .flags(ocl::flags::MEM_READ_WRITE)
+        .len(1)
+        .fill_val(0i32) // Init to 0
+        .build()?;
 
-    
-    let start = time::Instant::now();
-    println!("Building Kernel");
+
+
     let kernel = Kernel::builder()
         .program(&program)
         .name("segmented_match_integral_fast_pass")
@@ -507,8 +649,49 @@ pub fn gui_opencl_ncc(
     
     
     let total_number_of_segments_to_calculate_slow = valid_corr_count * slow_segment_count as usize;
+    let new_global_work_size = valid_corr_count * workgroup_size as usize;
+    println!("expected slow corr: {}", slow_expected_corr);
+
+    let kernel_slow = Kernel::builder()
+        .program(&program)
+        .name("segmented_match_integral_slow_pass")
+        .queue(queue.clone())
+        .global_work_size(new_global_work_size)
+        .arg(&gpu_memory_pointers.buffer_image_integral)
+        .arg(&gpu_memory_pointers.buffer_image_integral_squared)
+        .arg(&gpu_memory_pointers.segments_slow_buffer)
+        .arg(&gpu_memory_pointers.segment_slow_values_buffer)
+        .arg(&slow_segment_count)
+        .arg(&(segments_mean_slow as f32))
+        .arg(&(segments_sum_squared_deviation_slow as f32))
+        .arg(&gpu_memory_pointers.results_buffer_slow_positions)
+        .arg(&gpu_memory_pointers.results_buffer_slow_corrs)
+        .arg(&(image_width as i32))
+        .arg(&(image_height as i32))
+        .arg(&(template_width as i32))
+        .arg(&(template_height as i32))
+        .arg(&(slow_expected_corr as f32))
+        .arg(&remainder_segments_slow)
+        .arg(&segments_processed_by_thread_slow)
+        .arg(&workgroup_size)
+        .arg_local::<u64>(1) // sum_template_region_buff
+        .arg_local::<u64>(1) // sum_sq_template_region_buff
+        .arg_local::<u64>(workgroup_size as usize) // thread_segment_sum_buff
+        .arg(&valid_corr_count_buf_slow)
+        .arg(&valid_corr_count_buf)  // <-- atomic int
+        .arg(&gpu_memory_pointers.results_buffer_fast)
+        .build()?;
+    unsafe {
+        kernel_slow.enq()?;
+    }
+
+    let mut valid_corr_count_host_slow = vec![0i32; 1]; 
+    valid_corr_count_buf_slow.read(&mut valid_corr_count_host_slow).enq()?; 
+    let valid_corr_count_slow = valid_corr_count_host_slow[0] as usize;
+    // gather those points
 
     println!("items_to_calculate = {}", valid_corr_count);
+    println!("items_to_calculate slow = {}", valid_corr_count_slow);
     // let new_valid_corr_count = 0;
     // for i in 0.. fast_pass_positions.len() {
 
