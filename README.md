@@ -22,7 +22,11 @@ Main functions:
 
 
 ## Achievable speed
-Unlike PyAutoGUI, this library does not use OpenCV for template matching. Instead, it employs a custom multithreaded implementation, though it lacks GPU acceleration. While OpenCV's template matching is highly optimized, RustAutoGui aims to provide faster overall performance by optimizing the entire process of screen capture, processing, and image matching. From tests so far, the performance appears to be ~5x faster than python counterpart. The speed will also vary between operating systems, where Windows outperforms Linux for instance. 
+Unlike PyAutoGUI, this library does not use OpenCV for template matching. Instead, it employs a custom multithreaded implementation.
+Since version 2.5, OpenCL is included, with more info further down this Readme file.  While OpenCV's template matching algorithm is highly 
+optimized, in some cases Segmented algorithm using OpenCL may be even faster. RustAutoGui aims to provide faster overall performance by 
+optimizing the entire process of screen capture, processing, and image matching. From tests so far, the performance appears to be ~5x faster
+than python counterpart(on Windows). The speed will also vary between operating systems, where Windows outperforms Linux for instance. 
 
 
 Gif presentation (intentionally captured with phone camera): 
@@ -36,7 +40,7 @@ OpenCV requires complex dependencies and a lengthy setup process in Rust. To kee
 
 ### Segmented template matching algorithm
 
-Since version 1.0.0, RustAutoGUI crate includes another variation of template matching algorithm using Segmented Normalized Cross-Correlation.
+RustAutoGUI crate includes another variation of template matching algorithm using Segmented Normalized Cross-Correlation. 
 More information: https://arxiv.org/pdf/2502.01286
 
 
@@ -49,6 +53,10 @@ or add the crate in your Cargo.toml:
 
 `rustautogui = "2.5.0"`
 
+With OpenCL support ( ⚠️ Please read info below before using):
+
+`rustautogui = { version = "2.5.0", features = ["opencl"] }`
+
 For Linux additionally run:
 
 `sudo apt-get update`
@@ -56,8 +64,7 @@ For Linux additionally run:
 `sudo apt-get install libx11-dev libxtst-dev`
 
 
-And for OpenCL to work:
-`sudo apt install libx11-dev libxtst-dev ocl-icd-opencl-dev`
+
 
 
 For macOS: grant necessary permissions in your settings.
@@ -106,7 +113,11 @@ rustautogui.prepare_template_from_raw_encoded( // returns Result<(), String>
 
 
 ## Segmented vs FFT matching
-It is hard to give a 100% correct answer when to use which algorithm. FFT algorithm is mostly consistent, with no big variances in speed. Segmented on other hand can heavily vary and speed can be up to 10x faster than FFT, but also slower by factor of up to thousands. The best method would be for users to test both methods and determine when to use which method. A general advice can be: Use segmented on smaller template images and when template is less visually complex (visual complexity is randomness of pixels in an image, for instance an image that is half white vs half black vs random noise image). 
+
+This info does not include OpenCL in comparison. More info about it below. 
+
+
+It is hard to give a 100% correct answer when to use which algorithm. FFT algorithm is mostly consistent, with no big variances in speed. Segmented on other hand can heavily vary and speed can be up to 10x faster than FFT, but also slower by factor of up to thousands. The best would be for users to test both methods and determine when to use which method. A general advice can be: Use segmented on smaller template images and when template is less visually complex (visual complexity is randomness of pixels in an image, for instance an image that is half white vs half black vs random noise image). 
 FFT would probably be better when comparing large template images on a large region, but also when template size approaches image region size. 
 
 
@@ -317,6 +328,9 @@ find some keyboard commands missing that you need, please open an issue in order
 
 
 
+
+
+
 ## Warnings options:
 
 Rustautogui may display some warnings. In case you want to turn them off, either run:\
@@ -342,6 +356,83 @@ let mut rustautogui = RustAutoGui::new(false).unwrap();
 rustautogui.set_suppress_warnings(true);
 ```
 
+## OpenCL 
+
+To enable OpenCL, as mentioned above, add crate to your Cargo.toml with opencl feature enabled: 
+
+`rustautogui = { version = "2.5.0", features = ["opencl"] }`
+
+Additionally install:
+
+**On linux**:
+---
+1) Install OpenCL ICD:
+
+   `sudo apt install ocl-icd-opencl-dev`
+
+2) Ff clinfo is not installed:
+
+   `sudo apt install clinfo`
+
+
+Run clinfo, if no GPU detected, continue. Otherwise you're finished.
+
+3) Install OpenCL drivers
+
+   For Nvidia GPUs:
+
+   `sudo apt install nvidia-opencl-icd`
+
+   For AMD GPUs:
+
+   Follow official ROCm docs for your distro and GPU
+
+   For Intel GPUs:
+
+   `sudo apt install intel-opencl-icd`
+
+
+For **Windows** install drivers for your graphics card.
+
+**MacOS** should be immediately ready.
+
+
+### Please read before using
+----
+
+**OpenCL works only on Segmented match mode**. Running FFT matchmode will back to CPU. 
+
+- OpenCL works only in Segmented Match mode. Using FFT Match will fall back to CPU processing.
+
+- The OpenCL implementation includes automatic detection of (sub)optimal segmentation levels.
+
+   - "Suboptimal" here means it may slightly reduce performance on some images but can drastically improve it on others.
+
+- This auto-detection is more effective on GPU than CPU, so it’s only used in GPU mode.
+
+⚠️Note: OpenCL performance highly depends on your GPU. On low-end or integrated GPUs, it may perform worse than CPU processing.
+
+When the opencl feature is enabled, the Rustautogui struct defaults to ocl_state = true. Template images will be stored in GPU memory during preparation. You can change this state manually at any time using the change_ocl_state function.
+
+⚠️ Important: Preparing an image with ocl_state = false (CPU mode) and then searching with ocl_state = true (GPU mode) will cause errors. Ensure consistency.
+
+To change OCL state:
+```rust
+gui.change_ocl_state = false;
+```
+
+
+### OpenCL V2 variant
+----
+- more omptimised
+- more sucsceptible to the types of images searched for
+- has an open parameter which should be tweaked by user, unlike V1 which has auto tweaking and is less succeptible to changes 
+
+
+*the algorithm does two correlation checks. First with roughly segmented image, with small number of segments, then on second finer segmented image, with higher precision and more segments. Positions found by rough image, which runs very fast, are checked with finer image. Sometimes, rough image is segmented by too small factor and leads to many false positives, which slows down algorithm due to too many checks on finer image*
+
+
+
 
 
 ## How does crate work:
@@ -360,6 +451,7 @@ For more details, check CHANGELOG.md
 - 2.2.0 - loading multiple images, loading images from memory
 - 2.3.0 - rework and improvement on Segmented match mode
 - 2.4.0 - many additional functions for mouse and keyboard
+- 2.5.0 - OpenCL implementation
 
 
 
