@@ -162,13 +162,8 @@ impl RustAutoGui {
             .unwrap_or(false); // Default: warnings are NOT suppressed
 
         // OCL INITIALIZATION
-        let context = imports::Context::builder().build().unwrap();
-        let queue = imports::Queue::new(&context, context.devices()[0], None).unwrap();
-        let program_source = normalized_x_corr::open_cl::OCL_KERNEL;
-        let program: imports::Program = imports::Program::builder()
-            .src(program_source)
-            .build(&context)
-            .unwrap();
+        #[cfg(feature = "opencl")]
+        let (context, queue, program) = Self::setup_opencl();
         #[cfg(feature = "opencl")]
         let ocl_active = true;
         #[cfg(not(feature = "opencl"))]
@@ -973,7 +968,7 @@ impl RustAutoGui {
                                 &image,
                                 data
                             )?;
-                        }, 
+                        },
                         None => {
                             if !self.suppress_warnings {
                                 eprintln!("WARNING: No data prepared for GPU memory allocation for chosen template. Please prepare the template with OCL state ON. Falling back to CPU template match");
@@ -983,10 +978,9 @@ impl RustAutoGui {
                                 precision,
                                 data,
                                 &self.debug,
-                            );        
+                            );
                         }
                     }
-                    
                 } else {
                     found_locations = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(
                         &image,

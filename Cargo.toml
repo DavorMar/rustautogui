@@ -31,6 +31,6 @@ winapi = { version = "0.3", features = ["winuser", "windef"] }
 
 
 [features]
-default = ["opencl", "testing"]
+default = []
 opencl = ["ocl"]
 testing = []

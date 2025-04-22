@@ -214,9 +214,6 @@ fn fast_correlation_calculation(
         let segment_nominator_value: f32 = (segment_image_sum as f32
             - mean_image * (segment_height * segment_width) as f32)
             * (*segment_value - segments_fast_mean);
-
-        // let segment_nominator_value: f64 =
-        //     (segment_image_sum as f64 * (*segment_value as f64 - segments_mean as f64)) - (mean_image as f64 * (segment_height*segment_width) as f64 * (*segment_value as f64 - segments_mean as f64) );
         nominator += segment_nominator_value;
     }
 
@@ -259,9 +256,6 @@ fn fast_correlation_calculation(
             let segment_nominator_value: f32 = (segment_image_sum as f32
                 - mean_image * (segment_height * segment_width) as f32)
                 * (*segment_value as f32 - segments_slow_mean as f32);
-
-            // let segment_nominator_value: f64 =
-            //     (segment_image_sum as f64 * (*segment_value as f64 - segments_mean as f64)) - (mean_image as f64 * (segment_height*segment_width) as f64 * (*segment_value as f64 - segments_mean as f64) );
             nominator += segment_nominator_value;
         }
 
@@ -357,7 +351,6 @@ pub fn prepare_template_picture(
         avg_deviation_of_template,
         "fast",
         ocl,
-        8.0
     );
     // create slow segmented image
     let (
@@ -371,7 +364,6 @@ pub fn prepare_template_picture(
         avg_deviation_of_template,
         "slow",
         ocl,
-        8.0
     );
 
     if !ocl {
@@ -395,9 +387,6 @@ pub fn prepare_template_picture(
         let slow_segment_number = picture_segments_slow.len();
         println!("reduced number of segments to {fast_segment_number} for fast image and {slow_segment_number} for slow image" );
     }
-    let fast_segment_number = picture_segments_fast.len();
-    let slow_segment_number = picture_segments_slow.len();
-    println!("reduced number of segments to {fast_segment_number} for fast image and {slow_segment_number} for slow image" );
     let return_value: (
         Vec<(u32, u32, u32, u32, f32)>,
         Vec<(u32, u32, u32, u32, f32)>,
@@ -431,7 +420,6 @@ fn create_picture_segments(
     avg_deviation_of_template: f32,
     template_type: &str,
     ocl: bool,
-    entropy:f64,
 ) -> (Vec<(u32, u32, u32, u32, f32)>, f32, f32, f32) {
     /// returns (picture_segments,segment_sum_squared_deviations, expected_corr, segments_mean)
     /// calls recursive divide and conquer binary segmentation function which divides
@@ -447,17 +435,8 @@ fn create_picture_segments(
     let mut threshold = 0.0;
 
     if template_type == "fast" {
-        println!("Average_deviation_of_template: {}", avg_deviation_of_template);
-        // if ocl {
-        //     threshold = 0.99;
-        //     target_corr = -0.95;
-        // } else {
-        //     threshold = 0.99;
-        //     target_corr = -0.99;
-        // }
         threshold = 0.99;
         target_corr = -0.9;
-        println!("target fast corr: {}" ,target_corr);
     } else if template_type == "slow" {
         threshold = 0.85;
         target_corr = 0.99;
@@ -469,28 +448,20 @@ fn create_picture_segments(
     let mut segments_mean = 0.0;
     let mut previous_distance = 0.0;
     let mut current_distance = 0.0;
-    let mut previous_picture_segments: Vec<(u32, u32, u32, u32, f32)>=  Vec::new();
-    let mut previous_sss_deviations= 0.0;
-    let mut previous_expected_corr= 0.0;
-    let mut previous_mean= 0.0;
+    let mut previous_picture_segments: Vec<(u32, u32, u32, u32, f32)> = Vec::new();
+    let mut previous_sss_deviations = 0.0;
+    let mut previous_expected_corr = 0.0;
+    let mut previous_mean = 0.0;
 
-    // while (expected_corr < target_corr) 
+    // while (expected_corr < target_corr)
     // || (template_type == "fast" && current_distance >= previous_distance)
-    loop
-     {
-        
+    loop {
         divide_and_conquer(
             &mut picture_segments,
             &template,
             0,
             0,
             threshold * avg_deviation_of_template,
-            ocl,
-            template_width,
-            template_height,
-            template_type,
-            avg_deviation_of_template,
-            0
         );
 
         threshold -= 0.05;
@@ -533,26 +504,21 @@ fn create_picture_segments(
                 }
             }
         }
-   
 
         assert!(count == template_height * template_width);
         let denominator = (denom1 * denom2).sqrt();
         expected_corr = numerator / denominator;
 
-        
-
-        if template_type == "slow" {
-            if  expected_corr < target_corr {
+        if template_type == "slow" || !ocl {
+            if expected_corr < target_corr {
                 picture_segments = Vec::new();
-                
             } else {
-                break
+                break;
             }
         }
-        if template_type == "fast" {
-            current_distance = expected_corr - (1.0 -threshold) ;
-            println!("c: {}, p: {}, num: {}, exp_corr: {}", current_distance, previous_distance, picture_segments.len(), expected_corr );
-            
+        if template_type == "fast" && ocl {
+            current_distance = expected_corr - (1.0 - threshold);
+
             if current_distance >= previous_distance {
                 previous_distance = current_distance;
                 previous_picture_segments = picture_segments.clone();
@@ -560,22 +526,17 @@ fn create_picture_segments(
                 previous_expected_corr = expected_corr;
                 previous_mean = segments_mean;
                 picture_segments = Vec::new();
-
-            }
-            else {
+            } else {
                 return (
                     previous_picture_segments,
                     previous_sss_deviations,
                     previous_expected_corr,
-                    previous_mean
-                )
+                    previous_mean,
+                );
             }
         }
-    
-
-
     }
-    
+
     return (
         picture_segments,
         segment_sum_squared_deviations,
@@ -590,12 +551,6 @@ fn divide_and_conquer(
     x: u32,
     y: u32,
     threshhold: f32,
-    ocl: bool,
-    template_width: u32,
-    template_height: u32,
-    template_type: &str,
-    avg_deviation_of_template:f32,
-    segmentation_depth:u32,
 ) {
     /*
     function that segments template image into areas that have similar color
@@ -609,13 +564,10 @@ fn divide_and_conquer(
 
     for y in 0..segment_height {
         for x in 0..segment_width {
-            
             let pixel_value = segment.get_pixel(x, y)[0];
             pixels_sum += pixel_value as u32;
         }
     }
-
-
 
     let segment_mean = pixels_sum as f32 / (segment_height * segment_width) as f32;
 
@@ -625,7 +577,6 @@ fn divide_and_conquer(
         picture_segments.push(segment_informations);
         return;
     }
-    let segmentation_depth = segmentation_depth + 1;
     for y in 0..segment_height {
         for x in 0..segment_width {
             let pixel_value = segment.get_pixel(x, y)[0];
@@ -637,8 +588,7 @@ fn divide_and_conquer(
         (sum_squared_deviations as f32 / (segment_width * segment_height) as f32).sqrt();
     let mut additional_pixel = 0;
 
-    if average_deviation > threshhold
-    {
+    if average_deviation > threshhold {
         //split image
         if segment_width >= segment_height || segment_height == 1 {
             // if image wider than taller
@@ -663,8 +613,8 @@ fn divide_and_conquer(
 
             let x1 = &x + segment_width / 2 + additional_pixel;
             // go recursively into first and second image halfs
-            divide_and_conquer(picture_segments, &image_1, x, y, threshhold, ocl, template_width, template_height, template_type, avg_deviation_of_template, segmentation_depth);
-            divide_and_conquer(picture_segments, &image_2, x1, y, threshhold, ocl, template_width, template_height, template_type, avg_deviation_of_template, segmentation_depth);
+            divide_and_conquer(picture_segments, &image_1, x, y, threshhold);
+            divide_and_conquer(picture_segments, &image_2, x1, y, threshhold);
 
             //if image taller than wider
         } else {
@@ -689,8 +639,8 @@ fn divide_and_conquer(
             );
             let y1 = y + segment_height / 2 + additional_pixel;
             // go recursively into first and second image halfs
-            divide_and_conquer(picture_segments, &image_1, x, y, threshhold, ocl, template_width, template_height, template_type, avg_deviation_of_template, segmentation_depth);
-            divide_and_conquer(picture_segments, &image_2, x, y1, threshhold, ocl, template_width, template_height, template_type, avg_deviation_of_template, segmentation_depth);
+            divide_and_conquer(picture_segments, &image_1, x, y, threshhold);
+            divide_and_conquer(picture_segments, &image_2, x, y1, threshhold);
         };
 
     // recursion exit
