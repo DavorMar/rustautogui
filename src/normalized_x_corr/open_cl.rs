@@ -128,13 +128,13 @@ __kernel void segmented_match_integral(
 "#;
 
 pub struct GpuMemoryPointers {
-    segments_fast_buffer: Buffer<ocl::prm::Int4>,
-    segments_slow_buffer: Buffer<ocl::prm::Int4>,
-    segment_fast_values_buffer: Buffer<f32>,
-    segment_slow_values_buffer: Buffer<f32>,
-    results_buffer: Buffer<f32>,
-    buffer_image_integral: Buffer<u64>,
-    buffer_image_integral_squared: Buffer<u64>,
+    pub segments_fast_buffer: Buffer<ocl::prm::Int4>,
+    pub segments_slow_buffer: Buffer<ocl::prm::Int4>,
+    pub segment_fast_values_buffer: Buffer<f32>,
+    pub segment_slow_values_buffer: Buffer<f32>,
+    pub results_buffer: Buffer<f32>,
+    pub buffer_image_integral: Buffer<u64>,
+    pub buffer_image_integral_squared: Buffer<u64>,
 }
 impl GpuMemoryPointers {
     pub fn new(
@@ -357,7 +357,7 @@ pub fn gui_opencl_ncc(
     Ok(final_results)
 }
 
-fn compute_integral_images_ocl(image: &ImageBuffer<Luma<u8>, Vec<u8>>) -> (Vec<u64>, Vec<u64>) {
+pub fn compute_integral_images_ocl(image: &ImageBuffer<Luma<u8>, Vec<u8>>) -> (Vec<u64>, Vec<u64>) {
     let (width, height) = image.dimensions();
     let image = image.as_raw();
     let mut integral_image = vec![0u64; (width * height) as usize];
