@@ -504,7 +504,7 @@ fn create_picture_segments(
         //     target_corr = -0.99;
         // }
         threshold = 0.99;
-        target_corr = ((1.0 - (entropy/8.0)) * 1.0) as f32;
+        target_corr = -0.9;
         println!("target fast corr: {}" ,target_corr);
     } else if template_type == "slow" {
         threshold = 0.85;
@@ -515,8 +515,13 @@ fn create_picture_segments(
     let mut segments_sum = 0;
     let mut segment_sum_squared_deviations = 0.0;
     let mut segments_mean = 0.0;
-    
-    while expected_corr < target_corr {
+    let mut previous_distance = -1.0;
+    let mut current_distance = 0.0;
+    while (template_type == "slow" && expected_corr < target_corr) 
+    || (template_type == "fast" && current_distance >= previous_distance)
+        
+     {
+        // println!( "c, p, {}, {}", current_distance, previous_distance);
         divide_and_conquer(
             &mut picture_segments,
             &template,
@@ -576,10 +581,20 @@ fn create_picture_segments(
         assert!(count == template_height * template_width);
         let denominator = (denom1 * denom2).sqrt();
         expected_corr = numerator / denominator;
+
+        current_distance = expected_corr - (1.0 -threshold) ;
+
         if expected_corr < target_corr {
             picture_segments = Vec::new();
         }
+        if current_distance >= previous_distance {
+            picture_segments = Vec::new();
+            previous_distance = current_distance;
+        }
+
+
     }
+    println!("Template type {} corr = {}", template_type, expected_corr);
     return (
         picture_segments,
         segment_sum_squared_deviations,
@@ -638,7 +653,7 @@ fn divide_and_conquer(
     let mut additional_pixel = 0;
 
     if (average_deviation > threshhold) 
-    || (segmenting_type == "fast" && (segment_mean - previous_mean_value).abs() > previous_mean_value / entropy )
+    // || (segmenting_type == "fast" && (segment_mean - previous_mean_value).abs() > previous_mean_value / entropy )
     // || (ocl && (segment_width >= (0.45 * template_width as f32) as u32 || segment_height >= (0.45 * template_height as f32) as u32)) 
     {
         //split image
