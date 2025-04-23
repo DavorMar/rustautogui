@@ -36,6 +36,7 @@ pub use mouse::MouseClick;
 #[cfg(feature = "opencl")]
 use normalized_x_corr::open_cl::GpuMemoryPointers;
 use ocl::core::KernelArgAccessQualifier;
+use ocl::Device;
 
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
 const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
@@ -116,16 +117,34 @@ impl BackupData {
     }
 }
 
+
+pub struct DeviceInfo {
+    device: imports::ocl::Device,
+    pub index: u32,
+    pub global_mem_size: u32,
+    pub clock_frequency: u32, 
+    pub compute_units: u32,
+    pub brand: String,
+    pub name: String    
+}
+impl DeviceInfo {
+    fn new(device: imports::ocl::Device, index: u32, global_mem_size: u32, clock_frequency: u32, compute_units: u32, brand: String, name: String) -> Self {
+        Self {
+            device, index, global_mem_size, clock_frequency, compute_units, brand, name
+        }
+    }
+}
+
+
 struct KernelStorage {
     v1_kernel: imports::ocl::Kernel,
     v2_kernel_fast: imports::ocl::Kernel,
-    v2_kernel_slow: imports::ocl::Kernel,
 }
 impl KernelStorage {
     fn new(
-        gpu_memory_pointers: GpuMemoryPointers,
-        program: imports::ocl::Program,
-        queue: imports::ocl::Queue,
+        gpu_memory_pointers: &GpuMemoryPointers,
+        program: &imports::ocl::Program,
+        queue: &imports::ocl::Queue,
         image_width: u32,
         image_height: u32,
         template_width: u32,
@@ -134,13 +153,112 @@ impl KernelStorage {
         slow_segment_count: u32,
         segments_mean_fast:f32,
         segments_mean_slow:f32,
+        segment_sum_squared_deviation_fast: i32,
+        segment_sum_squared_deviation_slow:i32,
         fast_expected_corr: f32,
+        max_workgroup_size: usize,
         
-    ) -> Self {
+    ) -> Result<Self, AutoGuiError> {
+        let result_width = (image_width - template_width + 1) as usize;
+        let result_height = (image_height - template_height + 1) as usize;
+        let output_size = result_width * result_height;
+        let kernel_v1 = imports::ocl::Kernel::builder()
+            .program(&program)
+            .name("segmented_match_integral")
+            .queue(queue.clone())
+            .global_work_size(output_size)
+            .arg(&gpu_memory_pointers.buffer_image_integral)
+            .arg(&gpu_memory_pointers.buffer_image_integral_squared)
+            .arg(&gpu_memory_pointers.segments_fast_buffer)
+            .arg(&gpu_memory_pointers.segments_slow_buffer)
+            .arg(&gpu_memory_pointers.segment_fast_values_buffer)
+            .arg(&gpu_memory_pointers.segment_slow_values_buffer)
+            .arg(&fast_segment_count)
+            .arg(&slow_segment_count)
+            .arg(&(segments_mean_fast as f32))
+            .arg(&(segments_mean_slow as f32))
+            .arg(&(segment_sum_squared_deviation_fast as f32))
+            .arg(&(segment_sum_squared_deviation_slow as f32))
+            .arg(&gpu_memory_pointers.results_buffer)
+            .arg(&(image_width as i32))
+            .arg(&(image_height as i32))
+            .arg(&(template_width as i32))
+            .arg(&(template_height as i32))
+            .arg(&(fast_expected_corr as f32))
+            .build()?;
+
+        let mut remainder_segments_fast = 0;
+
+        let mut segments_processed_by_thread_fast = 1;
+    
+        let mut pixels_processed_by_workgroup = 1;
+        let max_workgroup_size = max_workgroup_size;
+        let mut remainder_segments_slow = 0;
+        let mut segments_processed_by_thread_slow = 1;
+        // if we have more segments than workgroup size, then that workgroup only processes
+        // that single pixel. Each thread inside workgroup processes certain amount of equally distributed segments
+        if fast_segment_count as usize > max_workgroup_size {
+            segments_processed_by_thread_fast = fast_segment_count as usize / max_workgroup_size;
+            remainder_segments_fast = fast_segment_count as usize % max_workgroup_size;
+        // else, if we have low thread count then 1 workgroup can process multiple pixels. IE workgroup with 256 threads
+        // can process 64 pixels with 4 segments
+        } else {
+            pixels_processed_by_workgroup = max_workgroup_size / fast_segment_count as usize;
+            // threads per pixel = fast_segmented_count
+        }
+        let global_workgroup_count =
+            (output_size + pixels_processed_by_workgroup - 1) / pixels_processed_by_workgroup;
+        // total amount of threads that need to be spawned
+        let global_work_size = global_workgroup_count * max_workgroup_size;
+
+        // if the workgroup finds a succesfull correlation with fast pass, it will have to calculate it
+        // with the slow pass aswell for that same x,y pos. But if we had low fast segment count
+        // that workgroup will not be utilized nicely.  Will have to rework this part
+
+        let total_slow_segment_count_in_workgroup = slow_segment_count as usize * pixels_processed_by_workgroup;
+        if total_slow_segment_count_in_workgroup > max_workgroup_size {
+            segments_processed_by_thread_slow = slow_segment_count as usize / max_workgroup_size;
+            remainder_segments_slow = slow_segment_count as usize % max_workgroup_size;
+        } else {
+        }
+
+
+
+        let v2_kernel_fast_pass = ocl::Kernel::builder()
+            .program(&program)
+            .name("v2_segmented_match_integral_fast_pass")
+            .queue(queue.clone())
+            .global_work_size(global_work_size)
+            .arg(&gpu_memory_pointers.buffer_image_integral)
+            .arg(&gpu_memory_pointers.buffer_image_integral_squared)
+            .arg(&gpu_memory_pointers.segments_fast_buffer)
+            .arg(&gpu_memory_pointers.segment_fast_values_buffer)
+            .arg(&fast_segment_count)
+            .arg(&(segments_mean_fast as f32))
+            .arg(&(segment_sum_squared_deviation_fast as f32))
+            .arg(&gpu_memory_pointers.buffer_results_fast_v2) ///////////////////////CHANGE THIS TO ONE FROM GPUMEMPOINTERS STRUCT
+            .arg(&(image_width as i32))
+            .arg(&(image_height as i32))
+            .arg(&(template_width as i32))
+            .arg(&(template_height as i32))
+            .arg(&(fast_expected_corr as f32))
+            .arg(&remainder_segments_fast)
+            .arg(&segments_processed_by_thread_fast)
+            .arg(&pixels_processed_by_workgroup)
+            .arg(&max_workgroup_size)
+            .arg_local::<u64>(pixels_processed_by_workgroup) // sum_template_region_buff
+            .arg_local::<u64>(pixels_processed_by_workgroup) // sum_sq_template_region_buff
+            .arg_local::<u64>(max_workgroup_size) // thread_segment_sum_buff
+            .arg(&gpu_memory_pointers.buffer_valid_corr_count_fast) // <-- atomic int
+            .build()?;
+
+        Ok(Self {
+            v1_kernel: kernel_v1,
+            v2_kernel_fast: v2_kernel_fast_pass,
+        })
+
     }
 }
-
-//////////////////////////ERRORS////////////////////////////////////
 
 /// Main struct for Rustautogui
 /// Struct gets assigned keyboard, mouse and struct to it implemented functions execute commands from each of assigned substructs
@@ -171,9 +289,11 @@ pub struct RustAutoGui {
     #[cfg(feature = "opencl")]
     ocl_buffer_storage: imports::HashMap<String, GpuMemoryPointers>,
     #[cfg(feature = "opencl")]
-    ocl_kernel_storage: imports::HashMap<String, Vec<imports::ocl::Kernel>>,
+    ocl_kernel_storage: imports::HashMap<String, KernelStorage>,
     #[cfg(feature = "opencl")]
     ocl_v2_aliases: Vec<String>,
+    #[cfg(feature = "opencl")]
+    ocl_workgroup_size: u32
 }
 impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
@@ -197,6 +317,8 @@ impl RustAutoGui {
         let ocl_active = true;
         #[cfg(not(feature = "opencl"))]
         let ocl_active = false;
+
+        
 
         Ok(Self {
             template: None,
@@ -283,14 +405,49 @@ impl RustAutoGui {
     }
 
     #[cfg(feature = "opencl")]
-    fn setup_opencl() -> (imports::Context, imports::Queue, imports::Program) {
-        let context = imports::Context::builder().build().unwrap();
+    fn setup_opencl() -> Result<(imports::Context, imports::Queue, imports::Program),AutoGuiError> {
+        
         let queue = imports::Queue::new(&context, context.devices()[0], None).unwrap();
         let program_source = crate::normalized_x_corr::open_cl::OCL_KERNEL;
         let program = imports::Program::builder()
             .src(program_source)
-            .build(&context)
-            .unwrap();
+            .build(&context)?;
+
+
+
+
+        let context = imports::Context::builder().build().unwrap();
+        let available_devices = context.devices();
+        let mut highest_memory_found = 0;
+        let mut best_device_index = 0;
+        let mut i = 0;
+        let mut max_workgroup_size = 0;
+        for device in available_devices {
+            let global_mem = device
+                .info(imports::ocl::enums::DeviceInfo::GlobalMemSize)?
+                .to_string()
+                .parse().map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
+            
+            let compute_units = device
+                .info(imports::ocl::enums::DeviceInfo::MaxComputeUnits)?
+                .to_string()
+                .parse().map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
+            let clock_frequency = device
+                .info(imports::ocl::enums::DeviceInfo::MaxClockFrequency)?
+                .to_string()
+                .parse().map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
+
+
+            max_workgroup_size = device
+                .info(imports::ocl::enums::DeviceInfo::)?
+                .to_string()
+                .parse().map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
+
+            max_workgroup_size = device
+                .info(imports::ocl::enums::DeviceInfo::MaxWorkGroupSize)?
+                .to_string()
+                .parse().map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
+        }
 
         (context, queue, program)
     }
@@ -388,7 +545,7 @@ impl RustAutoGui {
             self.prepare_macos_backup(&match_mode, template.clone(), region, alias)?;
             match alias {
                 Some(a) => {
-                    if a.contains(DEFAULT_BCKP_ALIAS) {
+                    if a.contains(DEFAULT_BCKP_ALIAS) {//skip 
                     } else {
                         template = imports::resize(
                             &template,
@@ -480,6 +637,8 @@ impl RustAutoGui {
                     match alias {
                         Some(name) => {
                             self.ocl_buffer_storage.insert(name.into(), ocl_buffer_data);
+                            let (image_w, image_h) = self.screen.dimension();
+                            let kernels = KernelStorage::new(&ocl_buffer_data, &self.ocl_program, &self.ocl_queue, image_w, image_h, template_width, template_height, prepared_data.0.len(), prepared_data.1.len(), prepared_data.8, prepared_data.9, prepared_data.4, prepared_data.5, prepared_data.6.)
                         }
                         None => {
                             self.ocl_buffer_storage
