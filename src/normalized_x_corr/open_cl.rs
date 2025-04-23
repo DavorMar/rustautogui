@@ -518,6 +518,7 @@ impl GpuMemoryPointers {
 pub fn gui_opencl_ncc_template_match(
     queue: &Queue,
     program: &Program,
+    kernel: &Kernel,
     gpu_memory_pointers: &GpuMemoryPointers,
     precision: f32,
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
@@ -556,6 +557,7 @@ pub fn gui_opencl_ncc_template_match(
     let slow_segment_count = template_segments_slow.len();
 
     let mut gpu_results = gui_opencl_ncc(
+        kernel,
         &image_integral,
         &squared_image_integral,
         image_width,
@@ -579,6 +581,7 @@ pub fn gui_opencl_ncc_template_match(
 }
 
 pub fn gui_opencl_ncc(
+    kernel: &Kernel,
     image_integral: &[u64],
     squared_image_integral: &[u64],
     image_width: u32,
@@ -607,30 +610,30 @@ pub fn gui_opencl_ncc(
         .buffer_image_integral_squared
         .write(squared_image_integral)
         .enq()?;
-    let kernel = Kernel::builder()
-        .program(&program)
-        .name("segmented_match_integral")
-        .queue(queue.clone())
-        .global_work_size(output_size)
-        .arg(&gpu_memory_pointers.buffer_image_integral)
-        .arg(&gpu_memory_pointers.buffer_image_integral_squared)
-        .arg(&gpu_memory_pointers.segments_fast_buffer)
-        .arg(&gpu_memory_pointers.segments_slow_buffer)
-        .arg(&gpu_memory_pointers.segment_fast_values_buffer)
-        .arg(&gpu_memory_pointers.segment_slow_values_buffer)
-        .arg(&fast_segment_count)
-        .arg(&slow_segment_count)
-        .arg(&(segments_mean_fast as f32))
-        .arg(&(segments_mean_slow as f32))
-        .arg(&(segments_sum_squared_deviation_fast as f32))
-        .arg(&(segments_sum_squared_deviation_slow as f32))
-        .arg(&gpu_memory_pointers.results_buffer)
-        .arg(&(image_width as i32))
-        .arg(&(image_height as i32))
-        .arg(&(template_width as i32))
-        .arg(&(template_height as i32))
-        .arg(&(fast_expected_corr as f32))
-        .build()?;
+    // let kernel = Kernel::builder()
+    //     .program(&program)
+    //     .name("segmented_match_integral")
+    //     .queue(queue.clone())
+    //     .global_work_size(output_size)
+    //     .arg(&gpu_memory_pointers.buffer_image_integral)
+    //     .arg(&gpu_memory_pointers.buffer_image_integral_squared)
+    //     .arg(&gpu_memory_pointers.segments_fast_buffer)
+    //     .arg(&gpu_memory_pointers.segments_slow_buffer)
+    //     .arg(&gpu_memory_pointers.segment_fast_values_buffer)
+    //     .arg(&gpu_memory_pointers.segment_slow_values_buffer)
+    //     .arg(&fast_segment_count)
+    //     .arg(&slow_segment_count)
+    //     .arg(&(segments_mean_fast as f32))
+    //     .arg(&(segments_mean_slow as f32))
+    //     .arg(&(segments_sum_squared_deviation_fast as f32))
+    //     .arg(&(segments_sum_squared_deviation_slow as f32))
+    //     .arg(&gpu_memory_pointers.results_buffer)
+    //     .arg(&(image_width as i32))
+    //     .arg(&(image_height as i32))
+    //     .arg(&(template_width as i32))
+    //     .arg(&(template_height as i32))
+    //     .arg(&(fast_expected_corr as f32))
+    //     .build()?;
 
     unsafe {
         kernel.enq()?;

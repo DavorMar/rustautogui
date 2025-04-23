@@ -6,7 +6,6 @@ pub mod open_cl;
 pub mod opencl_v2;
 pub mod slow_ncc;
 
-
 fn compute_integral_image(image: &[Vec<u8>]) -> Vec<Vec<u64>> {
     /*
     Function that takes an image as input and computes an integral table (sum table).

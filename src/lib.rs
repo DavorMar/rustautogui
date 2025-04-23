@@ -117,24 +117,39 @@ impl BackupData {
     }
 }
 
-
 pub struct DeviceInfo {
     device: imports::ocl::Device,
     pub index: u32,
     pub global_mem_size: u32,
-    pub clock_frequency: u32, 
+    pub clock_frequency: u32,
     pub compute_units: u32,
     pub brand: String,
-    pub name: String    
+    pub name: String,
+    pub score: u32,
 }
 impl DeviceInfo {
-    fn new(device: imports::ocl::Device, index: u32, global_mem_size: u32, clock_frequency: u32, compute_units: u32, brand: String, name: String) -> Self {
+    fn new(
+        device: imports::ocl::Device,
+        index: u32,
+        global_mem_size: u32,
+        clock_frequency: u32,
+        compute_units: u32,
+        brand: String,
+        name: String,
+        score: u32,
+    ) -> Self {
         Self {
-            device, index, global_mem_size, clock_frequency, compute_units, brand, name
+            device,
+            index,
+            global_mem_size,
+            clock_frequency,
+            compute_units,
+            brand,
+            name,
+            score,
         }
     }
 }
-
 
 struct KernelStorage {
     v1_kernel: imports::ocl::Kernel,
@@ -149,15 +164,14 @@ impl KernelStorage {
         image_height: u32,
         template_width: u32,
         template_height: u32,
-        fast_segment_count:u32,
+        fast_segment_count: u32,
         slow_segment_count: u32,
-        segments_mean_fast:f32,
-        segments_mean_slow:f32,
-        segment_sum_squared_deviation_fast: i32,
-        segment_sum_squared_deviation_slow:i32,
+        segments_mean_fast: f32,
+        segments_mean_slow: f32,
+        segment_sum_squared_deviation_fast: f32,
+        segment_sum_squared_deviation_slow: f32,
         fast_expected_corr: f32,
         max_workgroup_size: usize,
-        
     ) -> Result<Self, AutoGuiError> {
         let result_width = (image_width - template_width + 1) as usize;
         let result_height = (image_height - template_height + 1) as usize;
@@ -190,7 +204,7 @@ impl KernelStorage {
         let mut remainder_segments_fast = 0;
 
         let mut segments_processed_by_thread_fast = 1;
-    
+
         let mut pixels_processed_by_workgroup = 1;
         let max_workgroup_size = max_workgroup_size;
         let mut remainder_segments_slow = 0;
@@ -215,14 +229,13 @@ impl KernelStorage {
         // with the slow pass aswell for that same x,y pos. But if we had low fast segment count
         // that workgroup will not be utilized nicely.  Will have to rework this part
 
-        let total_slow_segment_count_in_workgroup = slow_segment_count as usize * pixels_processed_by_workgroup;
+        let total_slow_segment_count_in_workgroup =
+            slow_segment_count as usize * pixels_processed_by_workgroup;
         if total_slow_segment_count_in_workgroup > max_workgroup_size {
             segments_processed_by_thread_slow = slow_segment_count as usize / max_workgroup_size;
             remainder_segments_slow = slow_segment_count as usize % max_workgroup_size;
         } else {
         }
-
-
 
         let v2_kernel_fast_pass = ocl::Kernel::builder()
             .program(&program)
@@ -256,7 +269,6 @@ impl KernelStorage {
             v1_kernel: kernel_v1,
             v2_kernel_fast: v2_kernel_fast_pass,
         })
-
     }
 }
 
@@ -281,6 +293,8 @@ pub struct RustAutoGui {
     alias_used: String,
     ocl_active: bool,
     #[cfg(feature = "opencl")]
+    device_list: Vec<DeviceInfo>,
+    #[cfg(feature = "opencl")]
     ocl_program: imports::Program,
     #[cfg(feature = "opencl")]
     ocl_context: imports::Context,
@@ -293,7 +307,7 @@ pub struct RustAutoGui {
     #[cfg(feature = "opencl")]
     ocl_v2_aliases: Vec<String>,
     #[cfg(feature = "opencl")]
-    ocl_workgroup_size: u32
+    ocl_workgroup_size: u32,
 }
 impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
@@ -312,13 +326,11 @@ impl RustAutoGui {
 
         // OCL INITIALIZATION
         #[cfg(feature = "opencl")]
-        let (context, queue, program) = Self::setup_opencl();
+        let (context, queue, program, device_list, workgroup_size) = Self::setup_opencl()?;
         #[cfg(feature = "opencl")]
         let ocl_active = true;
         #[cfg(not(feature = "opencl"))]
         let ocl_active = false;
-
-        
 
         Ok(Self {
             template: None,
@@ -336,6 +348,8 @@ impl RustAutoGui {
             alias_used: DEFAULT_ALIAS.to_string(),
             ocl_active: ocl_active,
             #[cfg(feature = "opencl")]
+            device_list: device_list,
+            #[cfg(feature = "opencl")]
             ocl_program: program,
             #[cfg(feature = "opencl")]
             ocl_context: context,
@@ -347,6 +361,7 @@ impl RustAutoGui {
             ocl_kernel_storage: imports::HashMap::new(),
             #[cfg(feature = "opencl")]
             ocl_v2_aliases: Vec::new(),
+            ocl_workgroup_size: workgroup_size,
         })
     }
 
@@ -405,51 +420,84 @@ impl RustAutoGui {
     }
 
     #[cfg(feature = "opencl")]
-    fn setup_opencl() -> Result<(imports::Context, imports::Queue, imports::Program),AutoGuiError> {
-        
-        let queue = imports::Queue::new(&context, context.devices()[0], None).unwrap();
+    fn setup_opencl() -> Result<
+        (
+            imports::Context,
+            imports::Queue,
+            imports::Program,
+            Vec<DeviceInfo>,
+            u32,
+        ),
+        AutoGuiError,
+    > {
+        let context = imports::Context::builder().build().unwrap();
+        let available_devices = context.devices();
+        let mut device_list: Vec<DeviceInfo> = Vec::new();
+        let mut highest_score = 0;
+        let mut best_device_index = 0;
+        let mut i = 0;
+        let mut max_workgroup_size = 0;
+        for device in available_devices {
+            let workgroup_size: u32 = device
+                .info(imports::ocl::enums::DeviceInfo::MaxWorkGroupSize)?
+                .to_string()
+                .parse()
+                .map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
+            let global_mem: u32 = device
+                .info(imports::ocl::enums::DeviceInfo::GlobalMemSize)?
+                .to_string()
+                .parse()
+                .map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
+
+            let compute_units: u32 = device
+                .info(imports::ocl::enums::DeviceInfo::MaxComputeUnits)?
+                .to_string()
+                .parse()
+                .map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
+            let clock_frequency = device
+                .info(imports::ocl::enums::DeviceInfo::MaxClockFrequency)?
+                .to_string()
+                .parse()
+                .map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
+
+            let device_vendor = device
+                .info(imports::ocl::enums::DeviceInfo::Vendor)?
+                .to_string();
+
+            let device_name = device
+                .info(imports::ocl::enums::DeviceInfo::Name)?
+                .to_string();
+
+            let global_mem_gb = global_mem / 1_048_576;
+            let score = global_mem_gb * 2 + compute_units * 10 + clock_frequency;
+            let gui_device = DeviceInfo::new(
+                device,
+                i,
+                global_mem_gb,
+                clock_frequency,
+                compute_units,
+                device_vendor,
+                device_name,
+                score,
+            );
+            device_list.push(gui_device);
+
+            if score >= highest_score {
+                highest_score = score;
+                best_device_index = i;
+                max_workgroup_size = workgroup_size;
+            }
+            i += 1;
+        }
+        let used_device = context.devices()[i as usize];
+
+        let queue = imports::Queue::new(&context, used_device, None).unwrap();
         let program_source = crate::normalized_x_corr::open_cl::OCL_KERNEL;
         let program = imports::Program::builder()
             .src(program_source)
             .build(&context)?;
 
-
-
-
-        let context = imports::Context::builder().build().unwrap();
-        let available_devices = context.devices();
-        let mut highest_memory_found = 0;
-        let mut best_device_index = 0;
-        let mut i = 0;
-        let mut max_workgroup_size = 0;
-        for device in available_devices {
-            let global_mem = device
-                .info(imports::ocl::enums::DeviceInfo::GlobalMemSize)?
-                .to_string()
-                .parse().map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
-            
-            let compute_units = device
-                .info(imports::ocl::enums::DeviceInfo::MaxComputeUnits)?
-                .to_string()
-                .parse().map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
-            let clock_frequency = device
-                .info(imports::ocl::enums::DeviceInfo::MaxClockFrequency)?
-                .to_string()
-                .parse().map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
-
-
-            max_workgroup_size = device
-                .info(imports::ocl::enums::DeviceInfo::)?
-                .to_string()
-                .parse().map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
-
-            max_workgroup_size = device
-                .info(imports::ocl::enums::DeviceInfo::MaxWorkGroupSize)?
-                .to_string()
-                .parse().map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
-        }
-
-        (context, queue, program)
+        Ok((context, queue, program, device_list, max_workgroup_size))
     }
 
     /// set true to turn off warnings.
@@ -530,6 +578,7 @@ impl RustAutoGui {
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
         alias: Option<&str>,
+        user_threshold: Option<f32>,
     ) -> Result<(), AutoGuiError> {
         // resize and adjust if retina screen is used
         // prepare additionally backup template for 2 screen size variants
@@ -545,7 +594,7 @@ impl RustAutoGui {
             self.prepare_macos_backup(&match_mode, template.clone(), region, alias)?;
             match alias {
                 Some(a) => {
-                    if a.contains(DEFAULT_BCKP_ALIAS) {//skip 
+                    if a.contains(DEFAULT_BCKP_ALIAS) { //skip
                     } else {
                         template = imports::resize(
                             &template,
@@ -613,7 +662,7 @@ impl RustAutoGui {
                     &template,
                     &self.debug,
                     self.ocl_active,
-                    None,
+                    user_threshold,
                 );
                 // mostly happens due to using too complex image with small max segments value
                 if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
@@ -631,18 +680,35 @@ impl RustAutoGui {
                         &self.ocl_queue,
                         &prepared_data.1,
                         &prepared_data.0,
-                    )
-                    .unwrap();
-
+                    )?;
+                    let (image_w, image_h) = self.screen.dimension();
+                    let kernels = KernelStorage::new(
+                        &ocl_buffer_data,
+                        &self.ocl_program,
+                        &self.ocl_queue,
+                        image_w as u32,
+                        image_h as u32,
+                        template_width,
+                        template_height,
+                        prepared_data.0.len() as u32,
+                        prepared_data.1.len() as u32,
+                        prepared_data.8,
+                        prepared_data.9,
+                        prepared_data.4,
+                        prepared_data.5,
+                        prepared_data.6,
+                        self.ocl_workgroup_size as usize,
+                    )?;
                     match alias {
                         Some(name) => {
                             self.ocl_buffer_storage.insert(name.into(), ocl_buffer_data);
-                            let (image_w, image_h) = self.screen.dimension();
-                            let kernels = KernelStorage::new(&ocl_buffer_data, &self.ocl_program, &self.ocl_queue, image_w, image_h, template_width, template_height, prepared_data.0.len(), prepared_data.1.len(), prepared_data.8, prepared_data.9, prepared_data.4, prepared_data.5, prepared_data.6.)
+                            
+                            self.ocl_kernel_storage.insert(name.into(), kernels);
                         }
                         None => {
                             self.ocl_buffer_storage
                                 .insert(DEFAULT_ALIAS.into(), ocl_buffer_data);
+                            self.ocl_kernel_storage.insert(DEFAULT_ALIAS.into(), kernels);
                         }
                     }
                 }
@@ -741,7 +807,7 @@ impl RustAutoGui {
     ) -> Result<(), AutoGuiError> {
         let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
             imgtools::load_image_bw(template_path)?;
-        self.prepare_template_picture_bw(template, region, match_mode, None)
+        self.prepare_template_picture_bw(template, region, match_mode, None, None)
     }
 
     /// prepare from imagebuffer, works only on types RGB/RGBA/Luma
@@ -757,7 +823,7 @@ impl RustAutoGui {
     {
         let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
         let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, color_scheme)?;
-        self.prepare_template_picture_bw(luma_img, region, match_mode, None)?;
+        self.prepare_template_picture_bw(luma_img, region, match_mode, None, None)?;
         Ok(())
     }
 
@@ -769,7 +835,7 @@ impl RustAutoGui {
         match_mode: MatchMode,
     ) -> Result<(), AutoGuiError> {
         let image = image::load_from_memory(img_raw)?;
-        self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, None)
+        self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, None, None)
     }
 
     ///////////////////////// store single template functions //////////////////////////
@@ -785,7 +851,7 @@ impl RustAutoGui {
         // RustAutoGui::check_alias_name(&alias)?;
         let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
             imgtools::load_image_bw(template_path)?;
-        self.prepare_template_picture_bw(template, region, match_mode, Some(alias))
+        self.prepare_template_picture_bw(template, region, match_mode, Some(alias), None)
     }
 
     /// Load template from imagebuffer and store prepared template data for multiple image search
@@ -803,7 +869,7 @@ impl RustAutoGui {
         // RustAutoGui::check_alias_name(&alias)?;
         let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
         let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, color_scheme)?;
-        self.prepare_template_picture_bw(luma_img, region, match_mode, Some(alias))
+        self.prepare_template_picture_bw(luma_img, region, match_mode, Some(alias), None)
     }
 
     /// Load template from encoded raw bytes and store prepared template data for multiple image search
@@ -816,7 +882,7 @@ impl RustAutoGui {
     ) -> Result<(), AutoGuiError> {
         // RustAutoGui::check_alias_name(&alias)?;
         let image = image::load_from_memory(img_raw)?;
-        self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, Some(alias))?;
+        self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, Some(alias), None)?;
         Ok(())
     }
 
@@ -1160,6 +1226,7 @@ impl RustAutoGui {
                             found_locations = normalized_x_corr::open_cl::gui_opencl_ncc_template_match(
                                 &self.ocl_queue,
                                 &self.ocl_program,
+                                &self.ocl_kernel_storage[&self.alias_used].v1_kernel,
                                 pointers,
                                 precision,
                                 &image,
@@ -1605,7 +1672,7 @@ impl RustAutoGui {
     ) -> Result<(), AutoGuiError> {
         let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
             imgtools::load_image_bw(template_path)?;
-        self.prepare_template_picture_bw(template, region, match_mode, None)
+        self.prepare_template_picture_bw(template, region, match_mode, None, None)
     }
 }
 
