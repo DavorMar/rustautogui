@@ -9,7 +9,7 @@ use winapi::um::winuser::{
 };
 
 /// main struct for interacting with keyboard. Keymap is generated upon intialization.
-
+#[derive(Debug)]
 pub struct Keyboard {
     pub keymap: HashMap<String, (u16, bool)>,
 }

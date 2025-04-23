@@ -5,6 +5,7 @@ use x11::xlib::{CurrentTime, XFlush, XKeysymToKeycode, XStringToKeysym, _XDispla
 use x11::xtest::XTestFakeKeyEvent;
 /// main struct for interacting with keyboard. Keymap is generated upon intialization.
 /// screen is stored from Screen struct, where pointer for same screen object is used across the code
+#[derive(Debug)]
 pub struct Keyboard {
     pub keymap: HashMap<String, (String, bool)>,
     screen: *mut _XDisplay,

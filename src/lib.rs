@@ -35,7 +35,9 @@ pub use mouse::mouse_position::print_mouse_position;
 pub use mouse::MouseClick;
 #[cfg(feature = "opencl")]
 use normalized_x_corr::open_cl::GpuMemoryPointers;
+#[cfg(feature = "opencl")]
 use ocl::core::KernelArgAccessQualifier;
+#[cfg(feature = "opencl")]
 use ocl::Device;
 
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
@@ -43,6 +45,7 @@ const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
 /// Struct of prepared data for each correlation method used
 /// Segmented consists of two image vectors and associated mean value, sum of squared deviations, sizes
 /// FFT vector consists of template vector converted to frequency domain and conjugated, sum squared deviations, size and padded size
+#[derive(Debug)]
 pub enum PreparedData {
     Segmented(
         (
@@ -81,7 +84,7 @@ impl Clone for PreparedData {
         }
     }
 }
-
+#[derive(Debug)]
 /// Matchmode Segmented correlation and Fourier transform correlation
 #[derive(PartialEq)]
 pub enum MatchMode {
@@ -117,7 +120,8 @@ impl BackupData {
         target.alias_used = self.starting_alias_used;
     }
 }
-
+#[derive(Debug)]
+#[cfg(feature = "opencl")]
 pub struct DeviceInfo {
     device: imports::ocl::Device,
     pub index: u32,
@@ -128,6 +132,7 @@ pub struct DeviceInfo {
     pub name: String,
     pub score: u32,
 }
+#[cfg(feature = "opencl")]
 impl DeviceInfo {
     fn new(
         device: imports::ocl::Device,
@@ -151,11 +156,13 @@ impl DeviceInfo {
         }
     }
 }
-
+#[cfg(feature = "opencl")]
+#[derive(Debug)]
 pub struct KernelStorage {
     pub v1_kernel: imports::ocl::Kernel,
     pub v2_kernel_fast: imports::ocl::Kernel,
 }
+#[cfg(feature = "opencl")]
 impl KernelStorage {
     pub fn new(
         gpu_memory_pointers: &GpuMemoryPointers,
@@ -199,7 +206,7 @@ impl KernelStorage {
             .arg(&(image_height as i32))
             .arg(&(template_width as i32))
             .arg(&(template_height as i32))
-            .arg(&(fast_expected_corr as f32))
+            .arg(&(fast_expected_corr as f32 - 0.01))
             .build()?;
 
         let mut remainder_segments_fast = 0;
@@ -208,8 +215,7 @@ impl KernelStorage {
 
         let mut pixels_processed_by_workgroup = 1;
         let max_workgroup_size = max_workgroup_size;
-        let mut remainder_segments_slow = 0;
-        let mut segments_processed_by_thread_slow = 1;
+
         // if we have more segments than workgroup size, then that workgroup only processes
         // that single pixel. Each thread inside workgroup processes certain amount of equally distributed segments
         if fast_segment_count as usize > max_workgroup_size {
@@ -230,14 +236,6 @@ impl KernelStorage {
         // with the slow pass aswell for that same x,y pos. But if we had low fast segment count
         // that workgroup will not be utilized nicely.  Will have to rework this part
 
-        let total_slow_segment_count_in_workgroup =
-            slow_segment_count as usize * pixels_processed_by_workgroup;
-        if total_slow_segment_count_in_workgroup > max_workgroup_size {
-            segments_processed_by_thread_slow = slow_segment_count as usize / max_workgroup_size;
-            remainder_segments_slow = slow_segment_count as usize % max_workgroup_size;
-        } else {
-        }
-
         let v2_kernel_fast_pass = ocl::Kernel::builder()
             .program(&program)
             .name("v2_segmented_match_integral_fast_pass")
@@ -255,7 +253,7 @@ impl KernelStorage {
             .arg(&(image_height as i32))
             .arg(&(template_width as i32))
             .arg(&(template_height as i32))
-            .arg(&(fast_expected_corr as f32))
+            .arg(&(fast_expected_corr as f32) - 0.01)
             .arg(&remainder_segments_fast)
             .arg(&(segments_processed_by_thread_fast as i32))
             .arg(&(pixels_processed_by_workgroup as i32))
@@ -276,6 +274,7 @@ impl KernelStorage {
 /// Main struct for Rustautogui
 /// Struct gets assigned keyboard, mouse and struct to it implemented functions execute commands from each of assigned substructs
 /// executes also correlation algorithms when doing find_image_on_screen
+#[derive(Debug)]
 #[allow(dead_code)]
 pub struct RustAutoGui {
     // most of the fields are set up in load_and_prepare_template method
@@ -305,8 +304,6 @@ pub struct RustAutoGui {
     ocl_buffer_storage: imports::HashMap<String, GpuMemoryPointers>,
     #[cfg(feature = "opencl")]
     ocl_kernel_storage: imports::HashMap<String, KernelStorage>,
-    #[cfg(feature = "opencl")]
-    ocl_v2_aliases: Vec<String>,
     #[cfg(feature = "opencl")]
     ocl_workgroup_size: u32,
 }
@@ -361,7 +358,6 @@ impl RustAutoGui {
             #[cfg(feature = "opencl")]
             ocl_kernel_storage: imports::HashMap::new(),
             #[cfg(feature = "opencl")]
-            ocl_v2_aliases: Vec::new(),
             ocl_workgroup_size: workgroup_size,
         })
     }
@@ -383,7 +379,7 @@ impl RustAutoGui {
 
         // OCL INITIALIZATION
         #[cfg(feature = "opencl")]
-        let (context, queue, program) = Self::setup_opencl();
+        let (context, queue, program, device_list, workgroup_size) = Self::setup_opencl()?;
 
         #[cfg(feature = "opencl")]
         let ocl_active = true;
@@ -406,6 +402,8 @@ impl RustAutoGui {
             alias_used: DEFAULT_ALIAS.to_string(),
             ocl_active: ocl_active,
             #[cfg(feature = "opencl")]
+            device_list: device_list,
+            #[cfg(feature = "opencl")]
             ocl_program: program,
             #[cfg(feature = "opencl")]
             ocl_context: context,
@@ -416,7 +414,7 @@ impl RustAutoGui {
             #[cfg(feature = "opencl")]
             ocl_kernel_storage: imports::HashMap::new(),
             #[cfg(feature = "opencl")]
-            ocl_v2_aliases: Vec::new(),
+            ocl_workgroup_size: workgroup_size,
         })
     }
 
@@ -436,45 +434,41 @@ impl RustAutoGui {
         let mut device_list: Vec<DeviceInfo> = Vec::new();
         let mut highest_score = 0;
         let mut best_device_index = 0;
-        let mut i = 0;
         let mut max_workgroup_size = 0;
-        for device in available_devices {
+        for (i, device) in available_devices.into_iter().enumerate() {
             let workgroup_size: u32 = device
                 .info(imports::ocl::enums::DeviceInfo::MaxWorkGroupSize)?
                 .to_string()
                 .parse()
                 .map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
-            let global_mem: u32 = device
+            let global_mem: u64 = device
                 .info(imports::ocl::enums::DeviceInfo::GlobalMemSize)?
                 .to_string()
                 .parse()
                 .map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
-
             let compute_units: u32 = device
                 .info(imports::ocl::enums::DeviceInfo::MaxComputeUnits)?
                 .to_string()
                 .parse()
                 .map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
+
             let clock_frequency = device
                 .info(imports::ocl::enums::DeviceInfo::MaxClockFrequency)?
                 .to_string()
                 .parse()
                 .map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
-
             let device_vendor = device
                 .info(imports::ocl::enums::DeviceInfo::Vendor)?
                 .to_string();
-
             let device_name = device
                 .info(imports::ocl::enums::DeviceInfo::Name)?
                 .to_string();
-
             let global_mem_gb = global_mem / 1_048_576;
-            let score = global_mem_gb * 2 + compute_units * 10 + clock_frequency;
+            let score = global_mem_gb as u32 * 2 + compute_units * 10 + clock_frequency;
             let gui_device = DeviceInfo::new(
                 device,
-                i,
-                global_mem_gb,
+                i as u32,
+                global_mem_gb as u32,
                 clock_frequency,
                 compute_units,
                 device_vendor,
@@ -488,12 +482,11 @@ impl RustAutoGui {
                 best_device_index = i;
                 max_workgroup_size = workgroup_size;
             }
-            i += 1;
         }
-        let used_device = context.devices()[i as usize];
+        let used_device = context.devices()[best_device_index as usize];
 
         let queue = imports::Queue::new(&context, used_device, None).unwrap();
-        let program_source = crate::normalized_x_corr::open_cl::OCL_KERNEL;
+        let program_source = crate::normalized_x_corr::opencl_kernel::OCL_KERNEL;
         let program = imports::Program::builder()
             .src(program_source)
             .build(&context)?;
@@ -1272,6 +1265,7 @@ impl RustAutoGui {
             PreparedData::None => {
                 Err(ImageProcessingError::new("No template chosen and no template data prepared. Please run load_and_prepare_template before searching image on screen"))?
             },
+            
 
         };
 

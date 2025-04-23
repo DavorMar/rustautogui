@@ -9,6 +9,7 @@ use x11::xlib::{
 };
 use x11::xtest::{XTestFakeButtonEvent, XTestQueryExtension};
 
+#[derive(Debug)]
 pub struct Mouse {
     screen: *mut _XDisplay,
     root_window: u64,

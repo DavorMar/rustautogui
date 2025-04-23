@@ -408,17 +408,17 @@ pub fn prepare_template_picture(
         f32,
         bool,
     ) = (
-        picture_segments_fast, //0
-        picture_segments_slow,//1
-        template_width,//2
-        template_height,//3
-        segment_sum_squared_deviations_fast,//4
-        segment_sum_squared_deviations_slow,//5
-        expected_corr_fast,//6
-        expected_corr_slow,//7
-        segments_mean_fast,//8
-        segments_mean_slow,//9
-        used_threshold,//10
+        picture_segments_fast,               //0
+        picture_segments_slow,               //1
+        template_width,                      //2
+        template_height,                     //3
+        segment_sum_squared_deviations_fast, //4
+        segment_sum_squared_deviations_slow, //5
+        expected_corr_fast,                  //6
+        expected_corr_slow,                  //7
+        segments_mean_fast,                  //8
+        segments_mean_slow,                  //9
+        used_threshold,                      //10
     );
     return_value
 }

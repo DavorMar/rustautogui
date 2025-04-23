@@ -7,7 +7,7 @@ use winapi::um::winuser::{
     MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_RIGHTDOWN,
     MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_WHEEL,
 };
-
+#[derive(Debug)]
 pub struct Mouse {}
 impl Mouse {
     #[allow(unused_variables)]

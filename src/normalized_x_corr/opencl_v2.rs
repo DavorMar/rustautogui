@@ -16,7 +16,6 @@ of stored data can explode. For instance, 4000x3000 image x 50000 segments is li
 reworking integral image algorithms requires additional calculations in a process that cannot be
 */
 
-
 pub fn gui_opencl_ncc_v2(
     v2_kernel_fast_pass: &Kernel,
     image_integral: &[u64],
@@ -45,8 +44,6 @@ pub fn gui_opencl_ncc_v2(
         .buffer_image_integral_squared
         .write(squared_image_integral)
         .enq()?;
-
-   
 
     unsafe {
         v2_kernel_fast_pass.enq()?;
