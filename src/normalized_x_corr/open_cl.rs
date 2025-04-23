@@ -6,6 +6,8 @@ use std::time;
 
 use ocl;
 
+use super::opencl_v2;
+
 /// same algorithm as segmented but in OpenCL C
 pub const OCL_KERNEL: &str = r#"
 inline ulong sum_region(
@@ -576,7 +578,30 @@ pub fn gui_opencl_ncc_template_match(
 
         },
         true => {
+            let slow_segment_count = template_segments_slow.len() as i32;
             let kernel = &kernel_storage.v2_kernel_fast;
+            let segments_processed_by_thread_slow = slow_segment_count  / max_workgroup_size as i32;
+            let remainder_segments_slow = slow_segment_count % max_workgroup_size  as i32;
+            gpu_results = opencl_v2::gui_opencl_ncc_v2(
+                kernel,
+                &image_integral,
+                &squared_image_integral,
+                image_width,
+                image_height,
+                *template_width,
+                *template_height,
+                *slow_segments_sum_squared_deviations,
+                *segments_mean_slow,
+                slow_expected_corr,
+                queue,
+                program,
+                gpu_memory_pointers,
+                slow_segment_count,
+                remainder_segments_slow,
+                segments_processed_by_thread_slow,
+                max_workgroup_size as i32,
+            )?;
+
         }        
     }
 

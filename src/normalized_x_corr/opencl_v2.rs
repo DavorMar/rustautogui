@@ -16,148 +16,27 @@ of stored data can explode. For instance, 4000x3000 image x 50000 segments is li
 reworking integral image algorithms requires additional calculations in a process that cannot be
 */
 
-pub fn gui_opencl_ncc_template_match_v2(
-    queue: &Queue,
-    program: &Program,
-    max_workgroup_size: u32,
-    gpu_memory_pointers: &GpuMemoryPointers,
-    precision: f32,
-    image: &ImageBuffer<Luma<u8>, Vec<u8>>,
-    template_data: &(
-        Vec<(u32, u32, u32, u32, f32)>, // fast segments (x, y, w, h, val)
-        Vec<(u32, u32, u32, u32, f32)>, // slow segments (x, y, w, h, val)
-        u32,                            // template width
-        u32,                            // template height
-        f32,                            // fast sum_squared_deviations
-        f32,                            // slow sum_squared_deviations
-        f32,                            // fast expected corr
-        f32,                            // slow expected corr
-        f32,                            // fast mean
-        f32,                            // slow mean
-    ),
-) -> ocl::Result<Vec<(u32, u32, f32)>> {
-    let (image_width, image_height) = image.dimensions();
-    let (image_integral, squared_image_integral) = compute_integral_images_ocl(&image);
-
-    let (
-        template_segments_fast,
-        template_segments_slow,
-        template_width,
-        template_height,
-        fast_segments_sum_squared_deviations,
-        slow_segments_sum_squared_deviations,
-        fast_expected_corr,
-        slow_expected_corr,
-        segments_mean_fast,
-        segments_mean_slow,
-    ) = template_data;
-    let fast_expected_corr = precision * *fast_expected_corr - 0.001;
-    let slow_expected_corr = precision * *slow_expected_corr - 0.001;
-    let fast_segment_count = template_segments_fast.len();
-    let slow_segment_count = template_segments_slow.len();
-
-    let mut remainder_segments_fast = 0;
-
-    let mut segments_processed_by_thread_fast = 1;
-
-    let mut pixels_processed_by_workgroup = 1;
-    let max_workgroup_size = max_workgroup_size as usize;
-    let mut remainder_segments_slow = 0;
-    let mut segments_processed_by_thread_slow = 1;
-
-    // if we have more segments than workgroup size, then that workgroup only processes
-    // that single pixel. Each thread inside workgroup processes certain amount of equally distributed segments
-    if fast_segment_count > max_workgroup_size {
-        segments_processed_by_thread_fast = fast_segment_count / max_workgroup_size;
-        remainder_segments_fast = fast_segment_count % max_workgroup_size;
-    // else, if we have low thread count then 1 workgroup can process multiple pixels. IE workgroup with 256 threads
-    // can process 64 pixels with 4 segments
-    } else {
-        pixels_processed_by_workgroup = max_workgroup_size / fast_segment_count;
-        // threads per pixel = fast_segmented_count
-    }
-
-    // if the workgroup finds a succesfull correlation with fast pass, it will have to calculate it
-    // with the slow pass aswell for that same x,y pos. But if we had low fast segment count
-    // that workgroup will not be utilized nicely.  Will have to rework this part
-
-    let total_slow_segment_count_in_workgroup = slow_segment_count * pixels_processed_by_workgroup;
-    if total_slow_segment_count_in_workgroup > max_workgroup_size {
-        segments_processed_by_thread_slow = slow_segment_count / max_workgroup_size;
-        remainder_segments_slow = slow_segment_count % max_workgroup_size;
-    } else {
-    }
-
-    let result_width = (image_width - template_width + 1) as usize;
-    let result_height = (image_height - template_height + 1) as usize;
-    let output_size = result_width * result_height;
-    // round up division for how many workgroups needs to be spawned
-    let global_workgroup_count =
-        (output_size + pixels_processed_by_workgroup - 1) / pixels_processed_by_workgroup;
-    // total amount of threads that need to be spawned
-    let global_work_size = global_workgroup_count * max_workgroup_size;
-
-    // if global_work_size >= 2_000_000_000 {
-    //     return Err(ocl::Error::from("Too high global work size on slow pass. Try tuning your segmentation threshold higher up or use smaller template"));
-    // }
-
-    let mut gpu_results = gui_opencl_ncc_v2(
-        &image_integral,
-        &squared_image_integral,
-        image_width,
-        image_height,
-        *template_width,
-        *template_height,
-        *fast_segments_sum_squared_deviations,
-        *slow_segments_sum_squared_deviations,
-        *segments_mean_fast,
-        *segments_mean_slow,
-        fast_expected_corr,
-        slow_expected_corr,
-        queue,
-        program,
-        gpu_memory_pointers,
-        fast_segment_count as i32,
-        slow_segment_count as i32,
-        remainder_segments_fast as i32,
-        remainder_segments_slow as i32,
-        segments_processed_by_thread_fast as i32,
-        segments_processed_by_thread_slow as i32,
-        pixels_processed_by_workgroup as i32,
-        global_work_size,
-        max_workgroup_size as i32,
-    )?;
-    gpu_results.retain(|&(_, _, value)| value >= slow_expected_corr);
-    gpu_results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
-    Ok(gpu_results)
-}
 
 pub fn gui_opencl_ncc_v2(
+    v2_kernel_fast_pass: &Kernel,
     image_integral: &[u64],
     squared_image_integral: &[u64],
     image_width: u32,
     image_height: u32,
     template_width: u32,
     template_height: u32,
-    segments_sum_squared_deviation_fast: f32,
     segments_sum_squared_deviation_slow: f32,
-    segments_mean_fast: f32,
     segments_mean_slow: f32,
-    fast_expected_corr: f32,
     slow_expected_corr: f32,
     queue: &Queue,
     program: &Program,
     gpu_memory_pointers: &GpuMemoryPointers,
-    fast_segment_count: i32,
     slow_segment_count: i32,
-    remainder_segments_fast: i32,
     remainder_segments_slow: i32,
-    segments_processed_by_thread_fast: i32,
     segments_processed_by_thread_slow: i32,
-    pixels_processed_by_workgroup: i32,
-    global_work_size: usize,
     workgroup_size: i32,
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
+    println!("Using V2 !!");
     gpu_memory_pointers
         .buffer_image_integral
         .write(image_integral)
@@ -167,33 +46,7 @@ pub fn gui_opencl_ncc_v2(
         .write(squared_image_integral)
         .enq()?;
 
-    let v2_kernel_fast_pass = Kernel::builder()
-        .program(&program)
-        .name("v2_segmented_match_integral_fast_pass")
-        .queue(queue.clone())
-        .global_work_size(global_work_size)
-        .arg(&gpu_memory_pointers.buffer_image_integral)
-        .arg(&gpu_memory_pointers.buffer_image_integral_squared)
-        .arg(&gpu_memory_pointers.segments_fast_buffer)
-        .arg(&gpu_memory_pointers.segment_fast_values_buffer)
-        .arg(&fast_segment_count)
-        .arg(&(segments_mean_fast as f32))
-        .arg(&(segments_sum_squared_deviation_fast as f32))
-        .arg(&gpu_memory_pointers.buffer_results_fast_v2) ///////////////////////CHANGE THIS TO ONE FROM GPUMEMPOINTERS STRUCT
-        .arg(&(image_width as i32))
-        .arg(&(image_height as i32))
-        .arg(&(template_width as i32))
-        .arg(&(template_height as i32))
-        .arg(&(fast_expected_corr as f32))
-        .arg(&remainder_segments_fast)
-        .arg(&segments_processed_by_thread_fast)
-        .arg(&pixels_processed_by_workgroup)
-        .arg(&workgroup_size)
-        .arg_local::<u64>(pixels_processed_by_workgroup as usize) // sum_template_region_buff
-        .arg_local::<u64>(pixels_processed_by_workgroup as usize) // sum_sq_template_region_buff
-        .arg_local::<u64>(workgroup_size as usize) // thread_segment_sum_buff
-        .arg(&gpu_memory_pointers.buffer_valid_corr_count_fast) // <-- atomic int
-        .build()?;
+   
 
     unsafe {
         v2_kernel_fast_pass.enq()?;

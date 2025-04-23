@@ -448,7 +448,8 @@ fn create_picture_segments(
     if template_type == "fast" {
         match corr_threshold {
             Some(x) => {
-                target_corr = x;
+                target_corr = x.min(0.85);
+                println!("Target fast corr : {}", target_corr);
                 v2_active = true;
             }
             None => target_corr = -0.9,
