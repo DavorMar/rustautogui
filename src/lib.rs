@@ -116,6 +116,30 @@ impl BackupData {
     }
 }
 
+struct KernelStorage {
+    v1_kernel: imports::ocl::Kernel,
+    v2_kernel_fast: imports::ocl::Kernel,
+    v2_kernel_slow: imports::ocl::Kernel,
+}
+impl KernelStorage {
+    fn new(
+        gpu_memory_pointers: GpuMemoryPointers,
+        program: imports::ocl::Program,
+        queue: imports::ocl::Queue,
+        image_width: u32,
+        image_height: u32,
+        template_width: u32,
+        template_height: u32,
+        fast_segment_count:u32,
+        slow_segment_count: u32,
+        segments_mean_fast:f32,
+        segments_mean_slow:f32,
+        fast_expected_corr: f32,
+        
+    ) -> Self {
+    }
+}
+
 //////////////////////////ERRORS////////////////////////////////////
 
 /// Main struct for Rustautogui
@@ -147,7 +171,7 @@ pub struct RustAutoGui {
     #[cfg(feature = "opencl")]
     ocl_buffer_storage: imports::HashMap<String, GpuMemoryPointers>,
     #[cfg(feature = "opencl")]
-    ocl_kernel_storage: imports::HashMap<String, imports::ocl::Kernel>,
+    ocl_kernel_storage: imports::HashMap<String, Vec<imports::ocl::Kernel>>,
     #[cfg(feature = "opencl")]
     ocl_v2_aliases: Vec<String>,
 }
