@@ -395,6 +395,11 @@ pub fn gui_opencl_ncc_template_match_v2(
         (output_size + pixels_processed_by_workgroup - 1) / pixels_processed_by_workgroup;
     // total amount of threads that need to be spawned
     let global_work_size = global_workgroup_count * max_workgroup_size;
+
+    // if global_work_size >= 2_000_000_000 {
+    //     return Err(ocl::Error::from("Too high global work size on slow pass. Try tuning your segmentation threshold higher up or use smaller template"));
+    // }
+
     let mut gpu_results = gui_opencl_ncc_v2(
         &image_integral,
         &squared_image_integral,
@@ -461,7 +466,7 @@ pub fn gui_opencl_ncc_v2(
         .write(squared_image_integral)
         .enq()?;
 
-    let kernel = Kernel::builder()
+    let v2_kernel_fast_pass = Kernel::builder()
         .program(&program)
         .name("segmented_match_integral_fast_pass")
         .queue(queue.clone())
@@ -490,7 +495,7 @@ pub fn gui_opencl_ncc_v2(
         .build()?;
 
     unsafe {
-        kernel.enq()?;
+        v2_kernel_fast_pass.enq()?;
     }
     // get how many points have been found with fast pass
     let mut valid_corr_count_host = vec![0i32; 1];
@@ -513,7 +518,12 @@ pub fn gui_opencl_ncc_v2(
 
     let new_global_work_size = valid_corr_count * workgroup_size as usize;
 
-    let kernel_slow = Kernel::builder()
+    // Some temporary value determined to limit count of threads - almost i32::max
+    // if new_global_work_size >= 2_000_000_000 {
+    //     return Err(ocl::Error::from("Too high global work size on slow pass. Try tuning your segmentation threshold higher up or use smaller template"));
+    // }
+
+    let v2_kernel_slow_pass = Kernel::builder()
         .program(&program)
         .name("segmented_match_integral_slow_pass")
         .queue(queue.clone())
@@ -543,7 +553,7 @@ pub fn gui_opencl_ncc_v2(
         .arg(&gpu_memory_pointers.buffer_results_fast_v2)
         .build()?;
     unsafe {
-        kernel_slow.enq()?;
+        v2_kernel_slow_pass.enq()?;
     }
 
     let mut valid_corr_count_host_slow = vec![0i32; 1];

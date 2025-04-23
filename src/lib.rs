@@ -35,6 +35,7 @@ pub use mouse::mouse_position::print_mouse_position;
 pub use mouse::MouseClick;
 #[cfg(feature = "opencl")]
 use normalized_x_corr::open_cl::GpuMemoryPointers;
+use ocl::core::KernelArgAccessQualifier;
 
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
 const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
@@ -145,6 +146,10 @@ pub struct RustAutoGui {
     ocl_queue: imports::Queue,
     #[cfg(feature = "opencl")]
     ocl_buffer_storage: imports::HashMap<String, GpuMemoryPointers>,
+    #[cfg(feature = "opencl")]
+    ocl_kernel_storage: imports::HashMap<String, imports::ocl::Kernel>,
+    #[cfg(feature = "opencl")]
+    ocl_v2_aliases: Vec<String>,
 }
 impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
@@ -192,6 +197,10 @@ impl RustAutoGui {
             ocl_queue: queue,
             #[cfg(feature = "opencl")]
             ocl_buffer_storage: imports::HashMap::new(),
+            #[cfg(feature = "opencl")]
+            ocl_kernel_storage: imports::HashMap::new(),
+            #[cfg(feature = "opencl")]
+            ocl_v2_aliases: Vec::new(),
         })
     }
 
@@ -242,6 +251,10 @@ impl RustAutoGui {
             ocl_queue: queue,
             #[cfg(feature = "opencl")]
             ocl_buffer_storage: imports::HashMap::new(),
+            #[cfg(feature = "opencl")]
+            ocl_kernel_storage: imports::HashMap::new(),
+            #[cfg(feature = "opencl")]
+            ocl_v2_aliases: Vec::new(),
         })
     }
 
@@ -419,6 +432,7 @@ impl RustAutoGui {
                     &template,
                     &self.debug,
                     self.ocl_active,
+                    None,
                 );
                 // mostly happens due to using too complex image with small max segments value
                 if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {

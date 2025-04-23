@@ -280,6 +280,7 @@ pub fn prepare_template_picture(
     template: &ImageBuffer<Luma<u8>, Vec<u8>>,
     debug: &bool,
     ocl: bool,
+    corr_threshold: Option<f32>,
 ) -> (
     Vec<(u32, u32, u32, u32, f32)>,
     Vec<(u32, u32, u32, u32, f32)>,
@@ -351,6 +352,7 @@ pub fn prepare_template_picture(
         avg_deviation_of_template,
         "fast",
         ocl,
+        corr_threshold,
     );
     // create slow segmented image
     let (
@@ -364,23 +366,22 @@ pub fn prepare_template_picture(
         avg_deviation_of_template,
         "slow",
         ocl,
+        corr_threshold,
     );
 
-    if !ocl {
-        // merge pictures segments
-        picture_segments_fast = merge_picture_segments(picture_segments_fast);
-        picture_segments_fast.sort_by(|a, b| {
-            let area_a = a.2 * a.3; // width * height for segment a
-            let area_b = b.2 * b.3; // width * height for segment b
-            area_a.cmp(&area_b) // Compare the areas
-        });
-        picture_segments_slow = merge_picture_segments(picture_segments_slow);
-        picture_segments_slow.sort_by(|a, b| {
-            let area_a = a.2 * a.3; // width * height for segment a
-            let area_b = b.2 * b.3; // width * height for segment b
-            area_a.cmp(&area_b) // Compare the areas
-        });
-    }
+    // merge pictures segments
+    picture_segments_fast = merge_picture_segments(picture_segments_fast);
+    picture_segments_fast.sort_by(|a, b| {
+        let area_a = a.2 * a.3; // width * height for segment a
+        let area_b = b.2 * b.3; // width * height for segment b
+        area_a.cmp(&area_b) // Compare the areas
+    });
+    picture_segments_slow = merge_picture_segments(picture_segments_slow);
+    picture_segments_slow.sort_by(|a, b| {
+        let area_a = a.2 * a.3; // width * height for segment a
+        let area_b = b.2 * b.3; // width * height for segment b
+        area_a.cmp(&area_b) // Compare the areas
+    });
 
     if *debug {
         let fast_segment_number = picture_segments_fast.len();
@@ -420,6 +421,7 @@ fn create_picture_segments(
     avg_deviation_of_template: f32,
     template_type: &str,
     ocl: bool,
+    corr_threshold: Option<f32>,
 ) -> (Vec<(u32, u32, u32, u32, f32)>, f32, f32, f32) {
     /// returns (picture_segments,segment_sum_squared_deviations, expected_corr, segments_mean)
     /// calls recursive divide and conquer binary segmentation function which divides
@@ -433,10 +435,16 @@ fn create_picture_segments(
 
     let mut target_corr = 0.0;
     let mut threshold = 0.0;
-
+    let mut v2_active = false;
     if template_type == "fast" {
+        match corr_threshold {
+            Some(x) => {
+                target_corr = x;
+                v2_active = true;
+            }
+            None => target_corr = -0.9,
+        }
         threshold = 0.99;
-        target_corr = -0.9;
     } else if template_type == "slow" {
         threshold = 0.85;
         target_corr = 0.99;
@@ -509,14 +517,21 @@ fn create_picture_segments(
         let denominator = (denom1 * denom2).sqrt();
         expected_corr = numerator / denominator;
 
-        if template_type == "slow" || !ocl {
+        // if template_type = slow do expected corr always
+        // if template_type = fast
+        //     if not ocl, do expected_corr
+        //     if ocl and v2 active do expected  corr
+        //     if ocl and v2 not active do distance check
+
+        if template_type == "slow" || !ocl || (ocl && v2_active) {
             if expected_corr < target_corr {
                 picture_segments = Vec::new();
             } else {
                 break;
             }
         }
-        if template_type == "fast" && ocl {
+
+        if template_type == "fast" && (ocl && !v2_active) {
             current_distance = expected_corr - (1.0 - threshold);
 
             if current_distance >= previous_distance {
@@ -527,6 +542,12 @@ fn create_picture_segments(
                 previous_mean = segments_mean;
                 picture_segments = Vec::new();
             } else {
+                println!(
+                    "distnace: Seg num: {}, type: {}, expected_corr {}",
+                    previous_picture_segments.len(),
+                    template_type,
+                    previous_expected_corr
+                );
                 return (
                     previous_picture_segments,
                     previous_sss_deviations,
@@ -536,7 +557,12 @@ fn create_picture_segments(
             }
         }
     }
-
+    println!(
+        "Expected corr variant Seg num: {}, type: {}, expected_corr {}",
+        picture_segments.len(),
+        template_type,
+        expected_corr
+    );
     return (
         picture_segments,
         segment_sum_squared_deviations,
