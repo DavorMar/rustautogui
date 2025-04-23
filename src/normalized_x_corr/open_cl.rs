@@ -135,6 +135,11 @@ pub struct GpuMemoryPointers {
     pub results_buffer: Buffer<f32>,
     pub buffer_image_integral: Buffer<u64>,
     pub buffer_image_integral_squared: Buffer<u64>,
+    pub buffer_results_fast_v2: Buffer<ocl::core::Int2>,
+    pub buffer_results_slow_positions_v2: Buffer<ocl::core::Int2>,
+    pub buffer_results_slow_corrs_v2: Buffer<f32>,
+    pub buffer_valid_corr_count_fast: Buffer<i32>,
+    pub buffer_valid_corr_count_slow: Buffer<i32>,
 }
 impl GpuMemoryPointers {
     pub fn new(
@@ -206,6 +211,37 @@ impl GpuMemoryPointers {
             .queue(queue.clone())
             .len(image_width * image_height)
             .build()?;
+
+        // BUFFERS FOR v2 ALGORITHM ADDITIONALLY
+        let buffer_results_fast = Buffer::<ocl::core::Int2>::builder()
+            .queue(queue.clone())
+            .len(output_size)
+            .build()?;
+
+        let buffer_results_slow_positions = Buffer::<ocl::core::Int2>::builder()
+            .queue(queue.clone())
+            .len(output_size)
+            .build()?;
+
+        let buffer_results_slow_corrs = Buffer::<f32>::builder()
+            .queue(queue.clone())
+            .len(output_size)
+            .build()?;
+
+        let valid_corr_count_buf_fast: Buffer<i32> = Buffer::builder()
+            .queue(queue.clone())
+            .flags(ocl::flags::MEM_READ_WRITE)
+            .len(1)
+            .fill_val(0i32) // Init to 0
+            .build()?;
+
+        let valid_corr_count_buf_slow: Buffer<i32> = Buffer::builder()
+            .queue(queue.clone())
+            .flags(ocl::flags::MEM_READ_WRITE)
+            .len(1)
+            .fill_val(0i32) // Init to 0
+            .build()?;
+
         Ok(Self {
             segments_fast_buffer: buffer_segments_fast,
             segments_slow_buffer: buffer_segments_slow,
@@ -214,6 +250,11 @@ impl GpuMemoryPointers {
             results_buffer: buffer_results,
             buffer_image_integral,
             buffer_image_integral_squared,
+            buffer_results_fast_v2: buffer_results_fast,
+            buffer_results_slow_positions_v2: buffer_results_slow_positions,
+            buffer_results_slow_corrs_v2: buffer_results_slow_corrs,
+            buffer_valid_corr_count_fast: valid_corr_count_buf_fast,
+            buffer_valid_corr_count_slow: valid_corr_count_buf_slow,
         })
     }
 }

@@ -1,24 +1,23 @@
-use crate::{imgtools, print_mouse_position};
 use crate::normalized_x_corr::{compute_integral_images, sum_region};
+use crate::{imgtools, print_mouse_position};
 use image::{ImageBuffer, Luma};
 use ocl::{Buffer, Context, Device, Kernel, Program, Queue};
 use std::time::{self, Duration};
 
+use crate::normalized_x_corr::open_cl::{compute_integral_images_ocl, GpuMemoryPointers};
 use ocl;
 use ocl::core::Int2;
-use crate::normalized_x_corr::open_cl::{compute_integral_images_ocl, GpuMemoryPointers};
 
 /*
-Different versions of OpenCL algorithm adaptation have been thought of or tried to implement but 
+Different versions of OpenCL algorithm adaptation have been thought of or tried to implement but
 no success. Local memory usage is hard to utilize due to large integral images. Distributing work
-into smaller tasks requires buffers to store values between those same tasks. The size 
+into smaller tasks requires buffers to store values between those same tasks. The size
 of stored data can explode. For instance, 4000x3000 image x 50000 segments is like 4.5 TB of data.
-reworking integral image algorithms requires additional calculations in a process that cannot be 
+reworking integral image algorithms requires additional calculations in a process that cannot be
 */
 
-
 // same algorithm as segmented but in OpenCL C
-pub const OCL_KERNEL_v2: &str = r#"
+pub const OCL_KERNEL_V2: &str = r#"
 inline ulong sum_region(
     __global const ulong* integral,
     int x,
@@ -316,9 +315,6 @@ __kernel void segmented_match_integral_slow_pass (
 
 "#;
 
-
-
-
 pub fn gui_opencl_ncc_template_match_v2(
     queue: &Queue,
     program: &Program,
@@ -359,47 +355,44 @@ pub fn gui_opencl_ncc_template_match_v2(
     let fast_segment_count = template_segments_fast.len();
     let slow_segment_count = template_segments_slow.len();
 
-
-
     let mut remainder_segments_fast = 0;
-    
+
     let mut segments_processed_by_thread_fast = 1;
-    
+
     let mut pixels_processed_by_workgroup = 1;
     let max_workgroup_size = max_workgroup_size as usize;
     let mut remainder_segments_slow = 0;
     let mut segments_processed_by_thread_slow = 1;
-
 
     // if we have more segments than workgroup size, then that workgroup only processes
     // that single pixel. Each thread inside workgroup processes certain amount of equally distributed segments
     if fast_segment_count > max_workgroup_size {
         segments_processed_by_thread_fast = fast_segment_count / max_workgroup_size;
         remainder_segments_fast = fast_segment_count % max_workgroup_size;
-    // else, if we have low thread count then 1 workgroup can process multiple pixels. IE workgroup with 256 threads 
+    // else, if we have low thread count then 1 workgroup can process multiple pixels. IE workgroup with 256 threads
     // can process 64 pixels with 4 segments
     } else {
         pixels_processed_by_workgroup = max_workgroup_size / fast_segment_count;
-        // threads per pixel = fast_segmented_count   
+        // threads per pixel = fast_segmented_count
     }
 
-    // if the workgroup finds a succesfull correlation with fast pass, it will have to calculate it 
+    // if the workgroup finds a succesfull correlation with fast pass, it will have to calculate it
     // with the slow pass aswell for that same x,y pos. But if we had low fast segment count
     // that workgroup will not be utilized nicely.  Will have to rework this part
-    
+
     let total_slow_segment_count_in_workgroup = slow_segment_count * pixels_processed_by_workgroup;
     if total_slow_segment_count_in_workgroup > max_workgroup_size {
         segments_processed_by_thread_slow = slow_segment_count / max_workgroup_size;
         remainder_segments_slow = slow_segment_count % max_workgroup_size;
     } else {
-        
-    }   
+    }
 
     let result_width = (image_width - template_width + 1) as usize;
     let result_height = (image_height - template_height + 1) as usize;
     let output_size = result_width * result_height;
     // round up division for how many workgroups needs to be spawned
-    let global_workgroup_count = (output_size + pixels_processed_by_workgroup - 1) / pixels_processed_by_workgroup;
+    let global_workgroup_count =
+        (output_size + pixels_processed_by_workgroup - 1) / pixels_processed_by_workgroup;
     // total amount of threads that need to be spawned
     let global_work_size = global_workgroup_count * max_workgroup_size;
     let mut gpu_results = gui_opencl_ncc_v2(
@@ -427,7 +420,6 @@ pub fn gui_opencl_ncc_template_match_v2(
         pixels_processed_by_workgroup as i32,
         global_work_size,
         max_workgroup_size as i32,
-
     )?;
     gpu_results.retain(|&(_, _, value)| value >= slow_expected_corr);
     gpu_results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
@@ -453,35 +445,13 @@ pub fn gui_opencl_ncc_v2(
     fast_segment_count: i32,
     slow_segment_count: i32,
     remainder_segments_fast: i32,
-    remainder_segments_slow:i32,
+    remainder_segments_slow: i32,
     segments_processed_by_thread_fast: i32,
     segments_processed_by_thread_slow: i32,
     pixels_processed_by_workgroup: i32,
     global_work_size: usize,
-    workgroup_size: i32
+    workgroup_size: i32,
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
-
-    let result_width = (image_width - template_width + 1) as usize;
-    let result_height = (image_height - template_height + 1) as usize;
-    let output_size = result_width * result_height;
-
-    let buffer_results_fast = Buffer::<ocl::core::Int2>::builder()
-            .queue(queue.clone())
-            .len(output_size)
-            .build()?;
-
-    let buffer_results_slow_positions = Buffer::<ocl::core::Int2>::builder()
-        .queue(queue.clone())
-        .len(output_size)
-        .build()?;
-
-    let buffer_results_slow_corrs = Buffer::<f32>::builder()
-        .queue(queue.clone())
-        .len(output_size)
-            .build()?;
-    let result_width = (image_width - template_width + 1) as usize;
-    let result_height = (image_height - template_height + 1) as usize;
-    let output_size = result_width * result_height;
     gpu_memory_pointers
         .buffer_image_integral
         .write(image_integral)
@@ -490,25 +460,6 @@ pub fn gui_opencl_ncc_v2(
         .buffer_image_integral_squared
         .write(squared_image_integral)
         .enq()?;
-
-
-
-    let valid_corr_count_buf: Buffer<i32> = Buffer::builder()
-        .queue(queue.clone())
-        .flags(ocl::flags::MEM_READ_WRITE)
-        .len(1)
-        .fill_val(0i32) // Init to 0
-        .build()?;
-
-
-    let valid_corr_count_buf_slow: Buffer<i32> = Buffer::builder()
-        .queue(queue.clone())
-        .flags(ocl::flags::MEM_READ_WRITE)
-        .len(1)
-        .fill_val(0i32) // Init to 0
-        .build()?;
-
-
 
     let kernel = Kernel::builder()
         .program(&program)
@@ -522,7 +473,7 @@ pub fn gui_opencl_ncc_v2(
         .arg(&fast_segment_count)
         .arg(&(segments_mean_fast as f32))
         .arg(&(segments_sum_squared_deviation_fast as f32))
-        .arg(&buffer_results_fast) ///////////////////////CHANGE THIS TO ONE FROM GPUMEMPOINTERS STRUCT
+        .arg(&gpu_memory_pointers.buffer_results_fast_v2) ///////////////////////CHANGE THIS TO ONE FROM GPUMEMPOINTERS STRUCT
         .arg(&(image_width as i32))
         .arg(&(image_height as i32))
         .arg(&(template_width as i32))
@@ -535,28 +486,30 @@ pub fn gui_opencl_ncc_v2(
         .arg_local::<u64>(pixels_processed_by_workgroup as usize) // sum_template_region_buff
         .arg_local::<u64>(pixels_processed_by_workgroup as usize) // sum_sq_template_region_buff
         .arg_local::<u64>(workgroup_size as usize) // thread_segment_sum_buff
-        .arg(&valid_corr_count_buf)  // <-- atomic int
+        .arg(&gpu_memory_pointers.buffer_valid_corr_count_fast) // <-- atomic int
         .build()?;
 
     unsafe {
         kernel.enq()?;
     }
     // get how many points have been found with fast pass
-    let mut valid_corr_count_host = vec![0i32; 1]; 
-    valid_corr_count_buf.read(&mut valid_corr_count_host).enq()?; 
+    let mut valid_corr_count_host = vec![0i32; 1];
+    gpu_memory_pointers
+        .buffer_valid_corr_count_fast
+        .read(&mut valid_corr_count_host)
+        .enq()?;
     let valid_corr_count = valid_corr_count_host[0] as usize;
     // gather those points
     if valid_corr_count > 0 {
-        let mut fast_pass_positions = vec![ocl::core::Int2::zero(); valid_corr_count]; 
-        buffer_results_fast
+        let mut fast_pass_positions = vec![ocl::core::Int2::zero(); valid_corr_count];
+        gpu_memory_pointers
+            .buffer_results_fast_v2
             .read(&mut fast_pass_positions)
-            .enq()?;            
+            .enq()?;
     } else {
-        let final_results: Vec<(u32,u32,f32)> = Vec::new();
+        let final_results: Vec<(u32, u32, f32)> = Vec::new();
         return Ok(final_results);
     }
-    
-    
 
     let new_global_work_size = valid_corr_count * workgroup_size as usize;
 
@@ -572,8 +525,8 @@ pub fn gui_opencl_ncc_v2(
         .arg(&slow_segment_count)
         .arg(&(segments_mean_slow as f32))
         .arg(&(segments_sum_squared_deviation_slow as f32))
-        .arg(&buffer_results_slow_positions)
-        .arg(&buffer_results_slow_corrs)
+        .arg(&gpu_memory_pointers.buffer_results_slow_positions_v2)
+        .arg(&gpu_memory_pointers.buffer_results_slow_corrs_v2)
         .arg(&(image_width as i32))
         .arg(&(image_height as i32))
         .arg(&(template_width as i32))
@@ -585,25 +538,30 @@ pub fn gui_opencl_ncc_v2(
         .arg_local::<u64>(1) // sum_template_region_buff
         .arg_local::<u64>(1) // sum_sq_template_region_buff
         .arg_local::<u64>(workgroup_size as usize) // thread_segment_sum_buff
-        .arg(&valid_corr_count_buf_slow)
-        .arg(&valid_corr_count_buf)  // <-- atomic int
-        .arg(&buffer_results_fast)
+        .arg(&gpu_memory_pointers.buffer_valid_corr_count_slow)
+        .arg(&gpu_memory_pointers.buffer_valid_corr_count_fast) // <-- atomic int
+        .arg(&gpu_memory_pointers.buffer_results_fast_v2)
         .build()?;
     unsafe {
         kernel_slow.enq()?;
     }
 
-    let mut valid_corr_count_host_slow = vec![0i32; 1]; 
-    valid_corr_count_buf_slow.read(&mut valid_corr_count_host_slow).enq()?; 
+    let mut valid_corr_count_host_slow = vec![0i32; 1];
+    gpu_memory_pointers
+        .buffer_valid_corr_count_slow
+        .read(&mut valid_corr_count_host_slow)
+        .enq()?;
     let valid_corr_count_slow = valid_corr_count_host_slow[0] as usize;
     if valid_corr_count_slow > 0 {
         let mut slow_pass_corrs = vec![0.0; valid_corr_count_slow];
-        let mut slow_pass_positions = vec![ocl::core::Int2::zero(); valid_corr_count_slow]; 
-        buffer_results_slow_positions
+        let mut slow_pass_positions = vec![ocl::core::Int2::zero(); valid_corr_count_slow];
+        gpu_memory_pointers
+            .buffer_results_slow_positions_v2
             .read(&mut slow_pass_positions)
             .enq()?;
 
-        buffer_results_slow_corrs
+        gpu_memory_pointers
+            .buffer_results_slow_corrs_v2
             .read(&mut slow_pass_corrs)
             .enq()?;
 
@@ -612,14 +570,12 @@ pub fn gui_opencl_ncc_v2(
             .zip(slow_pass_corrs.iter())
             .map(|(pos, &corr)| (pos[0] as u32, pos[1] as u32, corr))
             .collect();
-        
-        result_vec.sort_unstable_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
-        return Ok(result_vec)
 
+        result_vec
+            .sort_unstable_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+        return Ok(result_vec);
     } else {
-        let final_results: Vec<(u32,u32,f32)> = Vec::new();
+        let final_results: Vec<(u32, u32, f32)> = Vec::new();
         return Ok(final_results);
     }
-    
-
 }
