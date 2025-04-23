@@ -46,16 +46,17 @@ const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
 pub enum PreparedData {
     Segmented(
         (
-            Vec<(u32, u32, u32, u32, f32)>, // template_segments_fast
-            Vec<(u32, u32, u32, u32, f32)>, // template_segments_slow
-            u32,                            // template_width
-            u32,                            // template_height
-            f32,                            // segment_sum_squared_deviations_fast
-            f32,                            // segment_sum_squared_deviations_slow
-            f32,                            // expected_corr_fast
-            f32,                            // expected_corr_slow
-            f32,                            // segments_mean_fast
-            f32,                            // segments_mean_slow
+            Vec<(u32, u32, u32, u32, f32)>, // 0 template_segments_fast
+            Vec<(u32, u32, u32, u32, f32)>, // 1 template_segments_slow
+            u32,                            // 2 template_width
+            u32,                            // 3 template_height
+            f32,                            // 4 segment_sum_squared_deviations_fast
+            f32,                            // 5 segment_sum_squared_deviations_slow
+            f32,                            // 6 expected_corr_fast
+            f32,                            // 7 expected_corr_slow
+            f32,                            // 8 segments_mean_fast
+            f32,                            // 9 segments_mean_slow
+            bool,                           // 10 is user threshold used
         ),
     ),
     FFT(
@@ -151,12 +152,12 @@ impl DeviceInfo {
     }
 }
 
-struct KernelStorage {
-    v1_kernel: imports::ocl::Kernel,
-    v2_kernel_fast: imports::ocl::Kernel,
+pub struct KernelStorage {
+    pub v1_kernel: imports::ocl::Kernel,
+    pub v2_kernel_fast: imports::ocl::Kernel,
 }
 impl KernelStorage {
-    fn new(
+    pub fn new(
         gpu_memory_pointers: &GpuMemoryPointers,
         program: &imports::ocl::Program,
         queue: &imports::ocl::Queue,
@@ -187,8 +188,8 @@ impl KernelStorage {
             .arg(&gpu_memory_pointers.segments_slow_buffer)
             .arg(&gpu_memory_pointers.segment_fast_values_buffer)
             .arg(&gpu_memory_pointers.segment_slow_values_buffer)
-            .arg(&fast_segment_count)
-            .arg(&slow_segment_count)
+            .arg(&(fast_segment_count as i32))
+            .arg(&(slow_segment_count as i32))
             .arg(&(segments_mean_fast as f32))
             .arg(&(segments_mean_slow as f32))
             .arg(&(segment_sum_squared_deviation_fast as f32))
@@ -213,7 +214,7 @@ impl KernelStorage {
         // that single pixel. Each thread inside workgroup processes certain amount of equally distributed segments
         if fast_segment_count as usize > max_workgroup_size {
             segments_processed_by_thread_fast = fast_segment_count as usize / max_workgroup_size;
-            remainder_segments_fast = fast_segment_count as usize % max_workgroup_size;
+            remainder_segments_fast = (fast_segment_count as usize % max_workgroup_size) as i32;
         // else, if we have low thread count then 1 workgroup can process multiple pixels. IE workgroup with 256 threads
         // can process 64 pixels with 4 segments
         } else {
@@ -223,7 +224,7 @@ impl KernelStorage {
         let global_workgroup_count =
             (output_size + pixels_processed_by_workgroup - 1) / pixels_processed_by_workgroup;
         // total amount of threads that need to be spawned
-        let global_work_size = global_workgroup_count * max_workgroup_size;
+        let global_work_size = global_workgroup_count as usize * max_workgroup_size;
 
         // if the workgroup finds a succesfull correlation with fast pass, it will have to calculate it
         // with the slow pass aswell for that same x,y pos. But if we had low fast segment count
@@ -246,7 +247,7 @@ impl KernelStorage {
             .arg(&gpu_memory_pointers.buffer_image_integral_squared)
             .arg(&gpu_memory_pointers.segments_fast_buffer)
             .arg(&gpu_memory_pointers.segment_fast_values_buffer)
-            .arg(&fast_segment_count)
+            .arg(&(fast_segment_count as i32))
             .arg(&(segments_mean_fast as f32))
             .arg(&(segment_sum_squared_deviation_fast as f32))
             .arg(&gpu_memory_pointers.buffer_results_fast_v2) ///////////////////////CHANGE THIS TO ONE FROM GPUMEMPOINTERS STRUCT
@@ -256,9 +257,9 @@ impl KernelStorage {
             .arg(&(template_height as i32))
             .arg(&(fast_expected_corr as f32))
             .arg(&remainder_segments_fast)
-            .arg(&segments_processed_by_thread_fast)
-            .arg(&pixels_processed_by_workgroup)
-            .arg(&max_workgroup_size)
+            .arg(&(segments_processed_by_thread_fast as i32))
+            .arg(&(pixels_processed_by_workgroup as i32))
+            .arg(&(max_workgroup_size as i32))
             .arg_local::<u64>(pixels_processed_by_workgroup) // sum_template_region_buff
             .arg_local::<u64>(pixels_processed_by_workgroup) // sum_sq_template_region_buff
             .arg_local::<u64>(max_workgroup_size) // thread_segment_sum_buff
@@ -658,6 +659,7 @@ impl RustAutoGui {
                     f32,
                     f32,
                     f32,
+                    bool,
                 ) = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
                     &template,
                     &self.debug,
@@ -702,13 +704,14 @@ impl RustAutoGui {
                     match alias {
                         Some(name) => {
                             self.ocl_buffer_storage.insert(name.into(), ocl_buffer_data);
-                            
+
                             self.ocl_kernel_storage.insert(name.into(), kernels);
                         }
                         None => {
                             self.ocl_buffer_storage
                                 .insert(DEFAULT_ALIAS.into(), ocl_buffer_data);
-                            self.ocl_kernel_storage.insert(DEFAULT_ALIAS.into(), kernels);
+                            self.ocl_kernel_storage
+                                .insert(DEFAULT_ALIAS.into(), kernels);
                         }
                     }
                 }
@@ -1226,7 +1229,8 @@ impl RustAutoGui {
                             found_locations = normalized_x_corr::open_cl::gui_opencl_ncc_template_match(
                                 &self.ocl_queue,
                                 &self.ocl_program,
-                                &self.ocl_kernel_storage[&self.alias_used].v1_kernel,
+                                self.ocl_workgroup_size,
+                                &self.ocl_kernel_storage[&self.alias_used],
                                 pointers,
                                 precision,
                                 &image,

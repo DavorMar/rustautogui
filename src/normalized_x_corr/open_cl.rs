@@ -1,5 +1,5 @@
-use crate::imgtools;
 use crate::normalized_x_corr::{compute_integral_images, sum_region};
+use crate::{imgtools, KernelStorage};
 use image::{ImageBuffer, Luma};
 use ocl::{Buffer, Context, Kernel, Program, Queue};
 use std::time;
@@ -518,7 +518,8 @@ impl GpuMemoryPointers {
 pub fn gui_opencl_ncc_template_match(
     queue: &Queue,
     program: &Program,
-    kernel: &Kernel,
+    max_workgroup_size: u32,
+    kernel_storage: &KernelStorage,
     gpu_memory_pointers: &GpuMemoryPointers,
     precision: f32,
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
@@ -532,9 +533,11 @@ pub fn gui_opencl_ncc_template_match(
         f32,                            // fast expected corr
         f32,                            // slow expected corr
         f32,                            // fast mean
-        f32,                            // slow mean
+        f32,
+        bool, // slow mean
     ),
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
+    
     let (image_width, image_height) = image.dimensions();
 
     let (image_integral, squared_image_integral) = compute_integral_images_ocl(&image);
@@ -550,33 +553,34 @@ pub fn gui_opencl_ncc_template_match(
         slow_expected_corr,
         segments_mean_fast,
         segments_mean_slow,
+        used_threshold,
     ) = template_data;
-    let min_expected_corr = precision * *fast_expected_corr - 0.01;
     let slow_expected_corr = precision * *slow_expected_corr - 0.001;
-    let fast_segment_count = template_segments_fast.len();
-    let slow_segment_count = template_segments_slow.len();
+    let mut gpu_results: Vec<(u32,u32,f32)> = Vec::new();
+    match used_threshold {
+        false => {
+            let kernel = &kernel_storage.v1_kernel;
+            gpu_results = gui_opencl_ncc(
+                kernel,
+                &image_integral,
+                &squared_image_integral,
+                image_width,
+                image_height,
+                *template_width,
+                *template_height,
+                gpu_memory_pointers,
+        
+            )?;
+            gpu_results.retain(|&(_, _, value)| value >= slow_expected_corr);
+            gpu_results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
 
-    let mut gpu_results = gui_opencl_ncc(
-        kernel,
-        &image_integral,
-        &squared_image_integral,
-        image_width,
-        image_height,
-        *template_width,
-        *template_height,
-        *fast_segments_sum_squared_deviations,
-        *slow_segments_sum_squared_deviations,
-        *segments_mean_fast,
-        *segments_mean_slow,
-        min_expected_corr,
-        queue,
-        program,
-        gpu_memory_pointers,
-        fast_segment_count as i32,
-        slow_segment_count as i32,
-    )?;
-    gpu_results.retain(|&(_, _, value)| value >= slow_expected_corr);
-    gpu_results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+        },
+        true => {
+            let kernel = &kernel_storage.v2_kernel_fast;
+        }        
+    }
+
+ 
     Ok(gpu_results)
 }
 
@@ -588,16 +592,8 @@ pub fn gui_opencl_ncc(
     image_height: u32,
     template_width: u32,
     template_height: u32,
-    segments_sum_squared_deviation_fast: f32,
-    segments_sum_squared_deviation_slow: f32,
-    segments_mean_fast: f32,
-    segments_mean_slow: f32,
-    fast_expected_corr: f32,
-    queue: &Queue,
-    program: &Program,
     gpu_memory_pointers: &GpuMemoryPointers,
-    fast_segment_count: i32,
-    slow_segment_count: i32,
+
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
     let result_width = (image_width - template_width + 1) as usize;
     let result_height = (image_height - template_height + 1) as usize;
@@ -610,31 +606,6 @@ pub fn gui_opencl_ncc(
         .buffer_image_integral_squared
         .write(squared_image_integral)
         .enq()?;
-    // let kernel = Kernel::builder()
-    //     .program(&program)
-    //     .name("segmented_match_integral")
-    //     .queue(queue.clone())
-    //     .global_work_size(output_size)
-    //     .arg(&gpu_memory_pointers.buffer_image_integral)
-    //     .arg(&gpu_memory_pointers.buffer_image_integral_squared)
-    //     .arg(&gpu_memory_pointers.segments_fast_buffer)
-    //     .arg(&gpu_memory_pointers.segments_slow_buffer)
-    //     .arg(&gpu_memory_pointers.segment_fast_values_buffer)
-    //     .arg(&gpu_memory_pointers.segment_slow_values_buffer)
-    //     .arg(&fast_segment_count)
-    //     .arg(&slow_segment_count)
-    //     .arg(&(segments_mean_fast as f32))
-    //     .arg(&(segments_mean_slow as f32))
-    //     .arg(&(segments_sum_squared_deviation_fast as f32))
-    //     .arg(&(segments_sum_squared_deviation_slow as f32))
-    //     .arg(&gpu_memory_pointers.results_buffer)
-    //     .arg(&(image_width as i32))
-    //     .arg(&(image_height as i32))
-    //     .arg(&(template_width as i32))
-    //     .arg(&(template_height as i32))
-    //     .arg(&(fast_expected_corr as f32))
-    //     .build()?;
-
     unsafe {
         kernel.enq()?;
     }
