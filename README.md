@@ -18,7 +18,42 @@ Main functions:
 - detect cursor position
 - and more
 
+## Table of contents
 
+- [RustAutoGUI](#rustautogui)
+  - [Table of contents](#table-of-contents)
+  - [Achievable speed](#achievable-speed)
+    - [Why not OpenCV?](#why-not-opencv)
+    - [Segmented template matching algorithm](#segmented-template-matching-algorithm)
+  - [Installation](#installation)
+- [Usage:](#usage)
+    - [Import and Initialize RustAutoGui](#import-and-initialize-rustautogui)
+  - [Finding image on screen](#finding-image-on-screen)
+    - [Loading single image into memory](#loading-single-image-into-memory)
+    - [Segmented vs FFT matching](#segmented-vs-fft-matching)
+    - [Loading multiple images into memory](#loading-multiple-images-into-memory)
+    - [Single loaded template search](#single-loaded-template-search)
+    - [Multiple stored templates search](#multiple-stored-templates-search)
+    - [MacOS retina display issues:](#macos-retina-display-issues)
+  - [General Functions](#general-functions)
+  - [Mouse Functions](#mouse-functions)
+    - [Mouse Clicks](#mouse-clicks)
+    - [Mouse Scrolls](#mouse-scrolls)
+    - [Mouse Movements](#mouse-movements)
+    - [Mouse Drags](#mouse-drags)
+  - [Keyboard Functions](#keyboard-functions)
+  - [Warnings Options](#warnings-options)
+- [OpenCL](#opencl)
+  - [OpenCL Installation](#opencl-installation)
+    - [Linux](#linux)
+    - [Windows](#windows)
+    - [MacOS](#macos)
+  - [Please read before using OpenCL ⚠️⚠️](#please-read-before-using-opencl-️️)
+  - [OpenCL V2 variant](#opencl-v2-variant)
+- [Other Info](#other-info)
+  - [How does crate work](#how-does-crate-work)
+  - [Major changes](#major-changes)
+  - [Additional notes](#additional-notes)
 
 
 ## Achievable speed
@@ -83,7 +118,9 @@ use rustautogui;
 let mut rustautogui = rustautogui::RustAutoGui::new(false); // arg: debug
 ```
 
-## Loading single image into memory
+## Finding image on screen
+
+### Loading single image into memory
 
 From file, same as load_and_prepare_template which will be deprecated
 ```rust
@@ -112,7 +149,7 @@ rustautogui.prepare_template_from_raw_encoded( // returns Result<(), String>
 ```
 
 
-## Segmented vs FFT matching
+### Segmented vs FFT matching
 
 This info does not include OpenCL in comparison. More info about it below. 
 
@@ -132,7 +169,7 @@ pub enum MatchMode {
 ```
 
 
-## Loading multiple images into memory
+### Loading multiple images into memory
 
 Functions  work the same as single image loads, with additional parameter of alias for the image.
 
@@ -166,7 +203,7 @@ rustautogui.store_template_from_raw_encoded( // returns Result<(), String>
 ```
 
 
-## Single loaded template search
+### Single loaded template search
 
 Find image and get pixel coordinates
 ```rust
@@ -196,7 +233,7 @@ rustautogui
         .unwrap();
 ```
 
-## Multiple stored templates search
+### Multiple stored templates search
 
 Again, functions are the same, just having alias argument
 
@@ -233,7 +270,9 @@ of pixels, where it then fails to match template since screen provided by OS api
 and also resized by half. The template search first searches for resized template, and if it fails then it tries with original. For that reason, users on macOS will experience slower search times than users on other operating systems.
 
 
-## General functions
+
+
+## General Functions
 Debug mode prints out number of segments in segmented picture, times taken for algorithm run and it saves segmented images. It also creates debug folder in code root, where the images are saved.
 
 Warnings give useful information which shouldn't pop up frequently
@@ -244,7 +283,7 @@ rustautogui.set_suppress_warning(true); // turn off warnings
 rustautogui.save_screenshot("test.png").unwrap(); //saves screen screenshot
 ```
 
-## Mouse functions
+## Mouse Functions
 
 MouseClick enum used in some functions
 ```rust
@@ -259,6 +298,7 @@ Get current mouse position
 rustautogui.get_mouse_position().unwrap(); // returns (x,y) coordinate of mouse
 
 ```
+### Mouse Clicks
 Mouse clicks functions. Mouse up and down work only on Windows / Linux.
 ```rust
 rustautogui.click(MouseClick::LEFT).unwrap(); // args: button,  choose  click button MouseClick::{LEFT, RIGHT, MIDDLE}
@@ -272,15 +312,17 @@ rustautogui.mouse_down(MouseClick::RIGHT).unwrap(); // args: button, click butto
 rustautogui.mouse_up(MouseClick::RIGHT).unwrap(); // args: button,  click button up MouseClick::{LEFT, RIGHT, MIDDLE}
 
 ```
+### Mouse Scrolls
 
-Mouse scrolls functions
 ```rust
 rustautogui.scroll_up().unwrap();
 rustautogui.scroll_down().unwrap();
 rustautogui.scroll_left().unwrap();
 rustautogui.scroll_right().unwrap();
 ```
-Mouse movements functions
+
+### Mouse Movements
+
 ```rust
 rustautogui.move_mouse_to_pos(1920, 1080, 1.0).unwrap(); // args: x, y, moving_time. Moves mouse to position for certain time
 rustautogui.move_mouse_to(Some(500), None, 1.0).unwrap(); // args: x, y, moving_time. Moves mouse to position, but acceps Option
@@ -288,7 +330,9 @@ rustautogui.move_mouse_to(Some(500), None, 1.0).unwrap(); // args: x, y, moving_
 rustautogui.move_mouse(-50, 120, 1.0).unwrap(); //  args: x, y, moving_time. Moves mouse relative to its current position. 
 //                                                                            -x left, +x right, -y up, +y down. 0 maintain position
 ```
-Mouse drag functions. 
+
+### Mouse Drags
+ 
 
 For all mouse drag commands, use moving time > 0.2, or even higher, depending on distance. Especially important for macOS
 
@@ -312,7 +356,8 @@ fn main() {
 }
 ```
 
-## Keyboard functions
+## Keyboard Functions
+
 Currently, only US keyboard is implemented. If you have different layout active, lots of characters will not work correctly
 ```rust
 rustautogui.keyboard_input("test!@#24").unwrap(); // input string, or better say, do the sequence of key presses
@@ -331,7 +376,7 @@ find some keyboard commands missing that you need, please open an issue in order
 
 
 
-## Warnings options:
+## Warnings Options
 
 Rustautogui may display some warnings. In case you want to turn them off, either run:\
 Windows powershell:
@@ -356,16 +401,16 @@ let mut rustautogui = RustAutoGui::new(false).unwrap();
 rustautogui.set_suppress_warnings(true);
 ```
 
-## OpenCL 
+# OpenCL 
 
 To enable OpenCL, as mentioned above, add crate to your Cargo.toml with opencl feature enabled: 
 
 `rustautogui = { version = "2.5.0", features = ["opencl"] }`
 
-Additionally install:
+## OpenCL Installation
 
-**On linux**:
----
+### Linux
+
 1) Install OpenCL ICD:
 
    `sudo apt install ocl-icd-opencl-dev`
@@ -392,27 +437,27 @@ Run clinfo, if no GPU detected, continue. Otherwise you're finished.
    `sudo apt install intel-opencl-icd`
 
 
-For **Windows** install drivers for your graphics card.
+### Windows
+- install drivers for your graphics card.
 
-**MacOS** should be immediately ready.
+### MacOS
+- should be immediately ready.
 
 
-### Please read before using
-----
+## Please read before using OpenCL ⚠️⚠️
 
-**OpenCL works only on Segmented match mode**. Running FFT matchmode will back to CPU. 
 
-- OpenCL works only in Segmented Match mode. Using FFT Match will fall back to CPU processing.
+- **OpenCL works only on Segmented match mode**. Running FFT matchmode will back to CPU. 
 
 - The OpenCL implementation includes automatic detection of (sub)optimal segmentation levels.
 
    - "Suboptimal" here means it may slightly reduce performance on some images but can drastically improve it on others.
 
-- This auto-detection is more effective on GPU than CPU, so it’s only used in GPU mode.
+- This auto-detection is more effective on GPU than CPU, so it’s only used in GPU mode. The slight reduction is barely noticable on GPU. 
 
-⚠️Note: OpenCL performance highly depends on your GPU. On low-end or integrated GPUs, it may perform worse than CPU processing.
+⚠️ Note: OpenCL performance highly depends on your GPU. On low-end or integrated GPUs, it may perform worse than CPU processing.
 
-When the opencl feature is enabled, the Rustautogui struct defaults to ocl_state = true. Template images will be stored in GPU memory during preparation. You can change this state manually at any time using the change_ocl_state function.
+When the opencl feature is enabled, the RustAutoGUI struct defaults to ocl_state = true. Template images will be stored in GPU memory during preparation. You can change this state manually at any time using the change_ocl_state function.
 
 ⚠️ Important: Preparing an image with ocl_state = false (CPU mode) and then searching with ocl_state = true (GPU mode) will cause errors. Ensure consistency.
 
@@ -422,11 +467,11 @@ gui.change_ocl_state = false;
 ```
 
 
-### OpenCL V2 variant
+## OpenCL V2 variant
 ----
 - more omptimised
 - more sucsceptible to the types of images searched for
-- has an open parameter which should be tweaked by user, unlike V1 which has auto tweaking and is less succeptible to changes 
+- has an open parameter which should be tweaked by user, unlike V1 which has auto tweaking and detection of segmentation levels, and is less succeptible to changes 
 
 
 *the algorithm does two correlation checks. First with roughly segmented image, with small number of segments, then on second finer segmented image, with higher precision and more segments. Positions found by rough image, which runs very fast, are checked with finer image. Sometimes, rough image is segmented by too small factor and leads to many false positives, which slows down algorithm due to too many checks on finer image*
@@ -434,15 +479,16 @@ gui.change_ocl_state = false;
 
 
 
+# Other Info
 
-## How does crate work:
+## How does crate work
 
 - On Windows, RustAutoGUI interacts with winapi
 - on Linux, it uses x11, and Wayland is not supported
 - on macOS, it uses core-graphics crate
 
 
-## Major changes:
+## Major changes
 For more details, check CHANGELOG.md
 
 - 1.0.0 - introduces segmented match mode
