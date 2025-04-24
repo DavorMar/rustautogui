@@ -59,8 +59,10 @@ __kernel void segmented_match_integral(
     const int image_height,
     const int template_width,
     const int template_height,
-    const float min_expected_corr
+    const float min_expected_corr,
+    __global float* precision_buff
 ) {
+    float precision = precision_buff[0];
     int idx = get_global_id(0);
     int result_width = image_width - template_width + 1;
     int result_height = image_height - template_height + 1;
@@ -97,7 +99,7 @@ __kernel void segmented_match_integral(
 
 
 
-    if (corr < min_expected_corr) {
+    if (corr < (min_expected_corr - 0.001)* precision) {
         results[idx] = corr;
         return;
     } else {
@@ -139,7 +141,8 @@ __kernel void v2_segmented_match_integral_fast_pass(
     __local ulong* sum_template_region_buff,
     __local ulong* sum_sq_template_region_buff,
     __local float* thread_segment_sum_buff,
-    __global int* valid_corr_count
+    __global int* valid_corr_count,
+    __global float* precision_buff
 ) {
     int global_id = get_global_id(0);
     int local_id = get_local_id(0);
@@ -233,13 +236,13 @@ __kernel void v2_segmented_match_integral_fast_pass(
         int image_x = pixel_pos_final % result_w;
         int image_y = pixel_pos_final / result_w;
 
-
+        float precision = precision_buff[0];
         ulong patch_sq_sum_extracted = sum_sq_template_region_buff[local_id];
         float var_img = (float)patch_sq_sum_extracted - ((float)patch_sum * (float)patch_sum)/ (float)area;
         float denominator = sqrt(var_img * (float)template_sq_dev);
         float corr = (denominator != 0.0f) ? (nominator_sum / denominator) : -1.0f;        
         
-        if (corr >= min_expected_corr - 0.005 && corr < 2) {
+        if (corr >= (min_expected_corr - 0.001) * precision && corr < 2) {
         
             int index = atomic_add(valid_corr_count, 1);
             results[index] = (int2)(image_x, image_y);
@@ -273,7 +276,8 @@ __kernel void v2_segmented_match_integral_slow_pass (
     __local float* thread_segment_sum_buff,
     __global int* valid_corr_count,
     __global int* valid_corr_count_fast,
-    __global int2* fast_pass_results
+    __global int2* fast_pass_results,
+    __global float* precision_buff
 ) {
 
     int global_id = get_global_id(0);
@@ -362,8 +366,8 @@ __kernel void v2_segmented_match_integral_slow_pass (
         float var_img = (float)patch_sq_sum_extracted - ((float)patch_sum * (float)patch_sum)/ (float)area;
         float denominator = sqrt(var_img * (float)template_sq_dev);
         float corr = (denominator != 0.0f) ? (nominator_sum / denominator) : -1.0f;        
-
-        if (corr >= min_expected_corr  && corr < 2) {
+        float precision = precision_buff[0];
+        if (corr >= (min_expected_corr - 0.001) * precision  && corr < 2) {
             int index = atomic_add(valid_corr_count, 1);
             position_results[index] = (int2)(image_x, image_y);
             corr_results[index] = corr;

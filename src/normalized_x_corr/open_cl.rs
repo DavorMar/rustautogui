@@ -22,6 +22,7 @@ pub struct GpuMemoryPointers {
     pub buffer_results_slow_corrs_v2: Buffer<f32>,
     pub buffer_valid_corr_count_fast: Buffer<i32>,
     pub buffer_valid_corr_count_slow: Buffer<i32>,
+    pub buffer_precision: Buffer<f32>,
 }
 impl GpuMemoryPointers {
     pub fn new(
@@ -124,6 +125,13 @@ impl GpuMemoryPointers {
             .fill_val(0i32) // Init to 0
             .build()?;
 
+        let precision_buff: Buffer<f32> = Buffer::builder()
+            .queue(queue.clone())
+            .flags(ocl::flags::MEM_READ_WRITE)
+            .len(1)
+            .fill_val(0.99) // Init to 0
+            .build()?;
+
         Ok(Self {
             segments_fast_buffer: buffer_segments_fast,
             segments_slow_buffer: buffer_segments_slow,
@@ -137,6 +145,7 @@ impl GpuMemoryPointers {
             buffer_results_slow_corrs_v2: buffer_results_slow_corrs,
             buffer_valid_corr_count_fast: valid_corr_count_buf_fast,
             buffer_valid_corr_count_slow: valid_corr_count_buf_slow,
+            buffer_precision: precision_buff,
         })
     }
 }
@@ -180,7 +189,7 @@ pub fn gui_opencl_ncc_template_match(
         segments_mean_slow,
         used_threshold,
     ) = template_data;
-    let slow_expected_corr = precision * (*slow_expected_corr - 0.01);
+    let slow_expected_corr = precision * (*slow_expected_corr - 0.001);
     let mut gpu_results: Vec<(u32, u32, f32)> = Vec::new();
     match used_threshold {
         false => {
@@ -194,6 +203,7 @@ pub fn gui_opencl_ncc_template_match(
                 *template_width,
                 *template_height,
                 gpu_memory_pointers,
+                precision,
             )?;
             gpu_results.retain(|&(_, _, value)| value >= slow_expected_corr);
             gpu_results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
@@ -221,6 +231,7 @@ pub fn gui_opencl_ncc_template_match(
                 remainder_segments_slow,
                 segments_processed_by_thread_slow,
                 max_workgroup_size as i32,
+                precision,
             )?;
         }
     }
@@ -237,6 +248,7 @@ pub fn gui_opencl_ncc(
     template_width: u32,
     template_height: u32,
     gpu_memory_pointers: &GpuMemoryPointers,
+    precision: f32,
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
     let result_width = (image_width - template_width + 1) as usize;
     let result_height = (image_height - template_height + 1) as usize;
@@ -249,6 +261,12 @@ pub fn gui_opencl_ncc(
         .buffer_image_integral_squared
         .write(squared_image_integral)
         .enq()?;
+
+    gpu_memory_pointers
+        .buffer_precision
+        .write(&vec![precision])
+        .enq()?;
+
     unsafe {
         kernel.enq()?;
     }

@@ -34,6 +34,7 @@ pub fn gui_opencl_ncc_v2(
     remainder_segments_slow: i32,
     segments_processed_by_thread_slow: i32,
     workgroup_size: i32,
+    precision: f32,
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
     println!("Using V2 !!");
     gpu_memory_pointers
@@ -43,6 +44,10 @@ pub fn gui_opencl_ncc_v2(
     gpu_memory_pointers
         .buffer_image_integral_squared
         .write(squared_image_integral)
+        .enq()?;
+    gpu_memory_pointers
+        .buffer_precision
+        .write(&vec![precision])
         .enq()?;
 
     unsafe {
@@ -102,6 +107,7 @@ pub fn gui_opencl_ncc_v2(
         .arg(&gpu_memory_pointers.buffer_valid_corr_count_slow)
         .arg(&gpu_memory_pointers.buffer_valid_corr_count_fast) // <-- atomic int
         .arg(&gpu_memory_pointers.buffer_results_fast_v2)
+        .arg(&gpu_memory_pointers.buffer_precision)
         .build()?;
     unsafe {
         v2_kernel_slow_pass.enq()?;

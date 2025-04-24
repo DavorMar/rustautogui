@@ -207,6 +207,7 @@ impl KernelStorage {
             .arg(&(template_width as i32))
             .arg(&(template_height as i32))
             .arg(&(fast_expected_corr as f32 - 0.01))
+            .arg(&gpu_memory_pointers.buffer_precision)
             .build()?;
 
         let mut remainder_segments_fast = 0;
@@ -262,6 +263,7 @@ impl KernelStorage {
             .arg_local::<u64>(pixels_processed_by_workgroup) // sum_sq_template_region_buff
             .arg_local::<u64>(max_workgroup_size) // thread_segment_sum_buff
             .arg(&gpu_memory_pointers.buffer_valid_corr_count_fast) // <-- atomic int
+            .arg(&gpu_memory_pointers.buffer_precision)
             .build()?;
 
         Ok(Self {
