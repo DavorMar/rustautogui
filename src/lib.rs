@@ -1,18 +1,24 @@
 #![allow(unused_doc_comments, unused_imports)]
 #![doc = include_str!("../README.md")]
 
+#[cfg(all(feature = "lite", feature = "opencl"))]
+compile_error!("Features `lite` and `opencl` cannot be enabled at the same time.");
+
+
 pub mod data_structs;
 pub mod errors;
 pub mod imgtools;
 mod keyboard;
 mod mouse;
+#[cfg(not(feature = "lite"))]
 pub mod normalized_x_corr;
 mod screen;
-use ocl::Error as OclError;
+
 
 
 
 mod imports {
+    #[cfg(not(feature = "lite"))]
     pub use crate::data_structs::{BackupData, PreparedData2};
     #[cfg(feature = "opencl")]
     pub use crate::data_structs::{DevicesInfo, GpuMemoryPointers, KernelStorage};
@@ -24,6 +30,7 @@ mod imports {
     pub use crate::{keyboard::macos::Keyboard, mouse::macos::Mouse, screen::macos::Screen};
     #[cfg(target_os = "windows")]
     pub use crate::{keyboard::windows::Keyboard, mouse::windows::Mouse, screen::windows::Screen};
+    #[cfg(not(feature = "lite"))]
     pub use image::{
         imageops::{resize, FilterType::Nearest},
         DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba,
@@ -32,6 +39,7 @@ mod imports {
     pub use ocl;
     #[cfg(feature = "opencl")]
     pub use ocl::{Buffer, Context, Kernel, Program, Queue};
+    #[cfg(not(feature = "lite"))]
     pub use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
     pub use std::{collections::HashMap, env, fmt, fs, path::Path, str::FromStr};
 }
@@ -39,7 +47,9 @@ mod imports {
 use std::fmt::{self, Formatter};
 
 use crate::errors::*;
+#[cfg(not(feature = "lite"))]
 use data_structs::SegmentedData;
+#[cfg(not(feature = "lite"))]
 use imports::PreparedData2;
 pub use mouse::mouse_position::print_mouse_position;
 pub use mouse::MouseClick;
@@ -50,6 +60,7 @@ const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
 #[derive(Debug)]
 /// Matchmode Segmented correlation and Fourier transform correlation
 #[derive(PartialEq)]
+#[cfg(not(feature = "lite"))]
 pub enum MatchMode {
     Segmented,
     FFT,
@@ -58,6 +69,7 @@ pub enum MatchMode {
     #[cfg(feature = "opencl")]
     SegmentedOclV2,
 }
+#[cfg(not(feature = "lite"))]
 impl Clone for MatchMode {
     fn clone(&self) -> Self {
         match self {
@@ -78,8 +90,11 @@ impl Clone for MatchMode {
 #[allow(dead_code)]
 pub struct RustAutoGui {
     // most of the fields are set up in load_and_prepare_template method
+    #[cfg(not(feature = "lite"))]
     template: Option<imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>>,
+    #[cfg(not(feature = "lite"))]
     prepared_data: imports::PreparedData2, // used direct load and search
+    #[cfg(not(feature = "lite"))]
     prepared_data_stored:
         imports::HashMap<String, (imports::PreparedData2, (u32, u32, u32, u32), MatchMode)>, //prepared data, region, matchmode
     debug: bool,
@@ -88,10 +103,14 @@ pub struct RustAutoGui {
     keyboard: imports::Keyboard,
     mouse: imports::Mouse,
     screen: imports::Screen,
+    #[cfg(not(feature = "lite"))]
     match_mode: Option<MatchMode>,
+    #[cfg(not(feature = "lite"))]
     region: (u32, u32, u32, u32),
     suppress_warnings: bool,
+    #[cfg(not(feature = "lite"))]
     alias_used: String,
+    #[cfg(not(feature = "lite"))]
     ocl_active: bool,
     #[cfg(feature = "opencl")]
     device_list: Vec<imports::DevicesInfo>,
@@ -132,8 +151,11 @@ impl RustAutoGui {
         let ocl_active = false;
 
         Ok(Self {
+            #[cfg(not(feature = "lite"))]
             template: None,
+            #[cfg(not(feature = "lite"))]
             prepared_data: imports::PreparedData2::None,
+            #[cfg(not(feature = "lite"))]
             prepared_data_stored: imports::HashMap::new(),
             debug: debug,
             template_width: 0,
@@ -141,10 +163,14 @@ impl RustAutoGui {
             keyboard: keyboard,
             mouse: mouse_struct,
             screen: screen,
+            #[cfg(not(feature = "lite"))]
             match_mode: None,
+            #[cfg(not(feature = "lite"))]
             region: (0, 0, 0, 0),
             suppress_warnings: suppress_warnings,
+            #[cfg(not(feature = "lite"))]
             alias_used: DEFAULT_ALIAS.to_string(),
+            #[cfg(not(feature = "lite"))]
             ocl_active: ocl_active,
             #[cfg(feature = "opencl")]
             device_list: device_list,
@@ -188,8 +214,11 @@ impl RustAutoGui {
         let ocl_active = false;
 
         Ok(Self {
+            #[cfg(not(feature = "lite"))]
             template: None,
-            prepared_data: PreparedData::None,
+            #[cfg(not(feature = "lite"))]
+            prepared_data: imports::PreparedData2::None,
+            #[cfg(not(feature = "lite"))]
             prepared_data_stored: imports::HashMap::new(),
             debug: debug,
             template_width: 0,
@@ -197,7 +226,9 @@ impl RustAutoGui {
             keyboard: keyboard,
             mouse: mouse_struct,
             screen: screen,
+            #[cfg(not(feature = "lite"))]
             match_mode: None,
+            #[cfg(not(feature = "lite"))]
             region: (0, 0, 0, 0),
             suppress_warnings: suppress_warnings,
             alias_used: DEFAULT_ALIAS.to_string(),
@@ -319,7 +350,7 @@ impl RustAutoGui {
     pub fn change_debug_state(&mut self, state: bool) {
         self.debug = state;
     }
-
+    #[cfg(not(feature = "lite"))]
     pub fn change_ocl_state(&mut self, state: bool) {
         self.ocl_active = state;
     }
@@ -351,10 +382,20 @@ impl RustAutoGui {
         self.ocl_buffer_storage = imports::HashMap::new();
         self.ocl_kernel_storage = imports::HashMap::new();
         self.ocl_workgroup_size = workgroup_size;
+
+        self.template= None;
+        self.prepared_data= imports::PreparedData2::None;
+        self.prepared_data_stored= imports::HashMap::new();
+        self.template_width= 0;
+        self.template_height= 0;
+        self.alias_used = DEFAULT_ALIAS.to_string();
+        self.region = (0, 0, 0, 0);
+        self.match_mode = None;
+
         Ok(())
     }
 
-
+    
     /// checks if region selected out of screen bounds, if template size > screen size (redundant)
     /// and if template size > region size
     fn check_if_region_out_of_bound(
@@ -398,7 +439,7 @@ impl RustAutoGui {
     }
 
     ///////////////////////// prepare single template functions //////////////////////////
-
+    #[cfg(not(feature = "lite"))]
     /// main prepare template picture which takes ImageBuffer Luma u8. all the other variants
     /// of prepare/store funtions call this function
     #[allow(unused_mut)]
@@ -649,7 +690,7 @@ impl RustAutoGui {
 
         Ok(())
     }
-
+    #[cfg(not(feature = "lite"))]
     /// Loads template from file on provided path
     pub fn prepare_template_from_file(
         &mut self,
@@ -661,7 +702,7 @@ impl RustAutoGui {
             imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, None, None)
     }
-
+    #[cfg(not(feature = "lite"))]
     /// prepare from imagebuffer, works only on types RGB/RGBA/Luma
     pub fn prepare_template_from_imagebuffer<P, T>(
         &mut self,
@@ -678,7 +719,7 @@ impl RustAutoGui {
         self.prepare_template_picture_bw(luma_img, region, match_mode, None, None)?;
         Ok(())
     }
-
+    #[cfg(not(feature = "lite"))]
     /// Only works on encoded images. uses image::load_from_memory() which reads first bytes of image which contain metadata depending on format.
     pub fn prepare_template_from_raw_encoded(
         &mut self,
@@ -691,7 +732,7 @@ impl RustAutoGui {
     }
 
     ///////////////////////// store single template functions //////////////////////////
-
+    #[cfg(not(feature = "lite"))]
     /// Store template data for multiple image search
     pub fn store_template_from_file(
         &mut self,
@@ -705,7 +746,7 @@ impl RustAutoGui {
             imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, Some(alias), None)
     }
-
+    #[cfg(not(feature = "lite"))]
     /// Load template from imagebuffer and store prepared template data for multiple image search
     pub fn store_template_from_imagebuffer<P, T>(
         &mut self,
@@ -723,7 +764,7 @@ impl RustAutoGui {
         let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, color_scheme)?;
         self.prepare_template_picture_bw(luma_img, region, match_mode, Some(alias), None)
     }
-
+    #[cfg(not(feature = "lite"))]
     /// Load template from encoded raw bytes and store prepared template data for multiple image search
     pub fn store_template_from_raw_encoded(
         &mut self,
@@ -741,6 +782,7 @@ impl RustAutoGui {
     /// Searches for prepared template on screen.
     /// On windows only main monitor search is supported, while on linux, all monitors work.
     /// more details in README
+    #[cfg(not(feature = "lite"))]
     #[allow(unused_variables)]
     pub fn find_image_on_screen(
         &mut self,
@@ -796,6 +838,7 @@ impl RustAutoGui {
     // and if not found , then second for normal sized template
     // since the function recursively calls find_stored_image_on_screen -> run_macos_xcorr_with_backup
     // covers are made to not run it for backup aswell
+    #[cfg(not(feature = "lite"))]
     #[cfg(target_os = "macos")]
     fn run_macos_xcorr_with_backup(
         &mut self,
@@ -825,7 +868,7 @@ impl RustAutoGui {
         }
         first_match
     }
-
+    #[cfg(not(feature = "lite"))]
     /// loops until image is found and returns found values, or until it times out
     pub fn loop_find_image_on_screen(
         &mut self,
@@ -852,7 +895,7 @@ impl RustAutoGui {
             }
         }
     }
-
+    #[cfg(not(feature = "lite"))]
     /// find image stored under provided alias
     pub fn find_stored_image_on_screen(
         &mut self,
@@ -899,6 +942,8 @@ impl RustAutoGui {
         Ok(points)
     }
 
+
+    #[cfg(not(feature = "lite"))]
     /// loops until stored image is found and returns found values, or until it times out
     pub fn loop_find_stored_image_on_screen(
         &mut self,
@@ -925,7 +970,7 @@ impl RustAutoGui {
             }
         }
     }
-
+    #[cfg(not(feature = "lite"))]
     /// searches for image stored under provided alias and moves mouse to position
     pub fn find_stored_image_on_screen_and_move_mouse(
         &mut self,
@@ -972,7 +1017,7 @@ impl RustAutoGui {
 
         found_points
     }
-
+    #[cfg(not(feature = "lite"))]
     /// loops until stored image is found and moves mouse
     pub fn loop_find_stored_image_on_screen_and_move_mouse(
         &mut self,
@@ -1001,7 +1046,7 @@ impl RustAutoGui {
             }
         }
     }
-
+    #[cfg(not(feature = "lite"))]
     /// executes find_image_on_screen and moves mouse to the middle of the image.
     pub fn find_image_on_screen_and_move_mouse(
         &mut self,
@@ -1023,7 +1068,7 @@ impl RustAutoGui {
 
         return Ok(Some(locations));
     }
-
+    #[cfg(not(feature = "lite"))]
     /// loops until image is found and returns found values, or until it times out
     pub fn loop_find_image_on_screen_and_move_mouse(
         &mut self,
@@ -1051,6 +1096,7 @@ impl RustAutoGui {
         }
     }
 
+    #[cfg(not(feature = "lite"))]
     fn run_x_corr(
         &mut self,
         image: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>,
@@ -1527,7 +1573,7 @@ impl RustAutoGui {
     pub fn key_up(&self, key: &str) -> Result<(), AutoGuiError> {
         self.keyboard.key_up(key)
     }
-
+    #[cfg(not(feature = "lite"))]
     /// DEPRECATED
     #[deprecated(since = "2.2.0", note = "Renamed to prepare_template_from_file.")]
     pub fn load_and_prepare_template(

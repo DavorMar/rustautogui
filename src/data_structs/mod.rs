@@ -1,10 +1,14 @@
 #[cfg(feature = "opencl")]
 pub mod opencl;
-use crate::{MatchMode, RustAutoGui};
+#[cfg(not(feature = "lite"))]
+use crate::MatchMode;
+use crate::RustAutoGui;
 #[cfg(feature = "opencl")]
 pub use opencl::*;
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
 
+
+#[cfg(not(feature = "lite"))]
 pub struct BackupData {
     pub starting_data: PreparedData2,
     pub starting_region: (u32, u32, u32, u32),
@@ -13,6 +17,7 @@ pub struct BackupData {
     pub starting_template_width: u32,
     pub starting_alias_used: String,
 }
+#[cfg(not(feature = "lite"))]
 impl BackupData {
     pub fn update_rustautogui(self, target: &mut RustAutoGui) {
         target.prepared_data = self.starting_data.clone();
