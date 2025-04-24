@@ -10,7 +10,7 @@ pub mod normalized_x_corr;
 mod screen;
 
 mod imports {
-    pub use crate::data_structs::BackupData;
+    pub use crate::data_structs::{BackupData, PreparedData2};
     #[cfg(feature = "opencl")]
     pub use crate::data_structs::{DevicesInfo, GpuMemoryPointers, KernelStorage};
     #[cfg(feature = "opencl")]
@@ -36,51 +36,13 @@ mod imports {
 use std::fmt::{self, Formatter};
 
 use crate::errors::*;
+use data_structs::SegmentedData;
+use imports::PreparedData2;
 pub use mouse::mouse_position::print_mouse_position;
 pub use mouse::MouseClick;
 
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
 const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
-/// Struct of prepared data for each correlation method used
-/// Segmented consists of two image vectors and associated mean value, sum of squared deviations, sizes
-/// FFT vector consists of template vector converted to frequency domain and conjugated, sum squared deviations, size and padded size
-#[derive(Debug)]
-pub enum PreparedData {
-    Segmented(
-        (
-            Vec<(u32, u32, u32, u32, f32)>, // 0 template_segments_fast
-            Vec<(u32, u32, u32, u32, f32)>, // 1 template_segments_slow
-            u32,                            // 2 template_width
-            u32,                            // 3 template_height
-            f32,                            // 4 segment_sum_squared_deviations_fast
-            f32,                            // 5 segment_sum_squared_deviations_slow
-            f32,                            // 6 expected_corr_fast
-            f32,                            // 7 expected_corr_slow
-            f32,                            // 8 segments_mean_fast
-            f32,                            // 9 segments_mean_slow
-        ),
-    ),
-    FFT(
-        (
-            Vec<imports::Complex<f32>>, // template_conj_freq
-            f32,                        // template_sum_squared_deviations
-            u32,                        // template_width
-            u32,                        // template_height
-            u32,                        // padded_size
-        ),
-    ),
-
-    None,
-}
-impl Clone for PreparedData {
-    fn clone(&self) -> Self {
-        match self {
-            PreparedData::Segmented(data) => PreparedData::Segmented(data.clone()),
-            PreparedData::FFT(data) => PreparedData::FFT(data.clone()),
-            PreparedData::None => PreparedData::None,
-        }
-    }
-}
 
 #[derive(Debug)]
 /// Matchmode Segmented correlation and Fourier transform correlation
@@ -109,13 +71,13 @@ impl Clone for MatchMode {
 /// Main struct for Rustautogui
 /// Struct gets assigned keyboard, mouse and struct to it implemented functions execute commands from each of assigned substructs
 /// executes also correlation algorithms when doing find_image_on_screen
-#[derive(Debug)]
+
 #[allow(dead_code)]
 pub struct RustAutoGui {
     // most of the fields are set up in load_and_prepare_template method
     template: Option<imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>>,
-    prepared_data: PreparedData, // used direct load and search
-    prepared_data_stored: imports::HashMap<String, (PreparedData, (u32, u32, u32, u32), MatchMode)>, //prepared data, region, matchmode
+    prepared_data: imports::PreparedData2, // used direct load and search
+    prepared_data_stored: imports::HashMap<String, (imports::PreparedData2, (u32, u32, u32, u32), MatchMode)>, //prepared data, region, matchmode
     debug: bool,
     template_height: u32,
     template_width: u32,
@@ -167,7 +129,7 @@ impl RustAutoGui {
 
         Ok(Self {
             template: None,
-            prepared_data: PreparedData::None,
+            prepared_data: imports::PreparedData2::None,
             prepared_data_stored: imports::HashMap::new(),
             debug: debug,
             template_width: 0,
@@ -469,7 +431,7 @@ impl RustAutoGui {
         let (template_data, match_mode_option) = match match_mode {
             MatchMode::FFT => {
                 let prepared_data =
-                    PreparedData::FFT(normalized_x_corr::fft_ncc::prepare_template_picture(
+                    imports::PreparedData2::FFT(normalized_x_corr::fft_ncc::prepare_template_picture(
                         &template, region.2, region.3,
                     ));
                 let match_mode = Some(MatchMode::FFT);
@@ -477,54 +439,41 @@ impl RustAutoGui {
             }
 
             MatchMode::Segmented => {
-                let prepared_data: (
-                    Vec<(u32, u32, u32, u32, f32)>,
-                    Vec<(u32, u32, u32, u32, f32)>,
-                    u32,
-                    u32,
-                    f32,
-                    f32,
-                    f32,
-                    f32,
-                    f32,
-                    f32,
-                ) = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
+                let prepared_data: PreparedData2 = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
                     &template,
                     &self.debug,
                     self.ocl_active,
                     user_threshold,
                 );
-                // mostly happens due to using too complex image with small max segments value
-                if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
-                    Err(ImageProcessingError::new("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"))?;
+                if let PreparedData2::Segmented(ref segmented) = prepared_data {
+                    // mostly happens due to using too complex image with small max segments value
+                    if (segmented.template_segments_fast.len() == 1) | (segmented.template_segments_slow.len() == 1) {
+                        Err(ImageProcessingError::new("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"))?;
+                    }
                 }
+                
+                
                 let match_mode = Some(MatchMode::Segmented);
 
-                (PreparedData::Segmented(prepared_data), match_mode)
+                (prepared_data, match_mode)
             }
             #[cfg(feature = "opencl")]
             MatchMode::SegmentedOcl | MatchMode::SegmentedOclV2 => {
-                let prepared_data: (
-                    Vec<(u32, u32, u32, u32, f32)>,
-                    Vec<(u32, u32, u32, u32, f32)>,
-                    u32,
-                    u32,
-                    f32,
-                    f32,
-                    f32,
-                    f32,
-                    f32,
-                    f32,
-                ) = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
+                let prepared_data:PreparedData2 = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
                     &template,
                     &self.debug,
                     self.ocl_active,
                     user_threshold,
                 );
-                // mostly happens due to using too complex image with small max segments value
-                if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
-                    Err(ImageProcessingError::new("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"))?;
-                }
+                let prepared_data: SegmentedData = if let PreparedData2::Segmented(segmented) = prepared_data {
+                    // mostly happens due to using too complex image with small max segments value
+                    if (segmented.template_segments_fast.len() == 1) | (segmented.template_segments_slow.len() == 1) {
+                        Err(ImageProcessingError::new("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"))?;
+                    }
+                    segmented
+                } else {
+                    return Err(ImageProcessingError::new("Wrong data prepared  / stored."))?;
+                };
                 let match_mode = Some(MatchMode::Segmented);
                 {
                     let ocl_buffer_data = imports::GpuMemoryPointers::new(
@@ -533,8 +482,8 @@ impl RustAutoGui {
                         template_width,
                         template_height,
                         &self.ocl_queue,
-                        &prepared_data.1,
-                        &prepared_data.0,
+                        &prepared_data.template_segments_slow,
+                        &prepared_data.template_segments_fast,
                     )?;
                     let (image_w, image_h) = self.screen.dimension();
                     let kernels = imports::KernelStorage::new(
@@ -545,13 +494,13 @@ impl RustAutoGui {
                         image_h as u32,
                         template_width,
                         template_height,
-                        prepared_data.0.len() as u32,
-                        prepared_data.1.len() as u32,
-                        prepared_data.8,
-                        prepared_data.9,
-                        prepared_data.4,
-                        prepared_data.5,
-                        prepared_data.6,
+                        prepared_data.template_segments_fast.len() as u32,
+                        prepared_data.template_segments_slow.len() as u32,
+                        prepared_data.segments_mean_fast,
+                        prepared_data.segments_mean_slow,
+                        prepared_data.segment_sum_squared_deviations_fast,
+                        prepared_data.segment_sum_squared_deviations_slow,
+                        prepared_data.expected_corr_fast,
                         self.ocl_workgroup_size as usize,
                     )?;
                     match alias {
@@ -569,7 +518,7 @@ impl RustAutoGui {
                     }
                 }
 
-                (PreparedData::Segmented(prepared_data), match_mode)
+                (PreparedData2::Segmented(prepared_data), match_mode)
             }
         };
 
@@ -887,15 +836,15 @@ impl RustAutoGui {
         self.region = *region;
         self.match_mode = Some(match_mode.clone());
         match prepared_data {
-            PreparedData::FFT(data) => {
-                self.template_width = data.2;
-                self.template_height = data.3;
+            PreparedData2::FFT(data) => {
+                self.template_width = data.template_width;
+                self.template_height = data.template_height;
             }
-            PreparedData::Segmented(data) => {
-                self.template_width = data.2;
-                self.template_height = data.3;
+            PreparedData2::Segmented(data) => {
+                self.template_width = data.template_width;
+                self.template_height = data.template_height;
             }
-            PreparedData::None => Err(ImageProcessingError::new("No prepared data loaded"))?,
+            PreparedData2::None => Err(ImageProcessingError::new("No prepared data loaded"))?,
         };
         let points = self.find_image_on_screen(precision)?;
         // reset to starting info
@@ -960,15 +909,15 @@ impl RustAutoGui {
         self.screen.screen_region_height = region.3;
         self.match_mode = Some(match_mode.clone());
         match prepared_data {
-            PreparedData::FFT(data) => {
-                self.template_width = data.2;
-                self.template_height = data.3;
+            PreparedData2::FFT(data) => {
+                self.template_width = data.template_width;
+                self.template_height = data.template_height;
             }
-            PreparedData::Segmented(data) => {
-                self.template_width = data.2;
-                self.template_height = data.3;
+            PreparedData2::Segmented(data) => {
+                self.template_width = data.template_width;
+                self.template_height = data.template_height;
             }
-            PreparedData::None => Err(ImageProcessingError::new("No prepared data loaded"))?,
+            PreparedData2::None => Err(ImageProcessingError::new("No prepared data loaded"))?,
         };
         let found_points = self.find_image_on_screen_and_move_mouse(precision, moving_time);
 
@@ -1066,7 +1015,7 @@ impl RustAutoGui {
         let found_locations: Vec<(u32, u32, f32)> = match match_mode {
             MatchMode::FFT => {
                 let data = match &self.prepared_data {
-                    PreparedData::FFT(data) => data,
+                    PreparedData2::FFT(data) => data,
                     _ => Err(ImageProcessingError::new(
                         "error in prepared data type. Matchmode does not match prepare data type",
                     ))?,
@@ -1080,7 +1029,7 @@ impl RustAutoGui {
             }
             MatchMode::Segmented => {
                 let data = match &self.prepared_data {
-                    PreparedData::Segmented(data) => data,
+                    PreparedData2::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(
                         "error in prepared data type. Matchmode does not match prepare data type",
                     ))?,
@@ -1095,7 +1044,7 @@ impl RustAutoGui {
             #[cfg(feature = "opencl")]
             MatchMode::SegmentedOcl => {
                 let data = match &self.prepared_data {
-                    PreparedData::Segmented(data) => data,
+                    PreparedData2::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(
                         "error in prepared data type. Matchmode does not match prepare data type",
                     ))?,
@@ -1119,7 +1068,7 @@ impl RustAutoGui {
             #[cfg(feature = "opencl")]
             MatchMode::SegmentedOclV2 => {
                 let data = match &self.prepared_data {
-                    PreparedData::Segmented(data) => data,
+                    PreparedData2::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(
                         "error in prepared data type. Matchmode does not match prepare data type",
                     ))?,

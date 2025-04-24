@@ -4,7 +4,7 @@
  * http://scribblethink.org/Work/nvisionInterface/vi95_lewis.pdf
  */
 
-use crate::imgtools;
+use crate::{imgtools, data_structs::FFTData} ;
 use core::cmp::max;
 use image::{ImageBuffer, Luma};
 use rayon::prelude::*;
@@ -15,25 +15,18 @@ use super::{compute_integral_images, sum_region};
 pub fn fft_ncc(
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
     precision: f32,
-    prepared_data: &(Vec<Complex<f32>>, f32, u32, u32, u32),
+    prepared_data: &FFTData,
 ) -> Vec<(u32, u32, f64)> {
     // retreive all precalculated template data, most importantly template with already fft and conjugation calculated
     // sum squared deviations will be needed for denominator
-    let (
-        template_conj_freq,
-        template_sum_squared_deviations,
-        template_width,
-        template_height,
-        padded_size,
-    ) = prepared_data;
-
+    
     let mut planner = FftPlanner::<f32>::new();
     let fft: std::sync::Arc<dyn Fft<f32>> =
-        planner.plan_fft_forward((padded_size * padded_size) as usize);
+        planner.plan_fft_forward((prepared_data.padded_size * prepared_data.padded_size) as usize);
     let (image_width, image_height) = image.dimensions();
     let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(&image);
 
-    if (image_width < *template_width) || (image_height < *template_height) {
+    if (image_width < prepared_data.template_width) || (image_height < prepared_data.template_height) {
         return Vec::new();
     }
 
@@ -56,24 +49,24 @@ pub fn fft_ncc(
 
     // padding to least squares and placing image in top left corner, same as template
     let mut image_padded: Vec<Complex<f32>> =
-        vec![Complex::new(0.0, 0.0); (padded_size * padded_size) as usize];
+        vec![Complex::new(0.0, 0.0); (prepared_data.padded_size * prepared_data.padded_size) as usize];
     for dy in 0..image_height {
         for dx in 0..image_width {
             let image_pixel_value = zero_mean_image[dy as usize][dx as usize];
-            image_padded[dy as usize * *padded_size as usize + dx as usize] =
+            image_padded[dy as usize * prepared_data.padded_size as usize + dx as usize] =
                 Complex::new(image_pixel_value, 0.0);
         }
     }
 
     // conver image into frequency domain
     let ifft: std::sync::Arc<dyn Fft<f32>> =
-        planner.plan_fft_inverse((padded_size * padded_size) as usize);
+        planner.plan_fft_inverse((prepared_data.padded_size * prepared_data.padded_size) as usize);
     fft.process(&mut image_padded);
 
     // calculate F(image) * F(template).conjugate
     let product_freq: Vec<Complex<f32>> = image_padded
         .iter()
-        .zip(template_conj_freq.iter())
+        .zip(prepared_data.template_conj_freq.iter())
         .map(|(&img_val, &tmpl_val)| img_val * tmpl_val)
         .collect();
     // do inverse fft
@@ -81,8 +74,8 @@ pub fn fft_ncc(
     ifft.process(&mut fft_result);
 
     // flatten for multithreading
-    let coords: Vec<(u32, u32)> = (0..=(image_height - template_height)) //@audit could underflow if image_height = 0
-        .flat_map(|y| (0..=(image_width - template_width)).map(move |x| (x, y))) //@audit could underflow if image_width = 0
+    let coords: Vec<(u32, u32)> = (0..=(image_height - prepared_data.template_height)) //@audit could underflow if image_height = 0
+        .flat_map(|y| (0..=(image_width - prepared_data.template_width)).map(move |x| (x, y))) //@audit could underflow if image_width = 0
         .collect();
     // multithreading pixel by pixel template sliding, where correlations are filtered by precision
     // sending all needed data to calculate nominator and denominator at each of pixel positions
@@ -92,12 +85,12 @@ pub fn fft_ncc(
             let corr = fft_correlation_calculation(
                 &image_integral,
                 &squared_image_integral,
-                *template_width,
-                *template_height,
-                *template_sum_squared_deviations,
+                prepared_data.template_width,
+                prepared_data.template_height,
+                prepared_data.template_sum_squared_deviations,
                 x,
                 y,
-                *padded_size,
+                prepared_data.padded_size,
                 &fft_result,
             );
 
@@ -156,7 +149,7 @@ pub fn prepare_template_picture(
     template: &ImageBuffer<Luma<u8>, Vec<u8>>,
     image_width: u32,
     image_height: u32,
-) -> (Vec<Complex<f32>>, f32, u32, u32, u32) {
+) -> FFTData {
     /// precalculate all the neccessary data so its not slowing down main process
     /// returning template in frequency domain, with calculated conjugate
     let (template_width, template_height) = template.dimensions();
@@ -205,11 +198,12 @@ pub fn prepare_template_picture(
     // calculate template conjugate
     let template_conj_freq: Vec<Complex<f32>> =
         template_padded.iter().map(|&val| val.conj()).collect();
-    (
+
+    FFTData {
         template_conj_freq,
         template_sum_squared_deviations,
         template_width,
         template_height,
         padded_size,
-    )
+    }
 }

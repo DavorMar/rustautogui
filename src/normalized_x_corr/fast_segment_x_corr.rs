@@ -8,7 +8,7 @@
 
 use crate::normalized_x_corr::{compute_integral_images, sum_region};
 
-use crate::imgtools;
+use crate::{imgtools, data_structs::{SegmentedData, PreparedData2}};
 use image::{ImageBuffer, Luma};
 use rand::prelude::*;
 use rayon::prelude::*;
@@ -23,18 +23,7 @@ use std::time::Instant;
 pub fn fast_ncc_template_match(
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
     precision: f32,
-    template_data: &(
-        Vec<(u32, u32, u32, u32, f32)>,
-        Vec<(u32, u32, u32, u32, f32)>,
-        u32,
-        u32,
-        f32,
-        f32,
-        f32,
-        f32,
-        f32,
-        f32,
-    ),
+    template_data: &SegmentedData,
     debug: &bool,
 ) -> Vec<(u32, u32, f32)> {
     /// Process:
@@ -46,42 +35,31 @@ pub fn fast_ncc_template_match(
     // corresponds to sum of all the pixels above and left
     let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(&image);
     let (image_integral, squared_image_integral) = compute_integral_images(&image_vec);
-    let (
-        template_segments_fast,
-        template_segments_slow,
-        template_width,
-        template_height,
-        fast_segments_sum_squared_deviations,
-        slow_segments_sum_squared_deviations,
-        fast_expected_corr,
-        slow_expected_corr,
-        segments_mean_fast,
-        segments_mean_slow,
-    ) = template_data;
+    
 
     // calculate precision into expected correlation
-    let adjusted_fast_expected_corr: f32 = precision * fast_expected_corr - 0.0001 as f32;
-    let adjusted_slow_expected_corr: f32 = precision * slow_expected_corr - 0.0001 as f32;
+    let adjusted_fast_expected_corr: f32 = precision * template_data.expected_corr_fast - 0.0001 as f32;
+    let adjusted_slow_expected_corr: f32 = precision * template_data.expected_corr_slow - 0.0001 as f32;
 
     if *debug {
         let fast_name = "debug/fast.png";
         save_template_segmented_images(
-            template_segments_fast,
-            *template_width,
-            *template_height,
+            &template_data.template_segments_fast,
+            template_data.template_width,
+            template_data.template_height,
             fast_name,
         );
         let slow_name = "debug/slow.png";
         save_template_segmented_images(
-            template_segments_slow,
-            *template_width,
-            *template_height,
+            &template_data.template_segments_slow,
+            template_data.template_width,
+            template_data.template_height,
             slow_name,
         );
     }
 
-    let coords: Vec<(u32, u32)> = (0..=(image_height - template_height))
-        .flat_map(|y| (0..=(image_width - template_width)).map(move |x| (x, y)))
+    let coords: Vec<(u32, u32)> = (0..=(image_height - template_data.template_height))
+        .flat_map(|y| (0..=(image_width - template_data.template_width)).map(move |x| (x, y)))
         .collect();
     let mut found_points: Vec<(u32, u32, f32)> = coords
         .par_iter()
@@ -89,14 +67,14 @@ pub fn fast_ncc_template_match(
             let corr = fast_correlation_calculation(
                 &image_integral,
                 &squared_image_integral,
-                &template_segments_fast,
-                &template_segments_slow,
-                *template_width,
-                *template_height,
-                *fast_segments_sum_squared_deviations,
-                *slow_segments_sum_squared_deviations,
-                *segments_mean_fast,
-                *segments_mean_slow,
+                &template_data.template_segments_fast,
+                &template_data.template_segments_slow,
+                template_data.template_width,
+                template_data.template_height,
+                template_data.segment_sum_squared_deviations_fast,
+                template_data.segment_sum_squared_deviations_slow,
+                template_data.segments_mean_fast,
+                template_data.segments_mean_slow,
                 x,
                 y,
                 adjusted_fast_expected_corr,
@@ -282,16 +260,7 @@ pub fn prepare_template_picture(
     ocl: bool,
     corr_threshold: Option<f32>,
 ) -> (
-    Vec<(u32, u32, u32, u32, f32)>,
-    Vec<(u32, u32, u32, u32, f32)>,
-    u32,
-    u32,
-    f32,
-    f32,
-    f32,
-    f32,
-    f32,
-    f32,
+    PreparedData2
 ) {
     ///
     ///preprocess all the picture subimages
@@ -389,30 +358,19 @@ pub fn prepare_template_picture(
         println!("reduced number of segments to {fast_segment_number} for fast image and {slow_segment_number} for slow image" );
     }
 
-    let return_value: (
-        Vec<(u32, u32, u32, u32, f32)>,
-        Vec<(u32, u32, u32, u32, f32)>,
-        u32,
-        u32,
-        f32,
-        f32,
-        f32,
-        f32,
-        f32,
-        f32,
-    ) = (
-        picture_segments_fast,               //0
-        picture_segments_slow,               //1
-        template_width,                      //2
-        template_height,                     //3
-        segment_sum_squared_deviations_fast, //4
-        segment_sum_squared_deviations_slow, //5
-        expected_corr_fast,                  //6
-        expected_corr_slow,                  //7
-        segments_mean_fast,                  //8
-        segments_mean_slow,                  //9
-    );
-    return_value
+
+    PreparedData2::Segmented(SegmentedData{
+        template_segments_fast:picture_segments_fast,
+        template_segments_slow: picture_segments_slow,
+        template_width,
+        template_height,
+        segment_sum_squared_deviations_fast,
+        segment_sum_squared_deviations_slow,
+        expected_corr_fast,
+        expected_corr_slow,
+        segments_mean_fast,
+        segments_mean_slow,
+    })
 }
 
 #[allow(unused_assignments)]

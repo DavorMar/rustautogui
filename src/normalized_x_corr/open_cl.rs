@@ -1,3 +1,4 @@
+use crate::data_structs::SegmentedData;
 use crate::normalized_x_corr::{compute_integral_images, sum_region};
 use crate::{
     data_structs::{GpuMemoryPointers, KernelStorage},
@@ -24,37 +25,14 @@ pub fn gui_opencl_ncc_template_match(
     gpu_memory_pointers: &GpuMemoryPointers,
     precision: f32,
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
-    template_data: &(
-        Vec<(u32, u32, u32, u32, f32)>, // fast segments (x, y, w, h, val)
-        Vec<(u32, u32, u32, u32, f32)>, // slow segments (x, y, w, h, val)
-        u32,                            // template width
-        u32,                            // template height
-        f32,                            // fast sum_squared_deviations
-        f32,                            // slow sum_squared_deviations
-        f32,                            // fast expected corr
-        f32,                            // slow expected corr
-        f32,                            // fast mean
-        f32,
-    ),
+    template_data: &SegmentedData,
     ocl_version: OclVersion,
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
     let (image_width, image_height) = image.dimensions();
 
     let (image_integral, squared_image_integral) = compute_integral_images_ocl(&image);
 
-    let (
-        _,
-        template_segments_slow,
-        template_width,
-        template_height,
-        _,
-        slow_segments_sum_squared_deviations,
-        _,
-        slow_expected_corr,
-        _,
-        segments_mean_slow,
-    ) = template_data;
-    let slow_expected_corr = precision * (*slow_expected_corr - 0.001);
+    let slow_expected_corr = precision * (template_data.expected_corr_slow - 0.001);
     let mut gpu_results: Vec<(u32, u32, f32)> = Vec::new();
     match ocl_version {
         OclVersion::V1 => {
@@ -65,8 +43,8 @@ pub fn gui_opencl_ncc_template_match(
                 &squared_image_integral,
                 image_width,
                 image_height,
-                *template_width,
-                *template_height,
+                template_data.template_width,
+                template_data.template_height,
                 gpu_memory_pointers,
                 precision,
             )?;
@@ -74,7 +52,7 @@ pub fn gui_opencl_ncc_template_match(
             gpu_results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
         }
         OclVersion::V2 => {
-            let slow_segment_count = template_segments_slow.len() as i32;
+            let slow_segment_count = template_data.template_segments_slow.len() as i32;
             let kernel = &kernel_storage.v2_kernel_fast;
             let segments_processed_by_thread_slow = slow_segment_count / max_workgroup_size as i32;
             let remainder_segments_slow = slow_segment_count % max_workgroup_size as i32;
@@ -84,10 +62,10 @@ pub fn gui_opencl_ncc_template_match(
                 &squared_image_integral,
                 image_width,
                 image_height,
-                *template_width,
-                *template_height,
-                *slow_segments_sum_squared_deviations,
-                *segments_mean_slow,
+                template_data.template_width,
+                template_data.template_height,
+                template_data.segment_sum_squared_deviations_slow,
+                template_data.segments_mean_slow,
                 slow_expected_corr,
                 queue,
                 program,
