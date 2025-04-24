@@ -7,7 +7,6 @@ use crate::RustAutoGui;
 pub use opencl::*;
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
 
-
 #[cfg(not(feature = "lite"))]
 pub struct BackupData {
     pub starting_data: PreparedData2,

@@ -242,7 +242,7 @@ __kernel void v2_segmented_match_integral_fast_pass(
         float denominator = sqrt(var_img * (float)template_sq_dev);
         float corr = (denominator != 0.0f) ? (nominator_sum / denominator) : -1.0f;        
         
-        if (corr >= (min_expected_corr - 0.001) * precision && corr < 2) {
+        if (corr >= (min_expected_corr - 0.01) * precision && corr < 2) {
         
             int index = atomic_add(valid_corr_count, 1);
             results[index] = (int2)(image_x, image_y);

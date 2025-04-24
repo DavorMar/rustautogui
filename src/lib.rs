@@ -4,7 +4,6 @@
 #[cfg(all(feature = "lite", feature = "opencl"))]
 compile_error!("Features `lite` and `opencl` cannot be enabled at the same time.");
 
-
 pub mod data_structs;
 pub mod errors;
 pub mod imgtools;
@@ -13,9 +12,6 @@ mod mouse;
 #[cfg(not(feature = "lite"))]
 pub mod normalized_x_corr;
 mod screen;
-
-
-
 
 mod imports {
     #[cfg(not(feature = "lite"))]
@@ -251,7 +247,9 @@ impl RustAutoGui {
     }
 
     #[cfg(feature = "opencl")]
-    fn setup_opencl(device_id: Option<u32>) -> Result<
+    fn setup_opencl(
+        device_id: Option<u32>,
+    ) -> Result<
         (
             imports::Context,
             imports::Queue,
@@ -273,23 +271,23 @@ impl RustAutoGui {
                 .info(imports::ocl::enums::DeviceInfo::MaxWorkGroupSize)?
                 .to_string()
                 .parse()
-                .map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
+                .map_err(|_| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
             let global_mem: u64 = device
                 .info(imports::ocl::enums::DeviceInfo::GlobalMemSize)?
                 .to_string()
                 .parse()
-                .map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
+                .map_err(|_| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
             let compute_units: u32 = device
                 .info(imports::ocl::enums::DeviceInfo::MaxComputeUnits)?
                 .to_string()
                 .parse()
-                .map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
+                .map_err(|_| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
 
             let clock_frequency = device
                 .info(imports::ocl::enums::DeviceInfo::MaxClockFrequency)?
                 .to_string()
                 .parse()
-                .map_err(|m| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
+                .map_err(|_| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
             let device_vendor = device
                 .info(imports::ocl::enums::DeviceInfo::Vendor)?
                 .to_string();
@@ -328,7 +326,6 @@ impl RustAutoGui {
                     }
                 }
             }
-            
         }
         let used_device = context.devices()[best_device_index as usize];
 
@@ -365,16 +362,16 @@ impl RustAutoGui {
         self.screen.grab_screenshot(path)?;
         Ok(())
     }
-    #[cfg(feature="opencl")]
+    #[cfg(feature = "opencl")]
     pub fn list_devices(&self) {
         for item in &self.device_list {
             println!("Device 1:");
-            println!("{}",item.print_device());
+            println!("{}", item.print_device());
             println!("\n");
         }
     }
-    #[cfg(feature="opencl")]
-    pub fn change_ocl_device(&mut self, device_index: u32,) -> Result<(),AutoGuiError> {
+    #[cfg(feature = "opencl")]
+    pub fn change_ocl_device(&mut self, device_index: u32) -> Result<(), AutoGuiError> {
         let (context, queue, program, _, workgroup_size) = Self::setup_opencl(Some(device_index))?;
         self.ocl_program = program;
         self.ocl_context = context;
@@ -383,11 +380,11 @@ impl RustAutoGui {
         self.ocl_kernel_storage = imports::HashMap::new();
         self.ocl_workgroup_size = workgroup_size;
 
-        self.template= None;
-        self.prepared_data= imports::PreparedData2::None;
-        self.prepared_data_stored= imports::HashMap::new();
-        self.template_width= 0;
-        self.template_height= 0;
+        self.template = None;
+        self.prepared_data = imports::PreparedData2::None;
+        self.prepared_data_stored = imports::HashMap::new();
+        self.template_width = 0;
+        self.template_height = 0;
         self.alias_used = DEFAULT_ALIAS.to_string();
         self.region = (0, 0, 0, 0);
         self.match_mode = None;
@@ -395,7 +392,6 @@ impl RustAutoGui {
         Ok(())
     }
 
-    
     /// checks if region selected out of screen bounds, if template size > screen size (redundant)
     /// and if template size > region size
     fn check_if_region_out_of_bound(
@@ -941,7 +937,6 @@ impl RustAutoGui {
 
         Ok(points)
     }
-
 
     #[cfg(not(feature = "lite"))]
     /// loops until stored image is found and returns found values, or until it times out

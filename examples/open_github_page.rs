@@ -6,7 +6,7 @@ use std::time;
 // no image files included for examples
 
 fn main() {
-    #[cfg(not(feature="lite"))]
+    #[cfg(not(feature = "lite"))]
     {
         let mut rustautogui = RustAutoGui::new(false).unwrap(); // initialize
         let (screen_w, screen_h) = rustautogui.get_screen_size();
@@ -94,5 +94,4 @@ fn main() {
         thread::sleep(time::Duration::from_millis(500));
         rustautogui.left_click().unwrap();
     }
-    
 }

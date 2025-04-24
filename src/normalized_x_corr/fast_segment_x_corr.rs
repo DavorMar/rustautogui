@@ -263,7 +263,7 @@ pub fn prepare_template_picture(
     debug: &bool,
     ocl: bool,
     corr_threshold: Option<f32>,
-) -> (PreparedData2) {
+) -> PreparedData2 {
     ///
     ///preprocess all the picture subimages
     ///returns picture_segments_fast, -- segmented picture with least number of segments for low precision and high speed

@@ -261,6 +261,7 @@ impl GpuMemoryPointers {
 
 #[derive(Debug)]
 pub struct DevicesInfo {
+    #[allow(dead_code)]
     device: ocl::Device,
     pub index: u32,
     pub global_mem_size: u32,

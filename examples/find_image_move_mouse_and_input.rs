@@ -4,7 +4,7 @@ use rustautogui::imgtools;
 
 fn main() {
     #[cfg(not(feature = "lite"))]
-        {
+    {
         // initialize autogui
         let mut gui = rustautogui::RustAutoGui::new(false).unwrap();
 
