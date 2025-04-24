@@ -53,9 +53,9 @@ pub use mouse::MouseClick;
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
 const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
 
-#[derive(Debug)]
+
 /// Matchmode Segmented correlation and Fourier transform correlation
-#[derive(PartialEq)]
+#[derive(PartialEq,Debug)]
 #[cfg(not(feature = "lite"))]
 pub enum MatchMode {
     Segmented,
@@ -83,6 +83,11 @@ impl Clone for MatchMode {
 /// Struct gets assigned keyboard, mouse and struct to it implemented functions execute commands from each of assigned substructs
 /// executes also correlation algorithms when doing find_image_on_screen
 
+pub struct OclData {
+
+}
+
+
 #[allow(dead_code)]
 pub struct RustAutoGui {
     // most of the fields are set up in load_and_prepare_template method
@@ -106,8 +111,6 @@ pub struct RustAutoGui {
     suppress_warnings: bool,
     #[cfg(not(feature = "lite"))]
     alias_used: String,
-    #[cfg(not(feature = "lite"))]
-    ocl_active: bool,
     #[cfg(feature = "opencl")]
     device_list: Vec<imports::DevicesInfo>,
     #[cfg(feature = "opencl")]
@@ -141,10 +144,7 @@ impl RustAutoGui {
         // OCL INITIALIZATION
         #[cfg(feature = "opencl")]
         let (context, queue, program, device_list, workgroup_size) = Self::setup_opencl(None)?;
-        #[cfg(feature = "opencl")]
-        let ocl_active = true;
-        #[cfg(not(feature = "opencl"))]
-        let ocl_active = false;
+        
 
         Ok(Self {
             #[cfg(not(feature = "lite"))]
@@ -166,8 +166,6 @@ impl RustAutoGui {
             suppress_warnings: suppress_warnings,
             #[cfg(not(feature = "lite"))]
             alias_used: DEFAULT_ALIAS.to_string(),
-            #[cfg(not(feature = "lite"))]
-            ocl_active: ocl_active,
             #[cfg(feature = "opencl")]
             device_list: device_list,
             #[cfg(feature = "opencl")]
@@ -204,11 +202,7 @@ impl RustAutoGui {
         #[cfg(feature = "opencl")]
         let (context, queue, program, device_list, workgroup_size) = Self::setup_opencl(None)?;
 
-        #[cfg(feature = "opencl")]
-        let ocl_active = true;
-        #[cfg(not(feature = "opencl"))]
-        let ocl_active = false;
-
+   
         Ok(Self {
             #[cfg(not(feature = "lite"))]
             template: None,
@@ -228,7 +222,6 @@ impl RustAutoGui {
             region: (0, 0, 0, 0),
             suppress_warnings: suppress_warnings,
             alias_used: DEFAULT_ALIAS.to_string(),
-            ocl_active: ocl_active,
             #[cfg(feature = "opencl")]
             device_list: device_list,
             #[cfg(feature = "opencl")]
@@ -346,10 +339,6 @@ impl RustAutoGui {
     /// changes debug mode. True activates debug
     pub fn change_debug_state(&mut self, state: bool) {
         self.debug = state;
-    }
-    #[cfg(not(feature = "lite"))]
-    pub fn change_ocl_state(&mut self, state: bool) {
-        self.ocl_active = state;
     }
 
     /// returns screen width and height
@@ -519,7 +508,6 @@ impl RustAutoGui {
                     template_match::segmented_ncc::prepare_template_picture(
                         &template,
                         &self.debug,
-                        self.ocl_active,
                         user_threshold,
                     );
                 if let imports::PreparedData::Segmented(ref segmented) = prepared_data {
@@ -541,7 +529,6 @@ impl RustAutoGui {
                     template_match::segmented_ncc::prepare_template_picture(
                         &template,
                         &self.debug,
-                        self.ocl_active,
                         user_threshold,
                     );
                 let prepared_data: SegmentedData = if let imports::PreparedData::Segmented(segmented) =

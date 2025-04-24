@@ -261,7 +261,6 @@ fn fast_correlation_calculation(
 pub fn prepare_template_picture(
     template: &ImageBuffer<Luma<u8>, Vec<u8>>,
     debug: &bool,
-    ocl: bool,
     corr_threshold: Option<f32>,
 ) -> PreparedData {
     ///
@@ -322,7 +321,6 @@ pub fn prepare_template_picture(
         mean_template_value,
         avg_deviation_of_template,
         "fast",
-        ocl,
         corr_threshold,
     );
     // create slow segmented image
@@ -336,7 +334,6 @@ pub fn prepare_template_picture(
         mean_template_value,
         avg_deviation_of_template,
         "slow",
-        ocl,
         corr_threshold,
     );
 
@@ -380,7 +377,6 @@ fn create_picture_segments(
     mean_template_value: f32,
     avg_deviation_of_template: f32,
     template_type: &str,
-    ocl: bool,
     corr_threshold: Option<f32>,
 ) -> (Vec<(u32, u32, u32, u32, f32)>, f32, f32, f32) {
     /// returns (picture_segments,segment_sum_squared_deviations, expected_corr, segments_mean)
@@ -484,7 +480,7 @@ fn create_picture_segments(
         //     if ocl and v2 active do expected  corr
         //     if ocl and v2 not active do distance check
 
-        if template_type == "slow" || !ocl || (ocl && v2_active) {
+        if template_type == "slow" ||  v2_active {
             if expected_corr < target_corr {
                 picture_segments = Vec::new();
             } else {
@@ -492,7 +488,7 @@ fn create_picture_segments(
             }
         }
 
-        if template_type == "fast" && (ocl && !v2_active) {
+        if template_type == "fast" && !v2_active {
             current_distance = expected_corr - (1.0 - threshold);
 
             if current_distance >= previous_distance {
