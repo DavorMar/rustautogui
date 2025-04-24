@@ -9,17 +9,17 @@ pub mod errors;
 pub mod imgtools;
 mod keyboard;
 mod mouse;
-#[cfg(not(feature = "lite"))]
-pub mod normalized_x_corr;
 mod screen;
+#[cfg(not(feature = "lite"))]
+pub mod template_match;
 
 mod imports {
     #[cfg(not(feature = "lite"))]
-    pub use crate::data_structs::{BackupData, PreparedData2};
+    pub use crate::data_structs::{BackupData, PreparedData};
     #[cfg(feature = "opencl")]
     pub use crate::data_structs::{DevicesInfo, GpuMemoryPointers, KernelStorage};
     #[cfg(feature = "opencl")]
-    pub use crate::normalized_x_corr::open_cl::OclVersion;
+    pub use crate::template_match::open_cl::OclVersion;
     #[cfg(target_os = "linux")]
     pub use crate::{keyboard::linux::Keyboard, mouse::linux::Mouse, screen::linux::Screen};
     #[cfg(target_os = "macos")]
@@ -46,7 +46,7 @@ use crate::errors::*;
 #[cfg(not(feature = "lite"))]
 use data_structs::SegmentedData;
 #[cfg(not(feature = "lite"))]
-use imports::PreparedData2;
+
 pub use mouse::mouse_position::print_mouse_position;
 pub use mouse::MouseClick;
 
@@ -89,10 +89,10 @@ pub struct RustAutoGui {
     #[cfg(not(feature = "lite"))]
     template: Option<imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>>,
     #[cfg(not(feature = "lite"))]
-    prepared_data: imports::PreparedData2, // used direct load and search
+    prepared_data: imports::PreparedData, // used direct load and search
     #[cfg(not(feature = "lite"))]
     prepared_data_stored:
-        imports::HashMap<String, (imports::PreparedData2, (u32, u32, u32, u32), MatchMode)>, //prepared data, region, matchmode
+        imports::HashMap<String, (imports::PreparedData, (u32, u32, u32, u32), MatchMode)>, //prepared data, region, matchmode
     debug: bool,
     template_height: u32,
     template_width: u32,
@@ -150,7 +150,7 @@ impl RustAutoGui {
             #[cfg(not(feature = "lite"))]
             template: None,
             #[cfg(not(feature = "lite"))]
-            prepared_data: imports::PreparedData2::None,
+            prepared_data: imports::PreparedData::None,
             #[cfg(not(feature = "lite"))]
             prepared_data_stored: imports::HashMap::new(),
             debug: debug,
@@ -213,7 +213,7 @@ impl RustAutoGui {
             #[cfg(not(feature = "lite"))]
             template: None,
             #[cfg(not(feature = "lite"))]
-            prepared_data: imports::PreparedData2::None,
+            prepared_data: imports::PreparedData::None,
             #[cfg(not(feature = "lite"))]
             prepared_data_stored: imports::HashMap::new(),
             debug: debug,
@@ -330,7 +330,7 @@ impl RustAutoGui {
         let used_device = context.devices()[best_device_index as usize];
 
         let queue = imports::Queue::new(&context, used_device, None).unwrap();
-        let program_source = crate::normalized_x_corr::opencl_kernel::OCL_KERNEL;
+        let program_source = crate::template_match::opencl_kernel::OCL_KERNEL;
         let program = imports::Program::builder()
             .src(program_source)
             .build(&context)?;
@@ -381,7 +381,7 @@ impl RustAutoGui {
         self.ocl_workgroup_size = workgroup_size;
 
         self.template = None;
-        self.prepared_data = imports::PreparedData2::None;
+        self.prepared_data = imports::PreparedData::None;
         self.prepared_data_stored = imports::HashMap::new();
         self.template_width = 0;
         self.template_height = 0;
@@ -506,24 +506,23 @@ impl RustAutoGui {
         // Segmented creates vector of picture segments with coordinates, dimensions and average pixel value
         let (template_data, match_mode_option) = match match_mode {
             MatchMode::FFT => {
-                let prepared_data = imports::PreparedData2::FFT(
-                    normalized_x_corr::fft_ncc::prepare_template_picture(
+                let prepared_data =
+                    imports::PreparedData::FFT(template_match::fft_ncc::prepare_template_picture(
                         &template, region.2, region.3,
-                    ),
-                );
+                    ));
                 let match_mode = Some(MatchMode::FFT);
                 (prepared_data, match_mode)
             }
 
             MatchMode::Segmented => {
-                let prepared_data: PreparedData2 =
-                    normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
+                let prepared_data: imports::PreparedData =
+                    template_match::segmented_ncc::prepare_template_picture(
                         &template,
                         &self.debug,
                         self.ocl_active,
                         user_threshold,
                     );
-                if let PreparedData2::Segmented(ref segmented) = prepared_data {
+                if let imports::PreparedData::Segmented(ref segmented) = prepared_data {
                     // mostly happens due to using too complex image with small max segments value
                     if (segmented.template_segments_fast.len() == 1)
                         | (segmented.template_segments_slow.len() == 1)
@@ -538,14 +537,14 @@ impl RustAutoGui {
             }
             #[cfg(feature = "opencl")]
             MatchMode::SegmentedOcl | MatchMode::SegmentedOclV2 => {
-                let prepared_data: PreparedData2 =
-                    normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
+                let prepared_data: imports::PreparedData =
+                    template_match::segmented_ncc::prepare_template_picture(
                         &template,
                         &self.debug,
                         self.ocl_active,
                         user_threshold,
                     );
-                let prepared_data: SegmentedData = if let PreparedData2::Segmented(segmented) =
+                let prepared_data: SegmentedData = if let imports::PreparedData::Segmented(segmented) =
                     prepared_data
                 {
                     // mostly happens due to using too complex image with small max segments value
@@ -602,7 +601,7 @@ impl RustAutoGui {
                     }
                 }
 
-                (PreparedData2::Segmented(prepared_data), match_mode)
+                (imports::PreparedData::Segmented(prepared_data), match_mode)
             }
         };
 
@@ -699,6 +698,19 @@ impl RustAutoGui {
         self.prepare_template_picture_bw(template, region, match_mode, None, None)
     }
     #[cfg(not(feature = "lite"))]
+    /// Loads template from file on provided path
+    pub fn prepare_template_from_file_custom(
+        &mut self,
+        template_path: &str,
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        threshold: f32,
+    ) -> Result<(), AutoGuiError> {
+        let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
+            imgtools::load_image_bw(template_path)?;
+        self.prepare_template_picture_bw(template, region, match_mode, None, Some(threshold))
+    }
+    #[cfg(not(feature = "lite"))]
     /// prepare from imagebuffer, works only on types RGB/RGBA/Luma
     pub fn prepare_template_from_imagebuffer<P, T>(
         &mut self,
@@ -715,6 +727,25 @@ impl RustAutoGui {
         self.prepare_template_picture_bw(luma_img, region, match_mode, None, None)?;
         Ok(())
     }
+
+    #[cfg(not(feature = "lite"))]
+    pub fn prepare_template_from_imagebuffer_custom<P, T>(
+        &mut self,
+        image: imports::ImageBuffer<P, Vec<T>>,
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        threshold: f32,
+    ) -> Result<(), AutoGuiError>
+    where
+        P: imports::Pixel<Subpixel = T> + 'static,
+        T: imports::Primitive + imports::ToPrimitive + 'static,
+    {
+        let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
+        let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, color_scheme)?;
+        self.prepare_template_picture_bw(luma_img, region, match_mode, None, Some(threshold))?;
+        Ok(())
+    }
+
     #[cfg(not(feature = "lite"))]
     /// Only works on encoded images. uses image::load_from_memory() which reads first bytes of image which contain metadata depending on format.
     pub fn prepare_template_from_raw_encoded(
@@ -725,6 +756,25 @@ impl RustAutoGui {
     ) -> Result<(), AutoGuiError> {
         let image = image::load_from_memory(img_raw)?;
         self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, None, None)
+    }
+
+    #[cfg(not(feature = "lite"))]
+    /// Only works on encoded images. uses image::load_from_memory() which reads first bytes of image which contain metadata depending on format.
+    pub fn prepare_template_from_raw_encoded_custom(
+        &mut self,
+        img_raw: &[u8],
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        threshold: f32,
+    ) -> Result<(), AutoGuiError> {
+        let image = image::load_from_memory(img_raw)?;
+        self.prepare_template_picture_bw(
+            image.to_luma8(),
+            region,
+            match_mode,
+            None,
+            Some(threshold),
+        )
     }
 
     ///////////////////////// store single template functions //////////////////////////
@@ -741,6 +791,22 @@ impl RustAutoGui {
         let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
             imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, Some(alias), None)
+    }
+
+    #[cfg(not(feature = "lite"))]
+    /// Store template data for multiple image search
+    pub fn store_template_from_file_custom(
+        &mut self,
+        template_path: &str,
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        alias: &str,
+        threshold: f32,
+    ) -> Result<(), AutoGuiError> {
+        // RustAutoGui::check_alias_name(&alias)?;
+        let template: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
+            imgtools::load_image_bw(template_path)?;
+        self.prepare_template_picture_bw(template, region, match_mode, Some(alias), Some(threshold))
     }
     #[cfg(not(feature = "lite"))]
     /// Load template from imagebuffer and store prepared template data for multiple image search
@@ -760,6 +826,26 @@ impl RustAutoGui {
         let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, color_scheme)?;
         self.prepare_template_picture_bw(luma_img, region, match_mode, Some(alias), None)
     }
+
+    #[cfg(not(feature = "lite"))]
+    /// Load template from imagebuffer and store prepared template data for multiple image search
+    pub fn store_template_from_imagebuffer_custom<P, T>(
+        &mut self,
+        image: imports::ImageBuffer<P, Vec<T>>,
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        alias: &str,
+        threshold: f32,
+    ) -> Result<(), AutoGuiError>
+    where
+        P: imports::Pixel<Subpixel = T> + 'static,
+        T: imports::Primitive + imports::ToPrimitive + 'static,
+    {
+        // RustAutoGui::check_alias_name(&alias)?;
+        let color_scheme = imgtools::check_imagebuffer_color_scheme(&image)?;
+        let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, color_scheme)?;
+        self.prepare_template_picture_bw(luma_img, region, match_mode, Some(alias), Some(threshold))
+    }
     #[cfg(not(feature = "lite"))]
     /// Load template from encoded raw bytes and store prepared template data for multiple image search
     pub fn store_template_from_raw_encoded(
@@ -775,6 +861,25 @@ impl RustAutoGui {
         Ok(())
     }
 
+    pub fn store_template_from_raw_encoded_custom(
+        &mut self,
+        img_raw: &[u8],
+        region: Option<(u32, u32, u32, u32)>,
+        match_mode: MatchMode,
+        alias: &str,
+        threshold: f32,
+    ) -> Result<(), AutoGuiError> {
+        // RustAutoGui::check_alias_name(&alias)?;
+        let image = image::load_from_memory(img_raw)?;
+        self.prepare_template_picture_bw(
+            image.to_luma8(),
+            region,
+            match_mode,
+            Some(alias),
+            Some(threshold),
+        )?;
+        Ok(())
+    }
     /// Searches for prepared template on screen.
     /// On windows only main monitor search is supported, while on linux, all monitors work.
     /// more details in README
@@ -921,15 +1026,15 @@ impl RustAutoGui {
         self.region = *region;
         self.match_mode = Some(match_mode.clone());
         match prepared_data {
-            PreparedData2::FFT(data) => {
+            imports::PreparedData::FFT(data) => {
                 self.template_width = data.template_width;
                 self.template_height = data.template_height;
             }
-            PreparedData2::Segmented(data) => {
+            imports::PreparedData::Segmented(data) => {
                 self.template_width = data.template_width;
                 self.template_height = data.template_height;
             }
-            PreparedData2::None => Err(ImageProcessingError::new("No prepared data loaded"))?,
+            imports::PreparedData::None => Err(ImageProcessingError::new("No prepared data loaded"))?,
         };
         let points = self.find_image_on_screen(precision)?;
         // reset to starting info
@@ -995,15 +1100,15 @@ impl RustAutoGui {
         self.screen.screen_region_height = region.3;
         self.match_mode = Some(match_mode.clone());
         match prepared_data {
-            PreparedData2::FFT(data) => {
+            imports::PreparedData::FFT(data) => {
                 self.template_width = data.template_width;
                 self.template_height = data.template_height;
             }
-            PreparedData2::Segmented(data) => {
+            imports::PreparedData::Segmented(data) => {
                 self.template_width = data.template_width;
                 self.template_height = data.template_height;
             }
-            PreparedData2::None => Err(ImageProcessingError::new("No prepared data loaded"))?,
+            imports::PreparedData::None => Err(ImageProcessingError::new("No prepared data loaded"))?,
         };
         let found_points = self.find_image_on_screen_and_move_mouse(precision, moving_time);
 
@@ -1102,13 +1207,13 @@ impl RustAutoGui {
         let found_locations: Vec<(u32, u32, f32)> = match match_mode {
             MatchMode::FFT => {
                 let data = match &self.prepared_data {
-                    PreparedData2::FFT(data) => data,
+                    imports::PreparedData::FFT(data) => data,
                     _ => Err(ImageProcessingError::new(
                         "error in prepared data type. Matchmode does not match prepare data type",
                     ))?,
                 };
                 let found_locations: Vec<(u32, u32, f64)> =
-                    normalized_x_corr::fft_ncc::fft_ncc(&image, precision, data);
+                    template_match::fft_ncc::fft_ncc(&image, precision, data);
                 found_locations
                     .into_iter()
                     .map(|(x, y, value)| (x, y, value as f32))
@@ -1116,12 +1221,12 @@ impl RustAutoGui {
             }
             MatchMode::Segmented => {
                 let data = match &self.prepared_data {
-                    PreparedData2::Segmented(data) => data,
+                    imports::PreparedData::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(
                         "error in prepared data type. Matchmode does not match prepare data type",
                     ))?,
                 };
-                normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(
+                template_match::segmented_ncc::fast_ncc_template_match(
                     &image,
                     precision,
                     data,
@@ -1131,7 +1236,7 @@ impl RustAutoGui {
             #[cfg(feature = "opencl")]
             MatchMode::SegmentedOcl => {
                 let data = match &self.prepared_data {
-                    PreparedData2::Segmented(data) => data,
+                    imports::PreparedData::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(
                         "error in prepared data type. Matchmode does not match prepare data type",
                     ))?,
@@ -1140,7 +1245,7 @@ impl RustAutoGui {
                     .ocl_buffer_storage
                     .get(&self.alias_used)
                     .ok_or(ImageProcessingError::new("Error , no OCL data prepared"))?;
-                normalized_x_corr::open_cl::gui_opencl_ncc_template_match(
+                template_match::open_cl::gui_opencl_ncc_template_match(
                     &self.ocl_queue,
                     &self.ocl_program,
                     self.ocl_workgroup_size,
@@ -1155,7 +1260,7 @@ impl RustAutoGui {
             #[cfg(feature = "opencl")]
             MatchMode::SegmentedOclV2 => {
                 let data = match &self.prepared_data {
-                    PreparedData2::Segmented(data) => data,
+                    imports::PreparedData::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(
                         "error in prepared data type. Matchmode does not match prepare data type",
                     ))?,
@@ -1164,7 +1269,7 @@ impl RustAutoGui {
                     .ocl_buffer_storage
                     .get(&self.alias_used)
                     .ok_or(ImageProcessingError::new("Error , no OCL data prepared"))?;
-                normalized_x_corr::open_cl::gui_opencl_ncc_template_match(
+                template_match::open_cl::gui_opencl_ncc_template_match(
                     &self.ocl_queue,
                     &self.ocl_program,
                     self.ocl_workgroup_size,

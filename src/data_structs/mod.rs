@@ -9,7 +9,7 @@ use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
 
 #[cfg(not(feature = "lite"))]
 pub struct BackupData {
-    pub starting_data: PreparedData2,
+    pub starting_data: PreparedData,
     pub starting_region: (u32, u32, u32, u32),
     pub starting_match_mode: Option<MatchMode>,
     pub starting_template_height: u32,
@@ -30,17 +30,17 @@ impl BackupData {
     }
 }
 
-pub enum PreparedData2 {
+pub enum PreparedData {
     Segmented(SegmentedData),
     FFT(FFTData),
     None,
 }
-impl Clone for PreparedData2 {
+impl Clone for PreparedData {
     fn clone(&self) -> Self {
         match self {
-            PreparedData2::Segmented(data) => PreparedData2::Segmented(data.clone()),
-            PreparedData2::FFT(data) => PreparedData2::FFT(data.clone()),
-            PreparedData2::None => PreparedData2::None,
+            PreparedData::Segmented(data) => PreparedData::Segmented(data.clone()),
+            PreparedData::FFT(data) => PreparedData::FFT(data.clone()),
+            PreparedData::None => PreparedData::None,
         }
     }
 }

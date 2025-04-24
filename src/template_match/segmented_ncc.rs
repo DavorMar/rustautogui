@@ -6,10 +6,10 @@
  * Please read NOTICE.md file
  */
 
-use crate::normalized_x_corr::{compute_integral_images, sum_region};
+use crate::template_match::{compute_integral_images, sum_region};
 
 use crate::{
-    data_structs::{PreparedData2, SegmentedData},
+    data_structs::{PreparedData, SegmentedData},
     imgtools,
 };
 use image::{ImageBuffer, Luma};
@@ -263,7 +263,7 @@ pub fn prepare_template_picture(
     debug: &bool,
     ocl: bool,
     corr_threshold: Option<f32>,
-) -> PreparedData2 {
+) -> PreparedData {
     ///
     ///preprocess all the picture subimages
     ///returns picture_segments_fast, -- segmented picture with least number of segments for low precision and high speed
@@ -360,7 +360,7 @@ pub fn prepare_template_picture(
         println!("reduced number of segments to {fast_segment_number} for fast image and {slow_segment_number} for slow image" );
     }
 
-    PreparedData2::Segmented(SegmentedData {
+    PreparedData::Segmented(SegmentedData {
         template_segments_fast: picture_segments_fast,
         template_segments_slow: picture_segments_slow,
         template_width,

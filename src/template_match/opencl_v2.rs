@@ -1,20 +1,46 @@
-use crate::normalized_x_corr::{compute_integral_images, sum_region};
+use crate::template_match::{compute_integral_images, sum_region};
 use crate::{imgtools, print_mouse_position};
 use image::{ImageBuffer, Luma};
 use ocl::{Buffer, Context, Device, Kernel, Program, Queue};
 use std::time::{self, Duration};
 
 use crate::data_structs::GpuMemoryPointers;
-use crate::normalized_x_corr::open_cl::compute_integral_images_ocl;
+use crate::template_match::open_cl::compute_integral_images_ocl;
 use ocl;
 use ocl::core::Int2;
 
 /*
-Different versions of OpenCL algorithm adaptation have been thought of or tried to implement but
-no success. Local memory usage is hard to utilize due to large integral images. Distributing work
-into smaller tasks requires buffers to store values between those same tasks. The size
-of stored data can explode. For instance, 4000x3000 image x 50000 segments is like 4.5 TB of data.
-reworking integral image algorithms requires additional calculations in a process that cannot be
+Version 2 splits work by doing 2 kernel runs, one for slow 2nd for fast. It utilizes workgroups to maximum, unless number of segments is between (workgroup_size / 2 ) and (workgroup_size )
+Each workgroup processes 1 or more pixel positions. 
+Each thread processes 1 or more segments.
+3 cases with workgroup size of 256: 
+case 1: 
+number of segments: 512     // greater than workgroup size
+each workgroup processes 1 pixel position
+each thread processes 2 segments for that position
+
+case 2:
+number of segments 200   // between workgroup_size / 2 and workgroup_size
+each workgroup processes 1 pixel pos
+each thread processes 1 segment
+56 threads are doing nothing - waste of computing power
+
+case 3:
+num of seg: 4
+each workgroup processes 256/4 = 64 pixel positions    // smaller than workgroup_size /2
+each thread processes 1 segment 
+all threads utilized
+
+additionally:
+num of segments = 312    // greater than 256 and unusual num for workgroup sizes
+we calculate remainder 312 - 256 = 56
+56 threads calculate 2 segments. The rest (256) calculate 1 segment.  
+
+Issues:
+Very large images can lead to freezing everything , especially on linux, due to large thread spawn
+Very succeptible to how fast image is segmented. It can lead to giving too many false positives for slow pass
+which slows down the process. This is why its best used with tweaked threshold of prepared image , to skip
+false positives, but too high threshold can slow down fast process itself
 */
 
 pub fn gui_opencl_ncc_v2(

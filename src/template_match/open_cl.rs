@@ -1,5 +1,5 @@
 use crate::data_structs::SegmentedData;
-use crate::normalized_x_corr::{compute_integral_images, sum_region};
+use crate::template_match::{compute_integral_images, sum_region};
 use crate::{
     data_structs::{GpuMemoryPointers, KernelStorage},
     imgtools,
