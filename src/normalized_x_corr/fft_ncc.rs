@@ -4,7 +4,7 @@
  * http://scribblethink.org/Work/nvisionInterface/vi95_lewis.pdf
  */
 
-use crate::{imgtools, data_structs::FFTData} ;
+use crate::{data_structs::FFTData, imgtools};
 use core::cmp::max;
 use image::{ImageBuffer, Luma};
 use rayon::prelude::*;
@@ -19,14 +19,16 @@ pub fn fft_ncc(
 ) -> Vec<(u32, u32, f64)> {
     // retreive all precalculated template data, most importantly template with already fft and conjugation calculated
     // sum squared deviations will be needed for denominator
-    
+
     let mut planner = FftPlanner::<f32>::new();
     let fft: std::sync::Arc<dyn Fft<f32>> =
         planner.plan_fft_forward((prepared_data.padded_size * prepared_data.padded_size) as usize);
     let (image_width, image_height) = image.dimensions();
     let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(&image);
 
-    if (image_width < prepared_data.template_width) || (image_height < prepared_data.template_height) {
+    if (image_width < prepared_data.template_width)
+        || (image_height < prepared_data.template_height)
+    {
         return Vec::new();
     }
 
@@ -48,8 +50,11 @@ pub fn fft_ncc(
     }
 
     // padding to least squares and placing image in top left corner, same as template
-    let mut image_padded: Vec<Complex<f32>> =
-        vec![Complex::new(0.0, 0.0); (prepared_data.padded_size * prepared_data.padded_size) as usize];
+    let mut image_padded: Vec<Complex<f32>> = vec![
+        Complex::new(0.0, 0.0);
+        (prepared_data.padded_size * prepared_data.padded_size)
+            as usize
+    ];
     for dy in 0..image_height {
         for dx in 0..image_width {
             let image_pixel_value = zero_mean_image[dy as usize][dx as usize];

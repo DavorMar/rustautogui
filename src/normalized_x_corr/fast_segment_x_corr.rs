@@ -8,7 +8,10 @@
 
 use crate::normalized_x_corr::{compute_integral_images, sum_region};
 
-use crate::{imgtools, data_structs::{SegmentedData, PreparedData2}};
+use crate::{
+    data_structs::{PreparedData2, SegmentedData},
+    imgtools,
+};
 use image::{ImageBuffer, Luma};
 use rand::prelude::*;
 use rayon::prelude::*;
@@ -35,11 +38,12 @@ pub fn fast_ncc_template_match(
     // corresponds to sum of all the pixels above and left
     let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(&image);
     let (image_integral, squared_image_integral) = compute_integral_images(&image_vec);
-    
 
     // calculate precision into expected correlation
-    let adjusted_fast_expected_corr: f32 = precision * template_data.expected_corr_fast - 0.0001 as f32;
-    let adjusted_slow_expected_corr: f32 = precision * template_data.expected_corr_slow - 0.0001 as f32;
+    let adjusted_fast_expected_corr: f32 =
+        precision * template_data.expected_corr_fast - 0.0001 as f32;
+    let adjusted_slow_expected_corr: f32 =
+        precision * template_data.expected_corr_slow - 0.0001 as f32;
 
     if *debug {
         let fast_name = "debug/fast.png";
@@ -259,9 +263,7 @@ pub fn prepare_template_picture(
     debug: &bool,
     ocl: bool,
     corr_threshold: Option<f32>,
-) -> (
-    PreparedData2
-) {
+) -> (PreparedData2) {
     ///
     ///preprocess all the picture subimages
     ///returns picture_segments_fast, -- segmented picture with least number of segments for low precision and high speed
@@ -358,9 +360,8 @@ pub fn prepare_template_picture(
         println!("reduced number of segments to {fast_segment_number} for fast image and {slow_segment_number} for slow image" );
     }
 
-
-    PreparedData2::Segmented(SegmentedData{
-        template_segments_fast:picture_segments_fast,
+    PreparedData2::Segmented(SegmentedData {
+        template_segments_fast: picture_segments_fast,
         template_segments_slow: picture_segments_slow,
         template_width,
         template_height,

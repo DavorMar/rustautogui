@@ -1,9 +1,9 @@
 #[cfg(feature = "opencl")]
 pub mod opencl;
+use crate::{MatchMode, RustAutoGui};
 #[cfg(feature = "opencl")]
 pub use opencl::*;
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
-use crate::{MatchMode, RustAutoGui};
 
 pub struct BackupData {
     pub starting_data: PreparedData2,
@@ -26,8 +26,6 @@ impl BackupData {
     }
 }
 
-
-
 pub enum PreparedData2 {
     Segmented(SegmentedData),
     FFT(FFTData),
@@ -43,17 +41,17 @@ impl Clone for PreparedData2 {
     }
 }
 
-pub struct SegmentedData{
+pub struct SegmentedData {
     pub template_segments_fast: Vec<(u32, u32, u32, u32, f32)>,
     pub template_segments_slow: Vec<(u32, u32, u32, u32, f32)>,
     pub template_width: u32,
-    pub template_height: u32,  
-    pub segment_sum_squared_deviations_fast: f32,                      
-    pub segment_sum_squared_deviations_slow: f32,                     
+    pub template_height: u32,
+    pub segment_sum_squared_deviations_fast: f32,
+    pub segment_sum_squared_deviations_slow: f32,
     pub expected_corr_fast: f32,
-    pub expected_corr_slow: f32, 
-    pub segments_mean_fast: f32, 
-    pub segments_mean_slow: f32, 
+    pub expected_corr_slow: f32,
+    pub segments_mean_fast: f32,
+    pub segments_mean_slow: f32,
 }
 
 impl Clone for SegmentedData {
@@ -65,15 +63,15 @@ impl Clone for SegmentedData {
             template_height: self.template_height,
             segment_sum_squared_deviations_fast: self.segment_sum_squared_deviations_fast,
             segment_sum_squared_deviations_slow: self.segment_sum_squared_deviations_slow,
-            expected_corr_fast: self.expected_corr_fast, 
-            expected_corr_slow: self.expected_corr_slow, 
+            expected_corr_fast: self.expected_corr_fast,
+            expected_corr_slow: self.expected_corr_slow,
             segments_mean_fast: self.segments_mean_fast,
-            segments_mean_slow: self.segments_mean_slow
+            segments_mean_slow: self.segments_mean_slow,
         }
     }
 }
 
-pub struct FFTData{
+pub struct FFTData {
     pub template_conj_freq: Vec<Complex<f32>>,
     pub template_sum_squared_deviations: f32,
     pub template_width: u32,
@@ -87,7 +85,7 @@ impl Clone for FFTData {
             template_sum_squared_deviations: self.template_sum_squared_deviations,
             template_width: self.template_width,
             template_height: self.template_height,
-            padded_size: self.padded_size, 
+            padded_size: self.padded_size,
         }
     }
 }

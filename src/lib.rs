@@ -8,6 +8,9 @@ mod keyboard;
 mod mouse;
 pub mod normalized_x_corr;
 mod screen;
+use ocl::Error as OclError;
+
+
 
 mod imports {
     pub use crate::data_structs::{BackupData, PreparedData2};
@@ -77,7 +80,8 @@ pub struct RustAutoGui {
     // most of the fields are set up in load_and_prepare_template method
     template: Option<imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>>,
     prepared_data: imports::PreparedData2, // used direct load and search
-    prepared_data_stored: imports::HashMap<String, (imports::PreparedData2, (u32, u32, u32, u32), MatchMode)>, //prepared data, region, matchmode
+    prepared_data_stored:
+        imports::HashMap<String, (imports::PreparedData2, (u32, u32, u32, u32), MatchMode)>, //prepared data, region, matchmode
     debug: bool,
     template_height: u32,
     template_width: u32,
@@ -121,7 +125,7 @@ impl RustAutoGui {
 
         // OCL INITIALIZATION
         #[cfg(feature = "opencl")]
-        let (context, queue, program, device_list, workgroup_size) = Self::setup_opencl()?;
+        let (context, queue, program, device_list, workgroup_size) = Self::setup_opencl(None)?;
         #[cfg(feature = "opencl")]
         let ocl_active = true;
         #[cfg(not(feature = "opencl"))]
@@ -176,7 +180,7 @@ impl RustAutoGui {
 
         // OCL INITIALIZATION
         #[cfg(feature = "opencl")]
-        let (context, queue, program, device_list, workgroup_size) = Self::setup_opencl()?;
+        let (context, queue, program, device_list, workgroup_size) = Self::setup_opencl(None)?;
 
         #[cfg(feature = "opencl")]
         let ocl_active = true;
@@ -216,7 +220,7 @@ impl RustAutoGui {
     }
 
     #[cfg(feature = "opencl")]
-    fn setup_opencl() -> Result<
+    fn setup_opencl(device_id: Option<u32>) -> Result<
         (
             imports::Context,
             imports::Queue,
@@ -228,6 +232,7 @@ impl RustAutoGui {
     > {
         let context = imports::Context::builder().build().unwrap();
         let available_devices = context.devices();
+        let device_count = available_devices.len();
         let mut device_list: Vec<imports::DevicesInfo> = Vec::new();
         let mut highest_score = 0;
         let mut best_device_index = 0;
@@ -273,12 +278,26 @@ impl RustAutoGui {
                 score,
             );
             device_list.push(gui_device);
-
-            if score >= highest_score {
-                highest_score = score;
-                best_device_index = i;
-                max_workgroup_size = workgroup_size;
+            match device_id {
+                Some(x) => {
+                    if x as usize > device_count {
+                        return Err(ocl::Error::from("No device found for the given index"))?;
+                    }
+                    if i == x as usize {
+                        highest_score = score;
+                        best_device_index = i;
+                        max_workgroup_size = workgroup_size;
+                    }
+                }
+                None => {
+                    if score >= highest_score {
+                        highest_score = score;
+                        best_device_index = i;
+                        max_workgroup_size = workgroup_size;
+                    }
+                }
             }
+            
         }
         let used_device = context.devices()[best_device_index as usize];
 
@@ -315,6 +334,26 @@ impl RustAutoGui {
         self.screen.grab_screenshot(path)?;
         Ok(())
     }
+    #[cfg(feature="opencl")]
+    pub fn list_devices(&self) {
+        for item in &self.device_list {
+            println!("Device 1:");
+            println!("{}",item.print_device());
+            println!("\n");
+        }
+    }
+    #[cfg(feature="opencl")]
+    pub fn change_ocl_device(&mut self, device_index: u32,) -> Result<(),AutoGuiError> {
+        let (context, queue, program, _, workgroup_size) = Self::setup_opencl(Some(device_index))?;
+        self.ocl_program = program;
+        self.ocl_context = context;
+        self.ocl_queue = queue;
+        self.ocl_buffer_storage = imports::HashMap::new();
+        self.ocl_kernel_storage = imports::HashMap::new();
+        self.ocl_workgroup_size = workgroup_size;
+        Ok(())
+    }
+
 
     /// checks if region selected out of screen bounds, if template size > screen size (redundant)
     /// and if template size > region size
@@ -430,44 +469,52 @@ impl RustAutoGui {
         // Segmented creates vector of picture segments with coordinates, dimensions and average pixel value
         let (template_data, match_mode_option) = match match_mode {
             MatchMode::FFT => {
-                let prepared_data =
-                    imports::PreparedData2::FFT(normalized_x_corr::fft_ncc::prepare_template_picture(
+                let prepared_data = imports::PreparedData2::FFT(
+                    normalized_x_corr::fft_ncc::prepare_template_picture(
                         &template, region.2, region.3,
-                    ));
+                    ),
+                );
                 let match_mode = Some(MatchMode::FFT);
                 (prepared_data, match_mode)
             }
 
             MatchMode::Segmented => {
-                let prepared_data: PreparedData2 = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
-                    &template,
-                    &self.debug,
-                    self.ocl_active,
-                    user_threshold,
-                );
+                let prepared_data: PreparedData2 =
+                    normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
+                        &template,
+                        &self.debug,
+                        self.ocl_active,
+                        user_threshold,
+                    );
                 if let PreparedData2::Segmented(ref segmented) = prepared_data {
                     // mostly happens due to using too complex image with small max segments value
-                    if (segmented.template_segments_fast.len() == 1) | (segmented.template_segments_slow.len() == 1) {
+                    if (segmented.template_segments_fast.len() == 1)
+                        | (segmented.template_segments_slow.len() == 1)
+                    {
                         Err(ImageProcessingError::new("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"))?;
                     }
                 }
-                
-                
+
                 let match_mode = Some(MatchMode::Segmented);
 
                 (prepared_data, match_mode)
             }
             #[cfg(feature = "opencl")]
             MatchMode::SegmentedOcl | MatchMode::SegmentedOclV2 => {
-                let prepared_data:PreparedData2 = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
-                    &template,
-                    &self.debug,
-                    self.ocl_active,
-                    user_threshold,
-                );
-                let prepared_data: SegmentedData = if let PreparedData2::Segmented(segmented) = prepared_data {
+                let prepared_data: PreparedData2 =
+                    normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
+                        &template,
+                        &self.debug,
+                        self.ocl_active,
+                        user_threshold,
+                    );
+                let prepared_data: SegmentedData = if let PreparedData2::Segmented(segmented) =
+                    prepared_data
+                {
                     // mostly happens due to using too complex image with small max segments value
-                    if (segmented.template_segments_fast.len() == 1) | (segmented.template_segments_slow.len() == 1) {
+                    if (segmented.template_segments_fast.len() == 1)
+                        | (segmented.template_segments_slow.len() == 1)
+                    {
                         Err(ImageProcessingError::new("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"))?;
                     }
                     segmented
@@ -526,7 +573,6 @@ impl RustAutoGui {
         // Alias None -> not storing, then we change struct attributes to fit the single loaded image search
         match alias {
             Some(name) => {
-                
                 self.prepared_data_stored
                     .insert(name.into(), (template_data, region, match_mode));
             }
@@ -1011,7 +1057,7 @@ impl RustAutoGui {
         precision: f32,
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         let match_mode = self.match_mode.clone().ok_or(ImageProcessingError::new("No template chosen and no template data prepared. Please run load_and_prepare_template before searching image on screen"))?;
-        
+
         let found_locations: Vec<(u32, u32, f32)> = match match_mode {
             MatchMode::FFT => {
                 let data = match &self.prepared_data {

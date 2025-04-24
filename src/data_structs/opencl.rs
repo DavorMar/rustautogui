@@ -293,4 +293,10 @@ impl DevicesInfo {
             score,
         }
     }
+    pub fn print_device(&self) -> String {
+        format!(
+            "Device brand: {}, name: {}\nMemory: {} MB, Compute units: {}, Clock Freq :{} mhz",
+            self.brand, self.name, self.global_mem_size, self.compute_units, self.clock_frequency
+        )
+    }
 }
