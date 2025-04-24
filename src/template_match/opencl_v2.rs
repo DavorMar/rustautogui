@@ -158,12 +158,19 @@ pub fn gui_opencl_ncc_v2(
             .buffer_results_slow_corrs_v2
             .read(&mut slow_pass_corrs)
             .enq()?;
+        gpu_memory_pointers
+            .buffer_results_slow_corrs_v2.write(&vec![0.0f32; valid_corr_count_slow]).enq()?;
+
+            gpu_memory_pointers
+            .buffer_results_slow_positions_v2.write(&vec![Int2::zero(); valid_corr_count_slow]).enq()?;
+
 
         let mut result_vec: Vec<(u32, u32, f32)> = slow_pass_positions
             .iter()
             .zip(slow_pass_corrs.iter())
             .map(|(pos, &corr)| (pos[0] as u32, pos[1] as u32, corr))
             .collect();
+        result_vec.retain(|&(_, _, value)| value >= (slow_expected_corr - 0.01) * precision);
 
         result_vec
             .sort_unstable_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));

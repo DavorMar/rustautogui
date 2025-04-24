@@ -105,7 +105,7 @@ pub fn gui_opencl_ncc(
 
     gpu_memory_pointers
         .buffer_precision
-        .write(&vec![precision])
+        .write(&vec![precision-0.01])
         .enq()?;
 
     unsafe {

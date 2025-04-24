@@ -32,9 +32,7 @@ mod imports {
         DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba,
     };
     #[cfg(feature = "opencl")]
-    pub use ocl;
-    #[cfg(feature = "opencl")]
-    pub use ocl::{Buffer, Context, Kernel, Program, Queue};
+    pub use ocl::{Buffer, Context, Kernel, Program, Queue, enums};
     #[cfg(not(feature = "lite"))]
     pub use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
     pub use std::{collections::HashMap, env, fmt, fs, path::Path, str::FromStr};
@@ -261,31 +259,31 @@ impl RustAutoGui {
         let mut max_workgroup_size = 0;
         for (i, device) in available_devices.into_iter().enumerate() {
             let workgroup_size: u32 = device
-                .info(imports::ocl::enums::DeviceInfo::MaxWorkGroupSize)?
+                .info(imports::enums::DeviceInfo::MaxWorkGroupSize)?
                 .to_string()
                 .parse()
                 .map_err(|_| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
             let global_mem: u64 = device
-                .info(imports::ocl::enums::DeviceInfo::GlobalMemSize)?
+                .info(imports::enums::DeviceInfo::GlobalMemSize)?
                 .to_string()
                 .parse()
                 .map_err(|_| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
             let compute_units: u32 = device
-                .info(imports::ocl::enums::DeviceInfo::MaxComputeUnits)?
+                .info(imports::enums::DeviceInfo::MaxComputeUnits)?
                 .to_string()
                 .parse()
                 .map_err(|_| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
 
             let clock_frequency = device
-                .info(imports::ocl::enums::DeviceInfo::MaxClockFrequency)?
+                .info(imports::enums::DeviceInfo::MaxClockFrequency)?
                 .to_string()
                 .parse()
                 .map_err(|_| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
             let device_vendor = device
-                .info(imports::ocl::enums::DeviceInfo::Vendor)?
+                .info(imports::enums::DeviceInfo::Vendor)?
                 .to_string();
             let device_name = device
-                .info(imports::ocl::enums::DeviceInfo::Name)?
+                .info(imports::enums::DeviceInfo::Name)?
                 .to_string();
             let global_mem_gb = global_mem / 1_048_576;
             let score = global_mem_gb as u32 * 2 + compute_units * 10 + clock_frequency;
@@ -1190,7 +1188,7 @@ impl RustAutoGui {
         precision: f32,
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         let match_mode = self.match_mode.clone().ok_or(ImageProcessingError::new("No template chosen and no template data prepared. Please run load_and_prepare_template before searching image on screen"))?;
-
+        let start = std::time::Instant::now();
         let found_locations: Vec<(u32, u32, f32)> = match match_mode {
             MatchMode::FFT => {
                 let data = match &self.prepared_data {
@@ -1269,7 +1267,7 @@ impl RustAutoGui {
                 )?
             }
         };
-
+        println!("Duration:{}", start.elapsed().as_secs_f32());
         if found_locations.len() > 0 {
             if self.debug {
                 let corrected_found_location: (u32, u32, f32);

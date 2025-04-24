@@ -148,7 +148,10 @@ __kernel void v2_segmented_match_integral_fast_pass(
     int local_id = get_local_id(0);
     int workgroup_id = get_group_id(0);
     int result_w = image_width - template_width;
-    
+    if (local_id == 3 && global_id == 2) {
+        valid_corr_count[0] == 0;
+    }
+
 
     // num_segments is also count of threads per pixel for fast img
     if (local_id * segments_per_thread_fast +  remainder_segments_fast >= num_segments * pixels_per_workgroup) return ; // this solves more segments per thread
@@ -283,6 +286,10 @@ __kernel void v2_segmented_match_integral_slow_pass (
     int global_id = get_global_id(0);
     int local_id = get_local_id(0);
     int workgroup_id = get_group_id(0);
+
+    
+    
+    
 
     int image_x = fast_pass_results[workgroup_id].x;
     int image_y = fast_pass_results[workgroup_id].y;
