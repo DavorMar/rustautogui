@@ -1,6 +1,7 @@
 #![allow(unused_doc_comments, unused_imports)]
 #![doc = include_str!("../README.md")]
 
+pub mod data_structs;
 pub mod errors;
 pub mod imgtools;
 mod keyboard;
@@ -9,6 +10,11 @@ pub mod normalized_x_corr;
 mod screen;
 
 mod imports {
+    pub use crate::data_structs::BackupData;
+    #[cfg(feature = "opencl")]
+    pub use crate::data_structs::{DevicesInfo, GpuMemoryPointers, KernelStorage};
+    #[cfg(feature = "opencl")]
+    pub use crate::normalized_x_corr::open_cl::OclVersion;
     #[cfg(target_os = "linux")]
     pub use crate::{keyboard::linux::Keyboard, mouse::linux::Mouse, screen::linux::Screen};
     #[cfg(target_os = "macos")]
@@ -30,15 +36,8 @@ mod imports {
 use std::fmt::{self, Formatter};
 
 use crate::errors::*;
-use imports::Mouse;
 pub use mouse::mouse_position::print_mouse_position;
 pub use mouse::MouseClick;
-#[cfg(feature = "opencl")]
-use normalized_x_corr::open_cl::GpuMemoryPointers;
-#[cfg(feature = "opencl")]
-use ocl::core::KernelArgAccessQualifier;
-#[cfg(feature = "opencl")]
-use ocl::Device;
 
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
 const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
@@ -59,7 +58,6 @@ pub enum PreparedData {
             f32,                            // 7 expected_corr_slow
             f32,                            // 8 segments_mean_fast
             f32,                            // 9 segments_mean_slow
-            bool,                           // 10 is user threshold used
         ),
     ),
     FFT(
@@ -74,9 +72,6 @@ pub enum PreparedData {
 
     None,
 }
-
-
-
 impl Clone for PreparedData {
     fn clone(&self) -> Self {
         match self {
@@ -86,6 +81,7 @@ impl Clone for PreparedData {
         }
     }
 }
+
 #[derive(Debug)]
 /// Matchmode Segmented correlation and Fourier transform correlation
 #[derive(PartialEq)]
@@ -95,190 +91,18 @@ pub enum MatchMode {
     #[cfg(feature = "opencl")]
     SegmentedOcl,
     #[cfg(feature = "opencl")]
-    SegmentedOclV2
+    SegmentedOclV2,
 }
 impl Clone for MatchMode {
     fn clone(&self) -> Self {
         match self {
             MatchMode::Segmented => MatchMode::Segmented,
-            MatchMode::FFT => MatchMode::Segmented,
+            MatchMode::FFT => MatchMode::FFT,
+            #[cfg(feature = "opencl")]
             MatchMode::SegmentedOcl => MatchMode::SegmentedOcl,
+            #[cfg(feature = "opencl")]
             MatchMode::SegmentedOclV2 => MatchMode::SegmentedOclV2,
-
         }
-    }
-}
-
-struct BackupData {
-    starting_data: PreparedData,
-    starting_region: (u32, u32, u32, u32),
-    starting_match_mode: Option<MatchMode>,
-    starting_template_height: u32,
-    starting_template_width: u32,
-    starting_alias_used: String,
-}
-impl BackupData {
-    fn update_rustautogui(self, target: &mut RustAutoGui) {
-        target.prepared_data = self.starting_data.clone();
-        target.region = self.starting_region;
-        target.match_mode = self.starting_match_mode;
-        target.screen.screen_region_width = self.starting_region.2;
-        target.screen.screen_region_height = self.starting_region.3;
-        target.template_width = self.starting_template_width;
-        target.template_height = self.starting_template_height;
-        target.alias_used = self.starting_alias_used;
-    }
-}
-#[derive(Debug)]
-#[cfg(feature = "opencl")]
-pub struct DeviceInfo {
-    device: imports::ocl::Device,
-    pub index: u32,
-    pub global_mem_size: u32,
-    pub clock_frequency: u32,
-    pub compute_units: u32,
-    pub brand: String,
-    pub name: String,
-    pub score: u32,
-}
-#[cfg(feature = "opencl")]
-impl DeviceInfo {
-    fn new(
-        device: imports::ocl::Device,
-        index: u32,
-        global_mem_size: u32,
-        clock_frequency: u32,
-        compute_units: u32,
-        brand: String,
-        name: String,
-        score: u32,
-    ) -> Self {
-        Self {
-            device,
-            index,
-            global_mem_size,
-            clock_frequency,
-            compute_units,
-            brand,
-            name,
-            score,
-        }
-    }
-}
-#[cfg(feature = "opencl")]
-#[derive(Debug)]
-pub struct KernelStorage {
-    pub v1_kernel: imports::ocl::Kernel,
-    pub v2_kernel_fast: imports::ocl::Kernel,
-}
-#[cfg(feature = "opencl")]
-impl KernelStorage {
-    pub fn new(
-        gpu_memory_pointers: &GpuMemoryPointers,
-        program: &imports::ocl::Program,
-        queue: &imports::ocl::Queue,
-        image_width: u32,
-        image_height: u32,
-        template_width: u32,
-        template_height: u32,
-        fast_segment_count: u32,
-        slow_segment_count: u32,
-        segments_mean_fast: f32,
-        segments_mean_slow: f32,
-        segment_sum_squared_deviation_fast: f32,
-        segment_sum_squared_deviation_slow: f32,
-        fast_expected_corr: f32,
-        max_workgroup_size: usize,
-    ) -> Result<Self, AutoGuiError> {
-        let result_width = (image_width - template_width + 1) as usize;
-        let result_height = (image_height - template_height + 1) as usize;
-        let output_size = result_width * result_height;
-        let kernel_v1 = imports::ocl::Kernel::builder()
-            .program(&program)
-            .name("segmented_match_integral")
-            .queue(queue.clone())
-            .global_work_size(output_size)
-            .arg(&gpu_memory_pointers.buffer_image_integral)
-            .arg(&gpu_memory_pointers.buffer_image_integral_squared)
-            .arg(&gpu_memory_pointers.segments_fast_buffer)
-            .arg(&gpu_memory_pointers.segments_slow_buffer)
-            .arg(&gpu_memory_pointers.segment_fast_values_buffer)
-            .arg(&gpu_memory_pointers.segment_slow_values_buffer)
-            .arg(&(fast_segment_count as i32))
-            .arg(&(slow_segment_count as i32))
-            .arg(&(segments_mean_fast as f32))
-            .arg(&(segments_mean_slow as f32))
-            .arg(&(segment_sum_squared_deviation_fast as f32))
-            .arg(&(segment_sum_squared_deviation_slow as f32))
-            .arg(&gpu_memory_pointers.results_buffer)
-            .arg(&(image_width as i32))
-            .arg(&(image_height as i32))
-            .arg(&(template_width as i32))
-            .arg(&(template_height as i32))
-            .arg(&(fast_expected_corr as f32 - 0.01))
-            .arg(&gpu_memory_pointers.buffer_precision)
-            .build()?;
-
-        let mut remainder_segments_fast = 0;
-
-        let mut segments_processed_by_thread_fast = 1;
-
-        let mut pixels_processed_by_workgroup = 1;
-        let max_workgroup_size = max_workgroup_size;
-
-        // if we have more segments than workgroup size, then that workgroup only processes
-        // that single pixel. Each thread inside workgroup processes certain amount of equally distributed segments
-        if fast_segment_count as usize > max_workgroup_size {
-            segments_processed_by_thread_fast = fast_segment_count as usize / max_workgroup_size;
-            remainder_segments_fast = (fast_segment_count as usize % max_workgroup_size) as i32;
-        // else, if we have low thread count then 1 workgroup can process multiple pixels. IE workgroup with 256 threads
-        // can process 64 pixels with 4 segments
-        } else {
-            pixels_processed_by_workgroup = max_workgroup_size / fast_segment_count as usize;
-            // threads per pixel = fast_segmented_count
-        }
-        let global_workgroup_count =
-            (output_size + pixels_processed_by_workgroup - 1) / pixels_processed_by_workgroup;
-        // total amount of threads that need to be spawned
-        let global_work_size = global_workgroup_count as usize * max_workgroup_size;
-
-        // if the workgroup finds a succesfull correlation with fast pass, it will have to calculate it
-        // with the slow pass aswell for that same x,y pos. But if we had low fast segment count
-        // that workgroup will not be utilized nicely.  Will have to rework this part
-
-        let v2_kernel_fast_pass = ocl::Kernel::builder()
-            .program(&program)
-            .name("v2_segmented_match_integral_fast_pass")
-            .queue(queue.clone())
-            .global_work_size(global_work_size)
-            .arg(&gpu_memory_pointers.buffer_image_integral)
-            .arg(&gpu_memory_pointers.buffer_image_integral_squared)
-            .arg(&gpu_memory_pointers.segments_fast_buffer)
-            .arg(&gpu_memory_pointers.segment_fast_values_buffer)
-            .arg(&(fast_segment_count as i32))
-            .arg(&(segments_mean_fast as f32))
-            .arg(&(segment_sum_squared_deviation_fast as f32))
-            .arg(&gpu_memory_pointers.buffer_results_fast_v2) ///////////////////////CHANGE THIS TO ONE FROM GPUMEMPOINTERS STRUCT
-            .arg(&(image_width as i32))
-            .arg(&(image_height as i32))
-            .arg(&(template_width as i32))
-            .arg(&(template_height as i32))
-            .arg(&(fast_expected_corr as f32) - 0.01)
-            .arg(&remainder_segments_fast)
-            .arg(&(segments_processed_by_thread_fast as i32))
-            .arg(&(pixels_processed_by_workgroup as i32))
-            .arg(&(max_workgroup_size as i32))
-            .arg_local::<u64>(pixels_processed_by_workgroup) // sum_template_region_buff
-            .arg_local::<u64>(pixels_processed_by_workgroup) // sum_sq_template_region_buff
-            .arg_local::<u64>(max_workgroup_size) // thread_segment_sum_buff
-            .arg(&gpu_memory_pointers.buffer_valid_corr_count_fast) // <-- atomic int
-            .arg(&gpu_memory_pointers.buffer_precision)
-            .build()?;
-
-        Ok(Self {
-            v1_kernel: kernel_v1,
-            v2_kernel_fast: v2_kernel_fast_pass,
-        })
     }
 }
 
@@ -304,7 +128,7 @@ pub struct RustAutoGui {
     alias_used: String,
     ocl_active: bool,
     #[cfg(feature = "opencl")]
-    device_list: Vec<DeviceInfo>,
+    device_list: Vec<imports::DevicesInfo>,
     #[cfg(feature = "opencl")]
     ocl_program: imports::Program,
     #[cfg(feature = "opencl")]
@@ -312,9 +136,9 @@ pub struct RustAutoGui {
     #[cfg(feature = "opencl")]
     ocl_queue: imports::Queue,
     #[cfg(feature = "opencl")]
-    ocl_buffer_storage: imports::HashMap<String, GpuMemoryPointers>,
+    ocl_buffer_storage: imports::HashMap<String, imports::GpuMemoryPointers>,
     #[cfg(feature = "opencl")]
-    ocl_kernel_storage: imports::HashMap<String, KernelStorage>,
+    ocl_kernel_storage: imports::HashMap<String, imports::KernelStorage>,
     #[cfg(feature = "opencl")]
     ocl_workgroup_size: u32,
 }
@@ -435,14 +259,14 @@ impl RustAutoGui {
             imports::Context,
             imports::Queue,
             imports::Program,
-            Vec<DeviceInfo>,
+            Vec<imports::DevicesInfo>,
             u32,
         ),
         AutoGuiError,
     > {
         let context = imports::Context::builder().build().unwrap();
         let available_devices = context.devices();
-        let mut device_list: Vec<DeviceInfo> = Vec::new();
+        let mut device_list: Vec<imports::DevicesInfo> = Vec::new();
         let mut highest_score = 0;
         let mut best_device_index = 0;
         let mut max_workgroup_size = 0;
@@ -476,7 +300,7 @@ impl RustAutoGui {
                 .to_string();
             let global_mem_gb = global_mem / 1_048_576;
             let score = global_mem_gb as u32 * 2 + compute_units * 10 + clock_frequency;
-            let gui_device = DeviceInfo::new(
+            let gui_device = imports::DevicesInfo::new(
                 device,
                 i as u32,
                 global_mem_gb as u32,
@@ -651,7 +475,8 @@ impl RustAutoGui {
                 let match_mode = Some(MatchMode::FFT);
                 (prepared_data, match_mode)
             }
-            MatchMode::Segmented | MatchMode::SegmentedOcl | MatchMode::SegmentedOclV2 => {
+
+            MatchMode::Segmented => {
                 let prepared_data: (
                     Vec<(u32, u32, u32, u32, f32)>,
                     Vec<(u32, u32, u32, u32, f32)>,
@@ -663,7 +488,6 @@ impl RustAutoGui {
                     f32,
                     f32,
                     f32,
-                    bool,
                 ) = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
                     &template,
                     &self.debug,
@@ -676,9 +500,34 @@ impl RustAutoGui {
                 }
                 let match_mode = Some(MatchMode::Segmented);
 
-                #[cfg(feature = "opencl")]
+                (PreparedData::Segmented(prepared_data), match_mode)
+            }
+            #[cfg(feature = "opencl")]
+            MatchMode::SegmentedOcl | MatchMode::SegmentedOclV2 => {
+                let prepared_data: (
+                    Vec<(u32, u32, u32, u32, f32)>,
+                    Vec<(u32, u32, u32, u32, f32)>,
+                    u32,
+                    u32,
+                    f32,
+                    f32,
+                    f32,
+                    f32,
+                    f32,
+                    f32,
+                ) = normalized_x_corr::fast_segment_x_corr::prepare_template_picture(
+                    &template,
+                    &self.debug,
+                    self.ocl_active,
+                    user_threshold,
+                );
+                // mostly happens due to using too complex image with small max segments value
+                if (prepared_data.0.len() == 1) | (prepared_data.1.len() == 1) {
+                    Err(ImageProcessingError::new("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"))?;
+                }
+                let match_mode = Some(MatchMode::Segmented);
                 {
-                    let ocl_buffer_data = GpuMemoryPointers::new(
+                    let ocl_buffer_data = imports::GpuMemoryPointers::new(
                         region.2,
                         region.3,
                         template_width,
@@ -688,7 +537,7 @@ impl RustAutoGui {
                         &prepared_data.0,
                     )?;
                     let (image_w, image_h) = self.screen.dimension();
-                    let kernels = KernelStorage::new(
+                    let kernels = imports::KernelStorage::new(
                         &ocl_buffer_data,
                         &self.ocl_program,
                         &self.ocl_queue,
@@ -728,6 +577,7 @@ impl RustAutoGui {
         // Alias None -> not storing, then we change struct attributes to fit the single loaded image search
         match alias {
             Some(name) => {
+                
                 self.prepared_data_stored
                     .insert(name.into(), (template_data, region, match_mode));
             }
@@ -1021,7 +871,7 @@ impl RustAutoGui {
                     "No template stored with selected alias".to_string(),
                 ))?;
         // save to reset after finished
-        let backup = BackupData {
+        let backup = imports::BackupData {
             starting_data: self.prepared_data.clone(),
             starting_region: self.region.clone(),
             starting_match_mode: self.match_mode.clone(),
@@ -1095,7 +945,7 @@ impl RustAutoGui {
                     "No template stored with selected alias".to_string(),
                 ))?;
         // save to reset after finished
-        let backup = BackupData {
+        let backup = imports::BackupData {
             starting_data: self.prepared_data.clone(),
             starting_region: self.region.clone(),
             starting_match_mode: self.match_mode.clone(),
@@ -1113,7 +963,6 @@ impl RustAutoGui {
             PreparedData::FFT(data) => {
                 self.template_width = data.2;
                 self.template_height = data.3;
-
             }
             PreparedData::Segmented(data) => {
                 self.template_width = data.2;
@@ -1212,69 +1061,85 @@ impl RustAutoGui {
         image: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>,
         precision: f32,
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
-        let found_locations = match &self.prepared_data {
-            PreparedData::FFT(data) => {
-                let found_locations = normalized_x_corr::fft_ncc::fft_ncc(&image, precision, data);
-                let found_locations = found_locations.into_iter()
+        let match_mode = self.match_mode.clone().ok_or(ImageProcessingError::new("No template chosen and no template data prepared. Please run load_and_prepare_template before searching image on screen"))?;
+        
+        let found_locations: Vec<(u32, u32, f32)> = match match_mode {
+            MatchMode::FFT => {
+                let data = match &self.prepared_data {
+                    PreparedData::FFT(data) => data,
+                    _ => Err(ImageProcessingError::new(
+                        "error in prepared data type. Matchmode does not match prepare data type",
+                    ))?,
+                };
+                let found_locations: Vec<(u32, u32, f64)> =
+                    normalized_x_corr::fft_ncc::fft_ncc(&image, precision, data);
+                found_locations
+                    .into_iter()
                     .map(|(x, y, value)| (x, y, value as f32))
-                    .collect();
-                found_locations
-            },
-            PreparedData::Segmented(data) => {
-                let found_locations:Vec<(u32, u32, f32)>;
-                #[cfg(feature = "opencl")]
-                if self.ocl_active {
-                    let gpu_memory_pointer = self.ocl_buffer_storage.get(&self.alias_used);
-                    match gpu_memory_pointer {
-                        Some(pointers) => {
-                            found_locations = normalized_x_corr::open_cl::gui_opencl_ncc_template_match(
-                                &self.ocl_queue,
-                                &self.ocl_program,
-                                self.ocl_workgroup_size,
-                                &self.ocl_kernel_storage[&self.alias_used],
-                                pointers,
-                                precision,
-                                &image,
-                                data
-                            )?;
-                        },
-                        None => {
-                            if !self.suppress_warnings {
-                                eprintln!("WARNING: No data prepared for GPU memory allocation for chosen template. Please prepare the template with OCL state ON. Falling back to CPU template match");
-                            }
-                            found_locations = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(
-                                &image,
-                                precision,
-                                data,
-                                &self.debug,
-                            );
-                        }
-                    }
-                } else {
-                    found_locations = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(
-                        &image,
-                        precision,
-                        data,
-                        &self.debug,
-                    );
-                }
-                #[cfg(not(feature = "opencl"))]
-                {
-                    found_locations = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(
-                        &image,
-                        precision,
-                        data,
-                        &self.debug,
-                    );
-                }
-                // let found_locations: Vec<(u32, u32, f64)> = normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(&image, precision, &data, &self.debug);
-                found_locations
-            },
-            PreparedData::None => {
-                Err(ImageProcessingError::new("No template chosen and no template data prepared. Please run load_and_prepare_template before searching image on screen"))?
-            },
-            
-
+                    .collect()
+            }
+            MatchMode::Segmented => {
+                let data = match &self.prepared_data {
+                    PreparedData::Segmented(data) => data,
+                    _ => Err(ImageProcessingError::new(
+                        "error in prepared data type. Matchmode does not match prepare data type",
+                    ))?,
+                };
+                normalized_x_corr::fast_segment_x_corr::fast_ncc_template_match(
+                    &image,
+                    precision,
+                    data,
+                    &self.debug,
+                )
+            }
+            #[cfg(feature = "opencl")]
+            MatchMode::SegmentedOcl => {
+                let data = match &self.prepared_data {
+                    PreparedData::Segmented(data) => data,
+                    _ => Err(ImageProcessingError::new(
+                        "error in prepared data type. Matchmode does not match prepare data type",
+                    ))?,
+                };
+                let gpu_memory_pointers = self
+                    .ocl_buffer_storage
+                    .get(&self.alias_used)
+                    .ok_or(ImageProcessingError::new("Error , no OCL data prepared"))?;
+                normalized_x_corr::open_cl::gui_opencl_ncc_template_match(
+                    &self.ocl_queue,
+                    &self.ocl_program,
+                    self.ocl_workgroup_size,
+                    &self.ocl_kernel_storage[&self.alias_used],
+                    gpu_memory_pointers,
+                    precision,
+                    &image,
+                    data,
+                    imports::OclVersion::V1,
+                )?
+            }
+            #[cfg(feature = "opencl")]
+            MatchMode::SegmentedOclV2 => {
+                let data = match &self.prepared_data {
+                    PreparedData::Segmented(data) => data,
+                    _ => Err(ImageProcessingError::new(
+                        "error in prepared data type. Matchmode does not match prepare data type",
+                    ))?,
+                };
+                let gpu_memory_pointers = self
+                    .ocl_buffer_storage
+                    .get(&self.alias_used)
+                    .ok_or(ImageProcessingError::new("Error , no OCL data prepared"))?;
+                normalized_x_corr::open_cl::gui_opencl_ncc_template_match(
+                    &self.ocl_queue,
+                    &self.ocl_program,
+                    self.ocl_workgroup_size,
+                    &self.ocl_kernel_storage[&self.alias_used],
+                    gpu_memory_pointers,
+                    precision,
+                    &image,
+                    data,
+                    imports::OclVersion::V2,
+                )?
+            }
         };
 
         if found_locations.len() > 0 {

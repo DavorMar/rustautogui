@@ -34,7 +34,6 @@ pub fn fast_ncc_template_match(
         f32,
         f32,
         f32,
-        bool,
     ),
     debug: &bool,
 ) -> Vec<(u32, u32, f32)> {
@@ -58,7 +57,6 @@ pub fn fast_ncc_template_match(
         slow_expected_corr,
         segments_mean_fast,
         segments_mean_slow,
-        _,
     ) = template_data;
 
     // calculate precision into expected correlation
@@ -294,7 +292,6 @@ pub fn prepare_template_picture(
     f32,
     f32,
     f32,
-    bool,
 ) {
     ///
     ///preprocess all the picture subimages
@@ -391,10 +388,7 @@ pub fn prepare_template_picture(
         let slow_segment_number = picture_segments_slow.len();
         println!("reduced number of segments to {fast_segment_number} for fast image and {slow_segment_number} for slow image" );
     }
-    let used_threshold = match corr_threshold {
-        Some(_) => true,
-        None => false,
-    };
+
     let return_value: (
         Vec<(u32, u32, u32, u32, f32)>,
         Vec<(u32, u32, u32, u32, f32)>,
@@ -406,7 +400,6 @@ pub fn prepare_template_picture(
         f32,
         f32,
         f32,
-        bool,
     ) = (
         picture_segments_fast,               //0
         picture_segments_slow,               //1
@@ -418,7 +411,6 @@ pub fn prepare_template_picture(
         expected_corr_slow,                  //7
         segments_mean_fast,                  //8
         segments_mean_slow,                  //9
-        used_threshold,                      //10
     );
     return_value
 }

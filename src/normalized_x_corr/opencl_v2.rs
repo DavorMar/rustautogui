@@ -4,7 +4,8 @@ use image::{ImageBuffer, Luma};
 use ocl::{Buffer, Context, Device, Kernel, Program, Queue};
 use std::time::{self, Duration};
 
-use crate::normalized_x_corr::open_cl::{compute_integral_images_ocl, GpuMemoryPointers};
+use crate::data_structs::GpuMemoryPointers;
+use crate::normalized_x_corr::open_cl::compute_integral_images_ocl;
 use ocl;
 use ocl::core::Int2;
 

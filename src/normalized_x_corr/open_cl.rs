@@ -1,5 +1,8 @@
 use crate::normalized_x_corr::{compute_integral_images, sum_region};
-use crate::{imgtools, KernelStorage};
+use crate::{
+    data_structs::{GpuMemoryPointers, KernelStorage},
+    imgtools,
+};
 use image::{ImageBuffer, Luma};
 use ocl::{Buffer, Context, Kernel, Program, Queue};
 use std::time;
@@ -8,146 +11,9 @@ use ocl;
 
 use super::opencl_v2;
 
-#[derive(Debug)]
-pub struct GpuMemoryPointers {
-    pub segments_fast_buffer: Buffer<ocl::prm::Int4>,
-    pub segments_slow_buffer: Buffer<ocl::prm::Int4>,
-    pub segment_fast_values_buffer: Buffer<f32>,
-    pub segment_slow_values_buffer: Buffer<f32>,
-    pub results_buffer: Buffer<f32>,
-    pub buffer_image_integral: Buffer<u64>,
-    pub buffer_image_integral_squared: Buffer<u64>,
-    pub buffer_results_fast_v2: Buffer<ocl::core::Int2>,
-    pub buffer_results_slow_positions_v2: Buffer<ocl::core::Int2>,
-    pub buffer_results_slow_corrs_v2: Buffer<f32>,
-    pub buffer_valid_corr_count_fast: Buffer<i32>,
-    pub buffer_valid_corr_count_slow: Buffer<i32>,
-    pub buffer_precision: Buffer<f32>,
-}
-impl GpuMemoryPointers {
-    pub fn new(
-        image_width: u32,
-        image_height: u32,
-        template_width: u32,
-        template_height: u32,
-        queue: &Queue,
-        template_segments_slow: &[(u32, u32, u32, u32, f32)],
-        template_segments_fast: &[(u32, u32, u32, u32, f32)],
-    ) -> Result<Self, ocl::Error> {
-        let result_width = (image_width - template_width + 1) as usize;
-        let result_height = (image_height - template_height + 1) as usize;
-        let output_size = result_width * result_height;
-        let segment_fast_int4: Vec<ocl::prm::Int4> = template_segments_fast
-            .iter()
-            .map(|&(x, y, w, h, _)| ocl::prm::Int4::new(x as i32, y as i32, w as i32, h as i32))
-            .collect();
-
-        let segment_slow_int4: Vec<ocl::prm::Int4> = template_segments_slow
-            .iter()
-            .map(|&(x, y, w, h, _)| ocl::prm::Int4::new(x as i32, y as i32, w as i32, h as i32))
-            .collect();
-
-        let segment_values_fast: Vec<f32> = template_segments_fast
-            .iter()
-            .map(|&(_, _, _, _, v)| v)
-            .collect();
-        let segment_values_slow: Vec<f32> = template_segments_slow
-            .iter()
-            .map(|&(_, _, _, _, v)| v)
-            .collect();
-
-        let buffer_segments_fast: Buffer<ocl::prm::Int4> = Buffer::<ocl::prm::Int4>::builder()
-            .queue(queue.clone())
-            .len(segment_fast_int4.len())
-            .copy_host_slice(&segment_fast_int4)
-            .build()?;
-
-        let buffer_segments_slow: Buffer<ocl::prm::Int4> = Buffer::<ocl::prm::Int4>::builder()
-            .queue(queue.clone())
-            .len(segment_slow_int4.len())
-            .copy_host_slice(&segment_slow_int4)
-            .build()?;
-
-        let buffer_segment_values_fast: Buffer<f32> = Buffer::<f32>::builder()
-            .queue(queue.clone())
-            .len(segment_values_fast.len())
-            .copy_host_slice(&segment_values_fast)
-            .build()?;
-
-        let buffer_segment_values_slow: Buffer<f32> = Buffer::<f32>::builder()
-            .queue(queue.clone())
-            .len(segment_values_slow.len())
-            .copy_host_slice(&segment_values_slow)
-            .build()?;
-
-        let buffer_results = Buffer::<f32>::builder()
-            .queue(queue.clone())
-            .len(output_size)
-            .build()?;
-
-        let buffer_image_integral = Buffer::<u64>::builder()
-            .queue(queue.clone())
-            .len(image_width * image_height)
-            .build()?;
-
-        let buffer_image_integral_squared = Buffer::<u64>::builder()
-            .queue(queue.clone())
-            .len(image_width * image_height)
-            .build()?;
-
-        // BUFFERS FOR v2 ALGORITHM ADDITIONALLY
-        let buffer_results_fast = Buffer::<ocl::core::Int2>::builder()
-            .queue(queue.clone())
-            .len(output_size)
-            .build()?;
-
-        let buffer_results_slow_positions = Buffer::<ocl::core::Int2>::builder()
-            .queue(queue.clone())
-            .len(output_size)
-            .build()?;
-
-        let buffer_results_slow_corrs = Buffer::<f32>::builder()
-            .queue(queue.clone())
-            .len(output_size)
-            .build()?;
-
-        let valid_corr_count_buf_fast: Buffer<i32> = Buffer::builder()
-            .queue(queue.clone())
-            .flags(ocl::flags::MEM_READ_WRITE)
-            .len(1)
-            .fill_val(0i32) // Init to 0
-            .build()?;
-
-        let valid_corr_count_buf_slow: Buffer<i32> = Buffer::builder()
-            .queue(queue.clone())
-            .flags(ocl::flags::MEM_READ_WRITE)
-            .len(1)
-            .fill_val(0i32) // Init to 0
-            .build()?;
-
-        let precision_buff: Buffer<f32> = Buffer::builder()
-            .queue(queue.clone())
-            .flags(ocl::flags::MEM_READ_WRITE)
-            .len(1)
-            .fill_val(0.99) // Init to 0
-            .build()?;
-
-        Ok(Self {
-            segments_fast_buffer: buffer_segments_fast,
-            segments_slow_buffer: buffer_segments_slow,
-            segment_fast_values_buffer: buffer_segment_values_fast,
-            segment_slow_values_buffer: buffer_segment_values_slow,
-            results_buffer: buffer_results,
-            buffer_image_integral,
-            buffer_image_integral_squared,
-            buffer_results_fast_v2: buffer_results_fast,
-            buffer_results_slow_positions_v2: buffer_results_slow_positions,
-            buffer_results_slow_corrs_v2: buffer_results_slow_corrs,
-            buffer_valid_corr_count_fast: valid_corr_count_buf_fast,
-            buffer_valid_corr_count_slow: valid_corr_count_buf_slow,
-            buffer_precision: precision_buff,
-        })
-    }
+pub enum OclVersion {
+    V1,
+    V2,
 }
 
 pub fn gui_opencl_ncc_template_match(
@@ -169,8 +35,8 @@ pub fn gui_opencl_ncc_template_match(
         f32,                            // slow expected corr
         f32,                            // fast mean
         f32,
-        bool, // slow mean
     ),
+    ocl_version: OclVersion,
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
     let (image_width, image_height) = image.dimensions();
 
@@ -187,12 +53,11 @@ pub fn gui_opencl_ncc_template_match(
         slow_expected_corr,
         _,
         segments_mean_slow,
-        used_threshold,
     ) = template_data;
     let slow_expected_corr = precision * (*slow_expected_corr - 0.001);
     let mut gpu_results: Vec<(u32, u32, f32)> = Vec::new();
-    match used_threshold {
-        false => {
+    match ocl_version {
+        OclVersion::V1 => {
             let kernel = &kernel_storage.v1_kernel;
             gpu_results = gui_opencl_ncc(
                 kernel,
@@ -208,7 +73,7 @@ pub fn gui_opencl_ncc_template_match(
             gpu_results.retain(|&(_, _, value)| value >= slow_expected_corr);
             gpu_results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
         }
-        true => {
+        OclVersion::V2 => {
             let slow_segment_count = template_segments_slow.len() as i32;
             let kernel = &kernel_storage.v2_kernel_fast;
             let segments_processed_by_thread_slow = slow_segment_count / max_workgroup_size as i32;
