@@ -75,6 +75,8 @@ pub enum PreparedData {
     None,
 }
 
+
+
 impl Clone for PreparedData {
     fn clone(&self) -> Self {
         match self {
@@ -90,12 +92,19 @@ impl Clone for PreparedData {
 pub enum MatchMode {
     Segmented,
     FFT,
+    #[cfg(feature = "opencl")]
+    SegmentedOcl,
+    #[cfg(feature = "opencl")]
+    SegmentedOclV2
 }
 impl Clone for MatchMode {
     fn clone(&self) -> Self {
         match self {
             MatchMode::Segmented => MatchMode::Segmented,
             MatchMode::FFT => MatchMode::Segmented,
+            MatchMode::SegmentedOcl => MatchMode::SegmentedOcl,
+            MatchMode::SegmentedOclV2 => MatchMode::SegmentedOclV2,
+
         }
     }
 }
@@ -282,7 +291,7 @@ pub struct RustAutoGui {
     // most of the fields are set up in load_and_prepare_template method
     template: Option<imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>>,
     prepared_data: PreparedData, // used direct load and search
-    prepared_data_stored: imports::HashMap<String, (PreparedData, (u32, u32, u32, u32))>, // used if multiple images need to be preloaded and searched. Good for simultaneous search
+    prepared_data_stored: imports::HashMap<String, (PreparedData, (u32, u32, u32, u32), MatchMode)>, //prepared data, region, matchmode
     debug: bool,
     template_height: u32,
     template_width: u32,
@@ -633,7 +642,7 @@ impl RustAutoGui {
         // FFT pads the image, does fourier transformations,
         // calculates conjugate and inverses transformation on template
         // Segmented creates vector of picture segments with coordinates, dimensions and average pixel value
-        let (template_data, match_mode) = match match_mode {
+        let (template_data, match_mode_option) = match match_mode {
             MatchMode::FFT => {
                 let prepared_data =
                     PreparedData::FFT(normalized_x_corr::fft_ncc::prepare_template_picture(
@@ -642,7 +651,7 @@ impl RustAutoGui {
                 let match_mode = Some(MatchMode::FFT);
                 (prepared_data, match_mode)
             }
-            MatchMode::Segmented => {
+            MatchMode::Segmented | MatchMode::SegmentedOcl | MatchMode::SegmentedOclV2 => {
                 let prepared_data: (
                     Vec<(u32, u32, u32, u32, f32)>,
                     Vec<(u32, u32, u32, u32, f32)>,
@@ -720,12 +729,12 @@ impl RustAutoGui {
         match alias {
             Some(name) => {
                 self.prepared_data_stored
-                    .insert(name.into(), (template_data, region));
+                    .insert(name.into(), (template_data, region, match_mode));
             }
             None => {
                 self.region = region;
                 self.prepared_data = template_data;
-                self.match_mode = match_mode;
+                self.match_mode = match_mode_option;
                 // update screen struct
                 self.screen.screen_region_width = region.2;
                 self.screen.screen_region_height = region.3;
@@ -1005,7 +1014,7 @@ impl RustAutoGui {
         precision: f32,
         alias: &str,
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
-        let (prepared_data, region) =
+        let (prepared_data, region, match_mode) =
             self.prepared_data_stored
                 .get(alias)
                 .ok_or(AutoGuiError::AliasError(
@@ -1026,18 +1035,17 @@ impl RustAutoGui {
         self.screen.screen_region_width = region.2;
         self.screen.screen_region_height = region.3;
         self.region = *region;
-        self.match_mode = match prepared_data {
+        self.match_mode = Some(match_mode.clone());
+        match prepared_data {
             PreparedData::FFT(data) => {
                 self.template_width = data.2;
                 self.template_height = data.3;
-                Some(MatchMode::FFT)
             }
             PreparedData::Segmented(data) => {
                 self.template_width = data.2;
                 self.template_height = data.3;
-                Some(MatchMode::Segmented)
             }
-            PreparedData::None => None,
+            PreparedData::None => Err(ImageProcessingError::new("No prepared data loaded"))?,
         };
         let points = self.find_image_on_screen(precision)?;
         // reset to starting info
@@ -1080,7 +1088,7 @@ impl RustAutoGui {
         moving_time: f32,
         alias: &str,
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
-        let (prepared_data, region) =
+        let (prepared_data, region, match_mode) =
             self.prepared_data_stored
                 .get(alias)
                 .ok_or(AutoGuiError::AliasError(
@@ -1100,18 +1108,16 @@ impl RustAutoGui {
         self.region = *region;
         self.screen.screen_region_width = region.2;
         self.screen.screen_region_height = region.3;
-        self.match_mode = match prepared_data {
+        self.match_mode = Some(match_mode.clone());
+        match prepared_data {
             PreparedData::FFT(data) => {
                 self.template_width = data.2;
                 self.template_height = data.3;
 
-                Some(MatchMode::FFT)
             }
             PreparedData::Segmented(data) => {
                 self.template_width = data.2;
                 self.template_height = data.3;
-
-                Some(MatchMode::Segmented)
             }
             PreparedData::None => Err(ImageProcessingError::new("No prepared data loaded"))?,
         };
