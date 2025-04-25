@@ -50,8 +50,9 @@ use data_structs::SegmentedData; ///////////////////////// REMOVE
 
 pub use mouse::mouse_position::print_mouse_position;
 pub use mouse::MouseClick;
-
+#[cfg(not(feature = "lite"))]
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
+#[cfg(not(feature = "lite"))]
 const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
 
 /// Matchmode Segmented correlation and Fourier transform correlation
@@ -256,7 +257,6 @@ impl RustAutoGui {
         let mut best_device_index = 0;
         let mut max_workgroup_size = 0;
         for (i, device) in available_devices.into_iter().enumerate() {
-
             let device_type = device.info(imports::enums::DeviceInfo::Type)?.to_string();
             let workgroup_size: u32 = device
                 .info(imports::enums::DeviceInfo::MaxWorkGroupSize)?
@@ -293,7 +293,7 @@ impl RustAutoGui {
                 device_name,
                 score,
             );
-            
+
             device_list.push(gui_device);
             match device_id {
                 Some(x) => {
@@ -374,7 +374,7 @@ impl RustAutoGui {
 
         Ok(())
     }
-
+    #[cfg(not(feature = "lite"))]
     /// checks if region selected out of screen bounds, if template size > screen size (redundant)
     /// and if template size > region size
     fn check_if_region_out_of_bound(
@@ -449,8 +449,8 @@ impl RustAutoGui {
                     } else {
                         template = imports::resize(
                             &template,
-                            template.width() / self.screen.scaling_factor_x as u32,
-                            template.height() / self.screen.scaling_factor_y as u32,
+                            template.width() / self.screen.screen_data.scaling_factor_x as u32,
+                            template.height() / self.screen.screen_data.scaling_factor_y as u32,
                             imports::Nearest,
                         );
                     }
@@ -458,8 +458,8 @@ impl RustAutoGui {
                 None => {
                     template = imports::resize(
                         &template,
-                        template.width() / self.screen.scaling_factor_x as u32,
-                        template.height() / self.screen.scaling_factor_y as u32,
+                        template.width() / self.screen.screen_data.scaling_factor_x as u32,
+                        template.height() / self.screen.screen_data.scaling_factor_y as u32,
                         imports::Nearest,
                     );
                 }
@@ -599,8 +599,8 @@ impl RustAutoGui {
                 self.prepared_data = template_data;
                 self.match_mode = match_mode_option;
                 // update screen struct
-                self.screen.screen_region_width = region.2;
-                self.screen.screen_region_height = region.3;
+                self.screen.screen_data.screen_region_width = region.2;
+                self.screen.screen_data.screen_region_height = region.3;
                 // update struct values
                 self.template_width = template_width;
                 self.template_height = template_height;
@@ -611,6 +611,7 @@ impl RustAutoGui {
         return Ok(());
     }
 
+    #[cfg(not(feature = "lite"))]
     // prepares also unscaled variant of image if retina display is on
     // since it is recursively calling again preparation of template with another alias
     // checks are made on alias_name to not run infinitely preparations of backups of backups
@@ -623,7 +624,8 @@ impl RustAutoGui {
         alias: Option<&str>,
     ) -> Result<(), AutoGuiError> {
         {
-            if ((self.screen.scaling_factor_x > 1.0) | (self.screen.scaling_factor_y > 1.0))
+            if ((self.screen.screen_data.scaling_factor_x > 1.0)
+                | (self.screen.screen_data.scaling_factor_y > 1.0))
                 & (match alias {
                     Some(a) => !a.contains(DEFAULT_BCKP_ALIAS),
                     None => true,
@@ -930,7 +932,8 @@ impl RustAutoGui {
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         let first_match = self.run_x_corr(image, precision);
         // if retina and if this is not already a recursively ran backup
-        if ((self.screen.scaling_factor_x > 1.0) | (self.screen.scaling_factor_y > 1.0))
+        if ((self.screen.screen_data.scaling_factor_x > 1.0)
+            | (self.screen.screen_data.scaling_factor_y > 1.0))
             & (!self.alias_used.contains(DEFAULT_BCKP_ALIAS))
         {
             match first_match? {
@@ -1003,8 +1006,8 @@ impl RustAutoGui {
 
         self.alias_used = alias.into();
         self.prepared_data = prepared_data.clone();
-        self.screen.screen_region_width = region.2;
-        self.screen.screen_region_height = region.3;
+        self.screen.screen_data.screen_region_width = region.2;
+        self.screen.screen_data.screen_region_height = region.3;
         self.region = *region;
         self.match_mode = Some(match_mode.clone());
         match prepared_data {
@@ -1080,8 +1083,8 @@ impl RustAutoGui {
         self.alias_used = alias.into();
         self.prepared_data = prepared_data.clone();
         self.region = *region;
-        self.screen.screen_region_width = region.2;
-        self.screen.screen_region_height = region.3;
+        self.screen.screen_data.screen_region_width = region.2;
+        self.screen.screen_data.screen_region_height = region.3;
         self.match_mode = Some(match_mode.clone());
         match prepared_data {
             imports::PreparedData::FFT(data) => {

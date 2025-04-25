@@ -11,8 +11,6 @@ use core_graphics::{
     geometry::CGPoint,
 };
 
-use rustfft::num_traits::Pow;
-
 pub struct Mouse {}
 
 impl Mouse {
