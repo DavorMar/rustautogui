@@ -9,6 +9,27 @@ pub use opencl::*;
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
 
 #[cfg(not(feature = "lite"))]
+use image::{ImageBuffer,Luma};
+#[cfg(not(feature = "lite"))]
+use std::collections::HashMap;
+
+
+#[cfg(not(feature = "lite"))]
+pub struct TemplateMatchingData {
+    pub template: Option<ImageBuffer<Luma<u8>, Vec<u8>>>,
+    pub prepared_data: PreparedData, // used direct load and search
+    pub prepared_data_stored:HashMap<String, (PreparedData, (u32, u32, u32, u32), MatchMode)>, //prepared data, region, matchmode
+    pub match_mode: Option<MatchMode>,
+    pub region: (u32, u32, u32, u32),
+    pub alias_used: String,
+}
+
+
+
+
+
+
+#[cfg(not(feature = "lite"))]
 pub struct BackupData {
     pub starting_data: PreparedData,
     pub starting_region: (u32, u32, u32, u32),
@@ -20,14 +41,14 @@ pub struct BackupData {
 #[cfg(not(feature = "lite"))]
 impl BackupData {
     pub fn update_rustautogui(self, target: &mut RustAutoGui) {
-        target.prepared_data = self.starting_data.clone();
-        target.region = self.starting_region;
-        target.match_mode = self.starting_match_mode;
+        target.template_data.prepared_data = self.starting_data.clone();
+        target.template_data.region = self.starting_region;
+        target.template_data.match_mode = self.starting_match_mode;
         target.screen.screen_data.screen_region_width = self.starting_region.2;
         target.screen.screen_data.screen_region_height = self.starting_region.3;
         target.template_width = self.starting_template_width;
         target.template_height = self.starting_template_height;
-        target.alias_used = self.starting_alias_used;
+        target.template_data.alias_used = self.starting_alias_used;
     }
 }
 

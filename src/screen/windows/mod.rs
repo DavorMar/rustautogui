@@ -26,6 +26,12 @@ pub struct Screen {
     h_bitmap: *mut winapi::shared::windef::HBITMAP__,
 }
 
+pub struct ScreenImgData {
+    pub screen_region_width: u32,
+    pub screen_region_height: u32,
+    pub pixel_data: Vec<u8>,
+}
+
 impl Screen {
     ///Creates struct that holds information about screen
     pub fn new() -> Result<Self, AutoGuiError> {

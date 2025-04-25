@@ -1,5 +1,16 @@
 use crate::AutoGuiError;
-use ocl::{Buffer, Queue};
+use ocl::{Buffer, Context, Program, Queue};
+use std::collections::HashMap;
+
+pub struct OpenClData {
+    pub device_list: Vec<DevicesInfo>,
+    pub ocl_program: Program,
+    pub ocl_context: Context,
+    pub ocl_queue: Queue,
+    pub ocl_buffer_storage: HashMap<String, GpuMemoryPointers>,
+    pub ocl_kernel_storage: HashMap<String, KernelStorage>,
+    pub ocl_workgroup_size: u32,
+}
 
 #[derive(Debug)]
 pub struct KernelStorage {

@@ -26,7 +26,7 @@ mod imports {
 
     // this is in default, not featured in lite
     #[cfg(not(feature = "lite"))]
-    pub use crate::data_structs::{BackupData, PreparedData, SegmentedData};
+    pub use crate::data_structs::{BackupData, PreparedData, SegmentedData, TemplateMatchingData};
     #[cfg(not(feature = "lite"))]
     pub use image::{
         imageops::{resize, FilterType::Nearest},
@@ -37,7 +37,7 @@ mod imports {
 
     // opencl stuff
     #[cfg(feature = "opencl")]
-    pub use crate::data_structs::{DevicesInfo, GpuMemoryPointers, KernelStorage};
+    pub use crate::data_structs::{DevicesInfo, GpuMemoryPointers, KernelStorage, OpenClData};
     #[cfg(feature = "opencl")]
     pub use crate::template_match::open_cl::OclVersion;
     #[cfg(feature = "opencl")]
@@ -45,6 +45,7 @@ mod imports {
 }
 
 use crate::errors::*;
+
 #[cfg(not(feature = "lite"))]
 use data_structs::SegmentedData; ///////////////////////// REMOVE
 
@@ -84,45 +85,21 @@ impl Clone for MatchMode {
 /// Struct gets assigned keyboard, mouse and struct to it implemented functions execute commands from each of assigned substructs
 /// executes also correlation algorithms when doing find_image_on_screen
 
-pub struct OclData {}
-
 #[allow(dead_code)]
 pub struct RustAutoGui {
-    // most of the fields are set up in load_and_prepare_template method
-    #[cfg(not(feature = "lite"))]
-    template: Option<imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>>,
-    #[cfg(not(feature = "lite"))]
-    prepared_data: imports::PreparedData, // used direct load and search
-    #[cfg(not(feature = "lite"))]
-    prepared_data_stored:
-        imports::HashMap<String, (imports::PreparedData, (u32, u32, u32, u32), MatchMode)>, //prepared data, region, matchmode
+    #[cfg(not(feature="lite"))]
+    template_data: imports::TemplateMatchingData,
     debug: bool,
     template_height: u32,
     template_width: u32,
     keyboard: imports::Keyboard,
     mouse: imports::Mouse,
     screen: imports::Screen,
-    #[cfg(not(feature = "lite"))]
-    match_mode: Option<MatchMode>,
-    #[cfg(not(feature = "lite"))]
-    region: (u32, u32, u32, u32),
+    
     suppress_warnings: bool,
-    #[cfg(not(feature = "lite"))]
-    alias_used: String,
+    
     #[cfg(feature = "opencl")]
-    device_list: Vec<imports::DevicesInfo>,
-    #[cfg(feature = "opencl")]
-    ocl_program: imports::Program,
-    #[cfg(feature = "opencl")]
-    ocl_context: imports::Context,
-    #[cfg(feature = "opencl")]
-    ocl_queue: imports::Queue,
-    #[cfg(feature = "opencl")]
-    ocl_buffer_storage: imports::HashMap<String, imports::GpuMemoryPointers>,
-    #[cfg(feature = "opencl")]
-    ocl_kernel_storage: imports::HashMap<String, imports::KernelStorage>,
-    #[cfg(feature = "opencl")]
-    ocl_workgroup_size: u32,
+    opencl_data: imports::OpenClData,
 }
 impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
@@ -141,42 +118,31 @@ impl RustAutoGui {
 
         // OCL INITIALIZATION
         #[cfg(feature = "opencl")]
-        let (context, queue, program, device_list, workgroup_size) = Self::setup_opencl(None)?;
+        let opencl_data = Self::setup_opencl(None)?;
+
+        #[cfg(not(feature = "lite"))]
+        let template_match_data= imports::TemplateMatchingData {    
+            template: None,
+            prepared_data: imports::PreparedData::None,
+            prepared_data_stored: imports::HashMap::new(),
+            match_mode: None,
+            region: (0, 0, 0, 0),
+            alias_used: DEFAULT_ALIAS.to_string(),
+        };
 
         Ok(Self {
-            #[cfg(not(feature = "lite"))]
-            template: None,
-            #[cfg(not(feature = "lite"))]
-            prepared_data: imports::PreparedData::None,
-            #[cfg(not(feature = "lite"))]
-            prepared_data_stored: imports::HashMap::new(),
+            template_data: template_match_data,
             debug: debug,
             template_width: 0,
             template_height: 0,
             keyboard: keyboard,
             mouse: mouse_struct,
             screen: screen,
-            #[cfg(not(feature = "lite"))]
-            match_mode: None,
-            #[cfg(not(feature = "lite"))]
-            region: (0, 0, 0, 0),
+            
             suppress_warnings: suppress_warnings,
-            #[cfg(not(feature = "lite"))]
-            alias_used: DEFAULT_ALIAS.to_string(),
+            
             #[cfg(feature = "opencl")]
-            device_list: device_list,
-            #[cfg(feature = "opencl")]
-            ocl_program: program,
-            #[cfg(feature = "opencl")]
-            ocl_context: context,
-            #[cfg(feature = "opencl")]
-            ocl_queue: queue,
-            #[cfg(feature = "opencl")]
-            ocl_buffer_storage: imports::HashMap::new(),
-            #[cfg(feature = "opencl")]
-            ocl_kernel_storage: imports::HashMap::new(),
-            #[cfg(feature = "opencl")]
-            ocl_workgroup_size: workgroup_size,
+            opencl_data: opencl_data,
         })
     }
 
@@ -187,6 +153,8 @@ impl RustAutoGui {
         // on linux, screen display pointer is shared to keyboard and mouse
         // x11 works like that and initiation of individual display objects
         // under each struct wouldnt be preferable
+        
+        
         let screen = imports::Screen::new();
         let keyboard = imports::Keyboard::new(screen.display);
         let mouse_struct = imports::Mouse::new(screen.display, screen.root_window);
@@ -197,58 +165,37 @@ impl RustAutoGui {
 
         // OCL INITIALIZATION
         #[cfg(feature = "opencl")]
-        let (context, queue, program, device_list, workgroup_size) = Self::setup_opencl(None)?;
+        let opencl_data = Self::setup_opencl(None)?;
+
+        #[cfg(not(feature = "lite"))]
+        let template_match_data= imports::TemplateMatchingData {    
+            template: None,
+            prepared_data: imports::PreparedData::None,
+            prepared_data_stored: imports::HashMap::new(),
+            match_mode: None,
+            region: (0, 0, 0, 0),
+            alias_used: DEFAULT_ALIAS.to_string(),
+        };
 
         Ok(Self {
-            #[cfg(not(feature = "lite"))]
-            template: None,
-            #[cfg(not(feature = "lite"))]
-            prepared_data: imports::PreparedData::None,
-            #[cfg(not(feature = "lite"))]
-            prepared_data_stored: imports::HashMap::new(),
+            #[cfg(not(feature="lite"))]
+            template_data: template_match_data,
             debug: debug,
             template_width: 0,
             template_height: 0,
             keyboard: keyboard,
             mouse: mouse_struct,
             screen: screen,
-            #[cfg(not(feature = "lite"))]
-            match_mode: None,
-            #[cfg(not(feature = "lite"))]
-            region: (0, 0, 0, 0),
+            
             suppress_warnings: suppress_warnings,
-            #[cfg(not(feature = "lite"))]
-            alias_used: DEFAULT_ALIAS.to_string(),
+            
             #[cfg(feature = "opencl")]
-            device_list: device_list,
-            #[cfg(feature = "opencl")]
-            ocl_program: program,
-            #[cfg(feature = "opencl")]
-            ocl_context: context,
-            #[cfg(feature = "opencl")]
-            ocl_queue: queue,
-            #[cfg(feature = "opencl")]
-            ocl_buffer_storage: imports::HashMap::new(),
-            #[cfg(feature = "opencl")]
-            ocl_kernel_storage: imports::HashMap::new(),
-            #[cfg(feature = "opencl")]
-            ocl_workgroup_size: workgroup_size,
+            opencl_data,
         })
     }
 
     #[cfg(feature = "opencl")]
-    fn setup_opencl(
-        device_id: Option<u32>,
-    ) -> Result<
-        (
-            imports::Context,
-            imports::Queue,
-            imports::Program,
-            Vec<imports::DevicesInfo>,
-            u32,
-        ),
-        AutoGuiError,
-    > {
+    fn setup_opencl(device_id: Option<u32>) -> Result<imports::OpenClData, AutoGuiError> {
         let context = imports::Context::builder().build()?;
         let available_devices = context.devices();
         let device_count = available_devices.len();
@@ -322,7 +269,16 @@ impl RustAutoGui {
             .src(program_source)
             .build(&context)?;
 
-        Ok((context, queue, program, device_list, max_workgroup_size))
+        let opencl_data = imports::OpenClData {
+            device_list: device_list,
+            ocl_program: program,
+            ocl_context: context,
+            ocl_queue: queue,
+            ocl_buffer_storage: imports::HashMap::new(),
+            ocl_kernel_storage: imports::HashMap::new(),
+            ocl_workgroup_size: max_workgroup_size,
+        };
+        Ok(opencl_data)
     }
 
     /// set true to turn off warnings.
@@ -347,7 +303,7 @@ impl RustAutoGui {
     }
     #[cfg(feature = "opencl")]
     pub fn list_devices(&self) {
-        for (i, item) in (&self.device_list).iter().enumerate() {
+        for (i, item) in (&self.opencl_data.device_list).iter().enumerate() {
             println!("Device {i}:");
             println!("{}", item.print_device());
             println!("\n");
@@ -355,22 +311,17 @@ impl RustAutoGui {
     }
     #[cfg(feature = "opencl")]
     pub fn change_ocl_device(&mut self, device_index: u32) -> Result<(), AutoGuiError> {
-        let (context, queue, program, _, workgroup_size) = Self::setup_opencl(Some(device_index))?;
-        self.ocl_program = program;
-        self.ocl_context = context;
-        self.ocl_queue = queue;
-        self.ocl_buffer_storage = imports::HashMap::new();
-        self.ocl_kernel_storage = imports::HashMap::new();
-        self.ocl_workgroup_size = workgroup_size;
+        let new_opencl_data = Self::setup_opencl(Some(device_index))?;
+        self.opencl_data = new_opencl_data;
 
-        self.template = None;
-        self.prepared_data = imports::PreparedData::None;
-        self.prepared_data_stored = imports::HashMap::new();
+        self.template_data.template = None;
+        self.template_data.prepared_data = imports::PreparedData::None;
+        self.template_data.prepared_data_stored = imports::HashMap::new();
         self.template_width = 0;
         self.template_height = 0;
-        self.alias_used = DEFAULT_ALIAS.to_string();
-        self.region = (0, 0, 0, 0);
-        self.match_mode = None;
+        self.template_data.alias_used = DEFAULT_ALIAS.to_string();
+        self.template_data.region = (0, 0, 0, 0);
+        self.template_data.match_mode = None;
 
         Ok(())
     }
@@ -546,15 +497,15 @@ impl RustAutoGui {
                         region.3,
                         template_width,
                         template_height,
-                        &self.ocl_queue,
+                        &self.opencl_data.ocl_queue,
                         &prepared_data.template_segments_slow,
                         &prepared_data.template_segments_fast,
                     )?;
 
                     let kernels = imports::KernelStorage::new(
                         &ocl_buffer_data,
-                        &self.ocl_program,
-                        &self.ocl_queue,
+                        &self.opencl_data.ocl_program,
+                        &self.opencl_data.ocl_queue,
                         region.2,
                         region.3,
                         template_width,
@@ -566,18 +517,24 @@ impl RustAutoGui {
                         prepared_data.segment_sum_squared_deviations_fast,
                         prepared_data.segment_sum_squared_deviations_slow,
                         prepared_data.expected_corr_fast,
-                        self.ocl_workgroup_size as usize,
+                        self.opencl_data.ocl_workgroup_size as usize,
                     )?;
                     match alias {
                         Some(name) => {
-                            self.ocl_buffer_storage.insert(name.into(), ocl_buffer_data);
+                            self.opencl_data
+                                .ocl_buffer_storage
+                                .insert(name.into(), ocl_buffer_data);
 
-                            self.ocl_kernel_storage.insert(name.into(), kernels);
+                            self.opencl_data
+                                .ocl_kernel_storage
+                                .insert(name.into(), kernels);
                         }
                         None => {
-                            self.ocl_buffer_storage
+                            self.opencl_data
+                                .ocl_buffer_storage
                                 .insert(DEFAULT_ALIAS.into(), ocl_buffer_data);
-                            self.ocl_kernel_storage
+                            self.opencl_data
+                                .ocl_kernel_storage
                                 .insert(DEFAULT_ALIAS.into(), kernels);
                         }
                     }
@@ -591,13 +548,13 @@ impl RustAutoGui {
         // Alias None -> not storing, then we change struct attributes to fit the single loaded image search
         match alias {
             Some(name) => {
-                self.prepared_data_stored
+                self.template_data.prepared_data_stored
                     .insert(name.into(), (template_data, region, match_mode));
             }
             None => {
-                self.region = region;
-                self.prepared_data = template_data;
-                self.match_mode = match_mode_option;
+                self.template_data.region = region;
+                self.template_data.prepared_data = template_data;
+                self.template_data.match_mode = match_mode_option;
                 // update screen struct
                 self.screen.screen_data.screen_region_width = region.2;
                 self.screen.screen_data.screen_region_height = region.3;
@@ -605,7 +562,7 @@ impl RustAutoGui {
                 self.template_width = template_width;
                 self.template_height = template_height;
                 // convert to option and store in struct
-                self.template = Some(template.clone());
+                self.template_data.template = Some(template.clone());
             }
         }
         return Ok(());
@@ -875,7 +832,7 @@ impl RustAutoGui {
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         /// searches for image on screen and returns found locations in vector format
         let image: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>> =
-            self.screen.grab_screen_image_grayscale(&self.region)?;
+            self.screen.grab_screen_image_grayscale(&self.template_data.region)?;
 
         if self.debug {
             let debug_path = imports::Path::new("debug");
@@ -910,8 +867,8 @@ impl RustAutoGui {
         let locations_ajusted: Vec<(u32, u32, f32)> = locations
             .iter()
             .map(|(mut x, mut y, corr)| {
-                x = x + self.region.0 + (self.template_width / 2);
-                y = y + self.region.1 + (self.template_height / 2);
+                x = x + self.template_data.region.0 + (self.template_width / 2);
+                y = y + self.template_data.region.1 + (self.template_height / 2);
                 (x, y, *corr)
             })
             .collect();
@@ -989,27 +946,27 @@ impl RustAutoGui {
         alias: &str,
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         let (prepared_data, region, match_mode) =
-            self.prepared_data_stored
+            self.template_data.prepared_data_stored
                 .get(alias)
                 .ok_or(AutoGuiError::AliasError(
                     "No template stored with selected alias".to_string(),
                 ))?;
         // save to reset after finished
         let backup = imports::BackupData {
-            starting_data: self.prepared_data.clone(),
-            starting_region: self.region.clone(),
-            starting_match_mode: self.match_mode.clone(),
+            starting_data: self.template_data.prepared_data.clone(),
+            starting_region: self.template_data.region.clone(),
+            starting_match_mode: self.template_data.match_mode.clone(),
             starting_template_height: self.template_height.clone(),
             starting_template_width: self.template_width.clone(),
-            starting_alias_used: self.alias_used.clone(),
+            starting_alias_used: self.template_data.alias_used.clone(),
         };
 
-        self.alias_used = alias.into();
-        self.prepared_data = prepared_data.clone();
+        self.template_data.alias_used = alias.into();
+        self.template_data.prepared_data = prepared_data.clone();
         self.screen.screen_data.screen_region_width = region.2;
         self.screen.screen_data.screen_region_height = region.3;
-        self.region = *region;
-        self.match_mode = Some(match_mode.clone());
+        self.template_data.region = *region;
+        self.template_data.match_mode = Some(match_mode.clone());
         match prepared_data {
             imports::PreparedData::FFT(data) => {
                 self.template_width = data.template_width;
@@ -1066,26 +1023,26 @@ impl RustAutoGui {
         alias: &str,
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         let (prepared_data, region, match_mode) =
-            self.prepared_data_stored
+            self.template_data.prepared_data_stored
                 .get(alias)
                 .ok_or(AutoGuiError::AliasError(
                     "No template stored with selected alias".to_string(),
                 ))?;
         // save to reset after finished
         let backup = imports::BackupData {
-            starting_data: self.prepared_data.clone(),
-            starting_region: self.region.clone(),
-            starting_match_mode: self.match_mode.clone(),
+            starting_data: self.template_data.prepared_data.clone(),
+            starting_region: self.template_data.region.clone(),
+            starting_match_mode: self.template_data.match_mode.clone(),
             starting_template_height: self.template_height.clone(),
             starting_template_width: self.template_width.clone(),
-            starting_alias_used: self.alias_used.clone(),
+            starting_alias_used: self.template_data.alias_used.clone(),
         };
-        self.alias_used = alias.into();
-        self.prepared_data = prepared_data.clone();
-        self.region = *region;
+        self.template_data.alias_used = alias.into();
+        self.template_data.prepared_data = prepared_data.clone();
+        self.template_data.region = *region;
         self.screen.screen_data.screen_region_width = region.2;
         self.screen.screen_data.screen_region_height = region.3;
-        self.match_mode = Some(match_mode.clone());
+        self.template_data.match_mode = Some(match_mode.clone());
         match prepared_data {
             imports::PreparedData::FFT(data) => {
                 self.template_width = data.template_width;
@@ -1191,12 +1148,12 @@ impl RustAutoGui {
         image: imports::ImageBuffer<imports::Luma<u8>, Vec<u8>>,
         precision: f32,
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
-        let match_mode = self.match_mode.clone().ok_or(ImageProcessingError::new("No template chosen and no template data prepared. Please run load_and_prepare_template before searching image on screen"))?;
+        let match_mode = self.template_data.match_mode.clone().ok_or(ImageProcessingError::new("No template chosen and no template data prepared. Please run load_and_prepare_template before searching image on screen"))?;
         let start = std::time::Instant::now();
         let found_locations: Vec<(u32, u32, f32)> = match match_mode {
             MatchMode::FFT => {
                 println!("Running FFT mode");
-                let data = match &self.prepared_data {
+                let data = match &self.template_data.prepared_data {
                     imports::PreparedData::FFT(data) => data,
                     _ => Err(ImageProcessingError::new(
                         "error in prepared data type. Matchmode does not match prepare data type",
@@ -1211,7 +1168,7 @@ impl RustAutoGui {
             }
             MatchMode::Segmented => {
                 println!("Running Segmented mode");
-                let data = match &self.prepared_data {
+                let data = match &self.template_data.prepared_data {
                     imports::PreparedData::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(
                         "error in prepared data type. Matchmode does not match prepare data type",
@@ -1226,21 +1183,22 @@ impl RustAutoGui {
             }
             #[cfg(feature = "opencl")]
             MatchMode::SegmentedOcl => {
-                let data = match &self.prepared_data {
+                let data = match &self.template_data.prepared_data {
                     imports::PreparedData::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(
                         "error in prepared data type. Matchmode does not match prepare data type",
                     ))?,
                 };
                 let gpu_memory_pointers = self
+                    .opencl_data
                     .ocl_buffer_storage
-                    .get(&self.alias_used)
+                    .get(&self.template_data.alias_used)
                     .ok_or(ImageProcessingError::new("Error , no OCL data prepared"))?;
                 template_match::open_cl::gui_opencl_ncc_template_match(
-                    &self.ocl_queue,
-                    &self.ocl_program,
-                    self.ocl_workgroup_size,
-                    &self.ocl_kernel_storage[&self.alias_used],
+                    &self.opencl_data.ocl_queue,
+                    &self.opencl_data.ocl_program,
+                    self.opencl_data.ocl_workgroup_size,
+                    &self.opencl_data.ocl_kernel_storage[&self.template_data.alias_used],
                     gpu_memory_pointers,
                     precision,
                     &image,
@@ -1250,21 +1208,22 @@ impl RustAutoGui {
             }
             #[cfg(feature = "opencl")]
             MatchMode::SegmentedOclV2 => {
-                let data = match &self.prepared_data {
+                let data = match &self.template_data.prepared_data {
                     imports::PreparedData::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(
                         "error in prepared data type. Matchmode does not match prepare data type",
                     ))?,
                 };
                 let gpu_memory_pointers = self
+                    .opencl_data
                     .ocl_buffer_storage
-                    .get(&self.alias_used)
+                    .get(&self.template_data.alias_used)
                     .ok_or(ImageProcessingError::new("Error , no OCL data prepared"))?;
                 template_match::open_cl::gui_opencl_ncc_template_match(
-                    &self.ocl_queue,
-                    &self.ocl_program,
-                    self.ocl_workgroup_size,
-                    &self.ocl_kernel_storage[&self.alias_used],
+                    &self.opencl_data.ocl_queue,
+                    &self.opencl_data.ocl_program,
+                    self.opencl_data.ocl_workgroup_size,
+                    &self.opencl_data.ocl_kernel_storage[&self.template_data.alias_used],
                     gpu_memory_pointers,
                     precision,
                     &image,
@@ -1278,10 +1237,10 @@ impl RustAutoGui {
                 let corrected_found_location: (u32, u32, f32);
                 let x = found_locations[0].0 as u32
                     + (self.template_width / 2) as u32
-                    + self.region.0 as u32;
+                    + self.template_data.region.0 as u32;
                 let y = found_locations[0].1 as u32
                     + (self.template_height / 2) as u32
-                    + self.region.1 as u32;
+                    + self.template_data.region.1 as u32;
                 let corr = found_locations[0].2;
                 corrected_found_location = (x, y, corr);
 

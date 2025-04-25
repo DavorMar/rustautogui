@@ -15,17 +15,24 @@ use x11::xlib::{
     XOpenDisplay, XRootWindow, ZPixmap, _XDisplay,
 };
 
+#[cfg(not(feature = "lite"))]
 const ALLPLANES: u64 = 0xFFFFFFFFFFFFFFFF;
 
 #[derive(Debug, Clone)]
 pub struct Screen {
     pub screen_width: i32,
     pub screen_height: i32,
-    pub screen_region_width: u32,
-    pub screen_region_height: u32,
-    pub pixel_data: Vec<u8>,
     pub display: *mut _XDisplay,
     pub root_window: u64,
+    #[cfg(not(feature = "lite"))]
+    pub screen_data: ScreenImgData,
+}
+#[derive(Debug, Clone)]
+#[cfg(not(feature = "lite"))]
+pub struct ScreenImgData {
+    pub pixel_data: Vec<u8>,
+    pub screen_region_width: u32,
+    pub screen_region_height: u32,
 }
 
 impl Screen {
@@ -44,14 +51,19 @@ impl Screen {
 
             let screen_width = XDisplayWidth(display, screen);
             let screen_height = XDisplayHeight(display, screen);
+            #[cfg(not(feature = "lite"))]
+            let img_data = ScreenImgData {
+                pixel_data: vec![0u8; (screen_width * screen_height * 4) as usize],
+                screen_region_width: 0,
+                screen_region_height: 0,
+            };
             Screen {
                 screen_width: screen_width,
                 screen_height: screen_height,
-                screen_region_width: 0,
-                screen_region_height: 0,
-                pixel_data: vec![0u8; (screen_width * screen_height * 4) as usize],
                 display: display,
                 root_window: root,
+                #[cfg(not(feature = "lite"))]
+                screen_data: img_data,
             }
         }
     }
@@ -62,10 +74,14 @@ impl Screen {
         dimensions
     }
 
+    #[cfg(not(feature = "lite"))]
     #[allow(dead_code)]
     /// return region dimension which is set up when template is precalculated
     pub fn region_dimension(&self) -> (u32, u32) {
-        let dimensions = (self.screen_region_width, self.screen_region_height);
+        let dimensions = (
+            self.screen_data.screen_region_width,
+            self.screen_data.screen_region_height,
+        );
         dimensions
     }
 
@@ -84,8 +100,8 @@ impl Screen {
         region: (u32, u32, u32, u32),
     ) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
         let (x, y, width, height) = region;
-        self.screen_region_width = width;
-        self.screen_region_height = height;
+        self.screen_data.screen_region_width = width;
+        self.screen_data.screen_region_height = height;
         self.capture_screen()?;
         let image = self.convert_bitmap_to_rgba()?;
         let cropped_image: ImageBuffer<Rgba<u8>, Vec<u8>> =
@@ -101,8 +117,8 @@ impl Screen {
         region: &(u32, u32, u32, u32),
     ) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
         let (x, y, width, height) = region;
-        self.screen_region_width = *width;
-        self.screen_region_height = *height;
+        self.screen_data.screen_region_width = *width;
+        self.screen_data.screen_region_height = *height;
         self.capture_screen()?;
         let image: ImageBuffer<Luma<u8>, Vec<u8>> = self.convert_bitmap_to_grayscale()?;
         let cropped_image: ImageBuffer<Luma<u8>, Vec<u8>> =
@@ -155,7 +171,7 @@ impl Screen {
                 pixel_data.push(slice[index]); // B
                 pixel_data.push(255); // A
             }
-            self.pixel_data = pixel_data;
+            self.screen_data.pixel_data = pixel_data;
             XDestroyImage(ximage);
         }
         return Ok(());
@@ -165,7 +181,7 @@ impl Screen {
     fn convert_bitmap_to_grayscale(&self) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
         let mut grayscale_data =
             Vec::with_capacity((self.screen_width * self.screen_height) as usize);
-        for chunk in self.pixel_data.chunks_exact(4) {
+        for chunk in self.screen_data.pixel_data.chunks_exact(4) {
             let r = chunk[2] as u32;
             let g = chunk[1] as u32;
             let b = chunk[0] as u32;
@@ -186,7 +202,7 @@ impl Screen {
         ImageBuffer::from_raw(
             self.screen_width as u32,
             self.screen_height as u32,
-            self.pixel_data.clone(),
+            self.screen_data.pixel_data.clone(),
         )
         .ok_or(ImageProcessingError::new("Failed conversion to RGBa").into())
     }
