@@ -1,16 +1,10 @@
-use crate::data_structs::SegmentedData;
-use crate::template_match::{compute_integral_images, sum_region};
-use crate::{
-    data_structs::{GpuMemoryPointers, KernelStorage},
-    imgtools,
-};
-use image::{ImageBuffer, Luma};
-use ocl::{Buffer, Context, Kernel, Program, Queue};
-use std::time;
-
-use ocl;
-
 use super::opencl_v2;
+use crate::data_structs::SegmentedData;
+use crate::data_structs::{GpuMemoryPointers, KernelStorage};
+use crate::template_match::{compute_integral_images, sum_region};
+use image::{ImageBuffer, Luma};
+use ocl;
+use ocl::{Buffer, Context, Kernel, Program, Queue};
 
 pub enum OclVersion {
     V1,
@@ -54,8 +48,13 @@ pub fn gui_opencl_ncc_template_match(
         OclVersion::V2 => {
             let slow_segment_count = template_data.template_segments_slow.len() as i32;
             let kernel = &kernel_storage.v2_kernel_fast;
-            let segments_processed_by_thread_slow = slow_segment_count / max_workgroup_size as i32;
-            let remainder_segments_slow = slow_segment_count % max_workgroup_size as i32;
+            let segments_processed_by_thread_slow =
+                (slow_segment_count / max_workgroup_size as i32).max(1);
+            let remainder_segments_slow = if slow_segment_count > max_workgroup_size as i32 {
+                slow_segment_count % max_workgroup_size as i32
+            } else {
+                0
+            };
             return opencl_v2::gui_opencl_ncc_v2(
                 kernel,
                 &image_integral,
@@ -105,7 +104,7 @@ pub fn gui_opencl_ncc(
 
     gpu_memory_pointers
         .buffer_precision
-        .write(&vec![precision-0.01])
+        .write(&vec![precision - 0.01])
         .enq()?;
 
     unsafe {

@@ -277,12 +277,12 @@ __kernel void v2_segmented_match_integral_slow_pass (
     __local ulong* sum_template_region_buff,
     __local ulong* sum_sq_template_region_buff,
     __local float* thread_segment_sum_buff,
-    __global int* valid_corr_count,
+    __global int* valid_corr_count_slow,
     __global int* valid_corr_count_fast,
     __global int2* fast_pass_results,
     __global float* precision_buff
 ) {
-
+    
     int global_id = get_global_id(0);
     int local_id = get_local_id(0);
     int workgroup_id = get_group_id(0);
@@ -295,11 +295,10 @@ __kernel void v2_segmented_match_integral_slow_pass (
     int image_y = fast_pass_results[workgroup_id].y;
 
     int result_w = image_width - template_width;
-
     // num_segments is also count of threads per pixel for fast img
     if (local_id * segments_per_thread_slow +  remainder_segments_slow >= num_segments) return ; // this solves more segments per thread
 
-
+    
     // first sum the region of template area for numerator calculations
     // we do it with first threads for each x,y position which workgroup processes
     // if there are 5 pixels processed, local_id 0-4 should process sum regions for each position, 5-9 for squared
@@ -323,7 +322,7 @@ __kernel void v2_segmented_match_integral_slow_pass (
     barrier(CLK_LOCAL_MEM_FENCE);
     float mean_img = (float)(sum_template_region_buff[0]) / area;
     // this is to cover if we have more than 1 segment per thread. This method 
-
+    
 
     // with remainder allows us to keep all threads working
     int remainder_offset = 0;
@@ -356,7 +355,6 @@ __kernel void v2_segmented_match_integral_slow_pass (
     }
     
     thread_segment_sum_buff[local_id] = nominator;
-
     barrier(CLK_LOCAL_MEM_FENCE);
     if (local_id == 0) {
         float nominator_sum = 0.0f;
@@ -374,8 +372,9 @@ __kernel void v2_segmented_match_integral_slow_pass (
         float denominator = sqrt(var_img * (float)template_sq_dev);
         float corr = (denominator != 0.0f) ? (nominator_sum / denominator) : -1.0f;        
         float precision = precision_buff[0];
+        
         if (corr >= (min_expected_corr - 0.001) * precision  && corr < 2) {
-            int index = atomic_add(valid_corr_count, 1);
+            int index = atomic_add(valid_corr_count_slow, 1);
             position_results[index] = (int2)(image_x, image_y);
             corr_results[index] = corr;
         }

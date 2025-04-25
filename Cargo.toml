@@ -31,7 +31,7 @@ winapi = { version = "0.3", features = ["winuser", "windef"] }
 
 
 [features]
-default = ["lite"]
+default = ["opencl"]
 full = ["rustfft", "num-complex", "rayon", "image"]
 lite = []
 opencl = ["ocl", "full"]

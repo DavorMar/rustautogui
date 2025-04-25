@@ -19,9 +19,6 @@ use rustfft::num_traits::Pow;
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
-use std::thread::current;
-#[allow(unused_imports)]
-use std::time::Instant;
 
 pub fn fast_ncc_template_match(
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
@@ -396,7 +393,6 @@ fn create_picture_segments(
         match corr_threshold {
             Some(x) => {
                 target_corr = x.min(0.85);
-                println!("Target fast corr : {}", target_corr);
                 v2_active = true;
             }
             None => target_corr = -0.9,
@@ -480,7 +476,7 @@ fn create_picture_segments(
         //     if ocl and v2 active do expected  corr
         //     if ocl and v2 not active do distance check
 
-        if template_type == "slow" ||  v2_active {
+        if template_type == "slow" || v2_active {
             if expected_corr < target_corr {
                 picture_segments = Vec::new();
             } else {
@@ -499,12 +495,6 @@ fn create_picture_segments(
                 previous_mean = segments_mean;
                 picture_segments = Vec::new();
             } else {
-                println!(
-                    "distnace: Seg num: {}, type: {}, expected_corr {}",
-                    previous_picture_segments.len(),
-                    template_type,
-                    previous_expected_corr
-                );
                 return (
                     previous_picture_segments,
                     previous_sss_deviations,
@@ -514,12 +504,6 @@ fn create_picture_segments(
             }
         }
     }
-    println!(
-        "Expected corr variant Seg num: {}, type: {}, expected_corr {}",
-        picture_segments.len(),
-        template_type,
-        expected_corr
-    );
     return (
         picture_segments,
         segment_sum_squared_deviations,

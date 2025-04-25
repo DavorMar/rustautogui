@@ -1,20 +1,14 @@
-use crate::template_match::{compute_integral_images, sum_region};
-use crate::{imgtools, print_mouse_position};
-use image::{ImageBuffer, Luma};
-use ocl::{Buffer, Context, Device, Kernel, Program, Queue};
-use std::time::{self, Duration};
-
 use crate::data_structs::GpuMemoryPointers;
-use crate::template_match::open_cl::compute_integral_images_ocl;
 use ocl;
 use ocl::core::Int2;
+use ocl::{Buffer, Context, Device, Kernel, Program, Queue};
 
 /*
 Version 2 splits work by doing 2 kernel runs, one for slow 2nd for fast. It utilizes workgroups to maximum, unless number of segments is between (workgroup_size / 2 ) and (workgroup_size )
-Each workgroup processes 1 or more pixel positions. 
+Each workgroup processes 1 or more pixel positions.
 Each thread processes 1 or more segments.
-3 cases with workgroup size of 256: 
-case 1: 
+3 cases with workgroup size of 256:
+case 1:
 number of segments: 512     // greater than workgroup size
 each workgroup processes 1 pixel position
 each thread processes 2 segments for that position
@@ -28,13 +22,13 @@ each thread processes 1 segment
 case 3:
 num of seg: 4
 each workgroup processes 256/4 = 64 pixel positions    // smaller than workgroup_size /2
-each thread processes 1 segment 
+each thread processes 1 segment
 all threads utilized
 
 additionally:
 num of segments = 312    // greater than 256 and unusual num for workgroup sizes
 we calculate remainder 312 - 256 = 56
-56 threads calculate 2 segments. The rest (256) calculate 1 segment.  
+56 threads calculate 2 segments. The rest (256) calculate 1 segment.
 
 Issues:
 Very large images can lead to freezing everything , especially on linux, due to large thread spawn
@@ -63,7 +57,6 @@ pub fn gui_opencl_ncc_v2(
     workgroup_size: i32,
     precision: f32,
 ) -> ocl::Result<Vec<(u32, u32, f32)>> {
-    println!("Using V2 !!");
     gpu_memory_pointers
         .buffer_image_integral
         .write(image_integral)
@@ -88,19 +81,13 @@ pub fn gui_opencl_ncc_v2(
         .enq()?;
     let valid_corr_count = valid_corr_count_host[0] as usize;
     // gather those points
-    if valid_corr_count > 0 {
-        let mut fast_pass_positions = vec![ocl::core::Int2::zero(); valid_corr_count];
-        gpu_memory_pointers
-            .buffer_results_fast_v2
-            .read(&mut fast_pass_positions)
-            .enq()?;
-    } else {
+    if valid_corr_count == 0 {
         let final_results: Vec<(u32, u32, f32)> = Vec::new();
+
         return Ok(final_results);
     }
 
     let new_global_work_size = valid_corr_count * workgroup_size as usize;
-
     // Some temporary value determined to limit count of threads - almost i32::max
     // if new_global_work_size >= 2_000_000_000 {
     //     return Err(ocl::Error::from("Too high global work size on slow pass. Try tuning your segmentation threshold higher up or use smaller template"));
@@ -159,11 +146,14 @@ pub fn gui_opencl_ncc_v2(
             .read(&mut slow_pass_corrs)
             .enq()?;
         gpu_memory_pointers
-            .buffer_results_slow_corrs_v2.write(&vec![0.0f32; valid_corr_count_slow]).enq()?;
+            .buffer_results_slow_corrs_v2
+            .write(&vec![0.0f32; valid_corr_count_slow])
+            .enq()?;
 
-            gpu_memory_pointers
-            .buffer_results_slow_positions_v2.write(&vec![Int2::zero(); valid_corr_count_slow]).enq()?;
-
+        gpu_memory_pointers
+            .buffer_results_slow_positions_v2
+            .write(&vec![Int2::zero(); valid_corr_count_slow])
+            .enq()?;
 
         let mut result_vec: Vec<(u32, u32, f32)> = slow_pass_positions
             .iter()

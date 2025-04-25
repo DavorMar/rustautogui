@@ -15,35 +15,38 @@ mod screen;
 pub mod template_match;
 
 mod imports {
-    #[cfg(not(feature = "lite"))]
-    pub use crate::data_structs::{BackupData, PreparedData};
-    #[cfg(feature = "opencl")]
-    pub use crate::data_structs::{DevicesInfo, GpuMemoryPointers, KernelStorage};
-    #[cfg(feature = "opencl")]
-    pub use crate::template_match::open_cl::OclVersion;
+    // main stuff that is used by all features
     #[cfg(target_os = "linux")]
     pub use crate::{keyboard::linux::Keyboard, mouse::linux::Mouse, screen::linux::Screen};
     #[cfg(target_os = "macos")]
     pub use crate::{keyboard::macos::Keyboard, mouse::macos::Mouse, screen::macos::Screen};
     #[cfg(target_os = "windows")]
     pub use crate::{keyboard::windows::Keyboard, mouse::windows::Mouse, screen::windows::Screen};
+    pub use std::{collections::HashMap, env, fmt, fs, path::Path, str::FromStr};
+
+    // this is in default, not featured in lite
+    #[cfg(not(feature = "lite"))]
+    pub use crate::data_structs::{BackupData, PreparedData, SegmentedData};
     #[cfg(not(feature = "lite"))]
     pub use image::{
         imageops::{resize, FilterType::Nearest},
         DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba,
     };
-    #[cfg(feature = "opencl")]
-    pub use ocl::{enums, Buffer, Context, Kernel, Program, Queue};
     #[cfg(not(feature = "lite"))]
     pub use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
-    pub use std::{collections::HashMap, env, fmt, fs, path::Path, str::FromStr};
-}
 
-use std::fmt::{self, Formatter};
+    // opencl stuff
+    #[cfg(feature = "opencl")]
+    pub use crate::data_structs::{DevicesInfo, GpuMemoryPointers, KernelStorage};
+    #[cfg(feature = "opencl")]
+    pub use crate::template_match::open_cl::OclVersion;
+    #[cfg(feature = "opencl")]
+    pub use ocl::{enums, Buffer, Context, Kernel, Program, Queue};
+}
 
 use crate::errors::*;
 #[cfg(not(feature = "lite"))]
-use data_structs::SegmentedData;
+use data_structs::SegmentedData; ///////////////////////// REMOVE
 
 pub use mouse::mouse_position::print_mouse_position;
 pub use mouse::MouseClick;
@@ -522,20 +525,18 @@ impl RustAutoGui {
                         &self.debug,
                         user_threshold,
                     );
-                let prepared_data: SegmentedData = if let imports::PreparedData::Segmented(
-                    segmented,
-                ) = prepared_data
-                {
-                    // mostly happens due to using too complex image with small max segments value
-                    if (segmented.template_segments_fast.len() == 1)
-                        | (segmented.template_segments_slow.len() == 1)
-                    {
-                        Err(ImageProcessingError::new("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"))?;
-                    }
-                    segmented
-                } else {
-                    return Err(ImageProcessingError::new("Wrong data prepared  / stored."))?;
-                };
+                let prepared_data: imports::SegmentedData =
+                    if let imports::PreparedData::Segmented(segmented) = prepared_data {
+                        // mostly happens due to using too complex image with small max segments value
+                        if (segmented.template_segments_fast.len() == 1)
+                            | (segmented.template_segments_slow.len() == 1)
+                        {
+                            Err(ImageProcessingError::new("Error in creating segmented template image. To resolve: either increase the max_segments, use FFT matching mode or use smaller template image"))?;
+                        }
+                        segmented
+                    } else {
+                        return Err(ImageProcessingError::new("Wrong data prepared  / stored."))?;
+                    };
                 let match_mode = Some(matchmode_val);
                 {
                     let ocl_buffer_data = imports::GpuMemoryPointers::new(
