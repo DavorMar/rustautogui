@@ -3,11 +3,12 @@ All notable changes to this project will be documented in this file.
 
 ## [2.5.0] - 2025-05-
 ### Added 
-- Added **OpenCL** implementation of the algorithm. Now you can run the template matching process of GPU to achieve better performance
-- OpenCL implementation will also implement V2 of the algorithm, which will be called from separate function and includes multiple additional optimisations opposed to default OpenCL (V1) algorithm
-- V2 should only be used by users who are ready to tweak the parameters and really want to achieve maximum speed, since speed drops off dramatically if parameters are not tweaked correctly. If you dont care about speed, no need to bother with V2 version.
-- V1 will also include additional improvement of algorithm with automatical detection of optimal segmentation levels of template. This does slow down the process a bit in some cases, but the reduction is minimal on a good GPU. 
-  This automatic detection does improve performance by a huge margin in other cases where algorithm dropped off in speed. V2 does not have this , and its left for user to tweak it instead of automatic detection. P.S. automatic detection is not included on CPU side of algorithm. 
+- Added **OpenCL** implementation of the algorithm. Now you can run the template matching process of GPU to achieve better performance. Two variants of algorithm included
+- Adding Opencl expanded MatchMode enum with 2 more variatns: SegmentedOcl and SegmentedOclV2
+- Added optimization to segmented template match with automatic threshold detection
+- Added *_custom template preparation functions which allow user to input threshold themselves if they dont want automatic detection
+- Code cleanup / restructure
+- Added feature "lite". This includes much lighter version of library with no template matching possibility, just keyboard and mouse included
 
 ## [2.4.0] - 2025-04-05
 ### Added / Changed / Fixed

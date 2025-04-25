@@ -4,6 +4,7 @@
 #[cfg(all(feature = "lite", feature = "opencl"))]
 compile_error!("Features `lite` and `opencl` cannot be enabled at the same time.");
 
+#[cfg(not(feature = "lite"))]
 pub mod data_structs;
 pub mod errors;
 pub mod imgtools;
@@ -43,7 +44,7 @@ use std::fmt::{self, Formatter};
 use crate::errors::*;
 #[cfg(not(feature = "lite"))]
 use data_structs::SegmentedData;
-#[cfg(not(feature = "lite"))]
+
 pub use mouse::mouse_position::print_mouse_position;
 pub use mouse::MouseClick;
 
@@ -212,6 +213,7 @@ impl RustAutoGui {
             #[cfg(not(feature = "lite"))]
             region: (0, 0, 0, 0),
             suppress_warnings: suppress_warnings,
+            #[cfg(not(feature = "lite"))]
             alias_used: DEFAULT_ALIAS.to_string(),
             #[cfg(feature = "opencl")]
             device_list: device_list,
@@ -332,7 +334,7 @@ impl RustAutoGui {
     pub fn get_screen_size(&mut self) -> (i32, i32) {
         self.screen.dimension()
     }
-
+    #[cfg(not(feature = "lite"))]
     /// saves screenshot and saves it at provided path
     pub fn save_screenshot(&mut self, path: &str) -> Result<(), AutoGuiError> {
         self.screen.grab_screenshot(path)?;
@@ -396,12 +398,13 @@ impl RustAutoGui {
                 "Template size larger than screen size".to_string(),
             ));
         }
-
+        #[cfg(not(feature = "lite"))]
         if (template_width > region_width) | (template_height > region_height) {
             return Err(AutoGuiError::OutOfBoundsError(
                 "Template size larger than region size".to_string(),
             ));
         }
+        #[cfg(not(feature = "lite"))]
         if template_height * template_width == 0 {
             Err(ImageProcessingError::Custom(
                 "Template size = 0. Please check loaded template if its correct".to_string(),
@@ -650,7 +653,7 @@ impl RustAutoGui {
 
         Ok(())
     }
-
+    #[cfg(not(feature = "lite"))]
     #[allow(dead_code)]
     fn check_alias_name(alias: &str) -> Result<(), ImageProcessingError> {
         if (alias.contains(DEFAULT_ALIAS)) | (alias.contains(DEFAULT_BCKP_ALIAS)) {
@@ -836,7 +839,7 @@ impl RustAutoGui {
         self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, Some(alias), None)?;
         Ok(())
     }
-
+    #[cfg(not(feature = "lite"))]
     pub fn store_template_from_raw_encoded_custom(
         &mut self,
         img_raw: &[u8],

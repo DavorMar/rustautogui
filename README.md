@@ -35,7 +35,7 @@ Main functions:
       - [Loading multiple images into memory](#loading-multiple-images-into-memory)
     - [Custom Image Preparation \& Storage (\*\_custom Functions)](#custom-image-preparation--storage-_custom-functions)
       - [What's different?](#whats-different)
-      - [Why Use Custom Thresholds?\*\*](#why-use-custom-thresholds)
+      - [Why Use Custom Thresholds?](#why-use-custom-thresholds)
       - [Performance Tips](#performance-tips)
     - [Template matching](#template-matching)
       - [Single loaded template match](#single-loaded-template-match)
@@ -216,7 +216,7 @@ These _custom functions include an extra threshold parameter. While the default 
 
   - Lower threshold → Coarser segmentation → Faster processing
 
-#### Why Use Custom Thresholds?**
+#### Why Use Custom Thresholds?
 ---
 The automatic thresholding works well in many cases, but:
 
@@ -544,7 +544,7 @@ Run clinfo, if no GPU detected, continue. Otherwise you're finished.
 
 - to utilize opencl, prepare templates with matchmodes SegmentedOcl or SegmentedOclV2
 
-- In case there are multiple GPU devices(often found on mac), the best gpu is chosen my scoring them according to their memory size, clock freq and compute units count
+- In case there are multiple GPU devices(often found on mac), the best gpu is chosen by scoring them according to their memory size, clock freq and compute units count
   
 
 To display available devices and change default device:

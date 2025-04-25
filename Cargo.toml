@@ -14,13 +14,13 @@ exclude = ["testspeed.gif"]
 
 
 [dependencies]
-image = "0.25"
-rustfft = "6.2.0"
-num-complex = "0.4.6"
-rayon = "1.10.0"
+rustfft = { version = "6.2.0", optional = true }
+rayon = { version = "1.10.0", optional = true }
+num-complex = { version = "0.4.6", optional = true }
+ocl = { version = "0.19.7", optional = true }
+image = { version = "0.25", optional = true}
 rand = "0.9"
 x11 = "2.21.0"
-ocl = {version = "0.19.7", optional = true}
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-graphics = {version = "0.23.2", features = ["highsierra"]}
@@ -32,5 +32,6 @@ winapi = { version = "0.3", features = ["winuser", "windef"] }
 
 [features]
 default = ["opencl"]
+full = ["rustfft", "num-complex", "rayon", "image"]
 lite = []
-opencl = ["ocl"]
+opencl = ["ocl", "full"]

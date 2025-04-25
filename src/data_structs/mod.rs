@@ -5,6 +5,7 @@ use crate::MatchMode;
 use crate::RustAutoGui;
 #[cfg(feature = "opencl")]
 pub use opencl::*;
+
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
 
 #[cfg(not(feature = "lite"))]

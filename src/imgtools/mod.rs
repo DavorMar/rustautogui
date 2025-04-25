@@ -4,11 +4,14 @@ loading images from disk, converting image to black-white or RGB, cutting image
 and converting image to vector.
 */
 use crate::errors::AutoGuiError;
+#[cfg(not(feature = "lite"))]
 use image::{
     error::LimitError, DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba,
 };
-
+#[cfg(not(feature = "lite"))]
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
+
+#[cfg(not(feature = "lite"))]
 /// Loads image from the provided path and converts to black-white format
 /// Returns image in image::ImageBuffer format
 pub fn load_image_bw(location: &str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
@@ -19,7 +22,7 @@ pub fn load_image_bw(location: &str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, A
     let gray_image: ImageBuffer<Luma<u8>, Vec<u8>> = img.to_luma8();
     Ok(gray_image)
 }
-
+#[cfg(not(feature = "lite"))]
 /// Loads image from the provided path and converts to RGBA format
 /// Returns image in image::ImageBuffer format
 pub fn load_image_rgba(location: &str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
@@ -27,7 +30,7 @@ pub fn load_image_rgba(location: &str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>,
     let img = img.decode()?;
     Ok(img.to_rgba8()) // return rgba image
 }
-
+#[cfg(not(feature = "lite"))]
 pub fn check_imagebuffer_color_scheme<P, T>(
     image: &ImageBuffer<P, Vec<T>>,
 ) -> Result<u32, AutoGuiError>
@@ -43,7 +46,7 @@ where
     }
     Ok(buff_len / (img_w * img_h))
 }
-
+#[cfg(not(feature = "lite"))]
 pub fn convert_t_imgbuffer_to_luma<P, T>(
     image: &ImageBuffer<P, Vec<T>>,
     color_scheme: u32,
@@ -111,7 +114,7 @@ where
         }
     }
 }
-
+#[cfg(not(feature = "lite"))]
 /// Does conversion from ImageBuffer RGBA to ImageBuffer Black and White(Luma)
 pub fn convert_rgba_to_bw(
     image: ImageBuffer<Rgba<u8>, Vec<u8>>,
@@ -131,7 +134,7 @@ pub fn convert_rgba_to_bw(
     )?;
     Ok(DynamicImage::ImageRgba8(rgba_img).to_luma8())
 }
-
+#[cfg(not(feature = "lite"))]
 /// Does conversion from ImageBuffer RGBA to ImageBuffer Black and White(Luma)
 pub fn convert_rgba_to_bw_old(
     image: ImageBuffer<Rgba<u8>, Vec<u8>>,
@@ -152,6 +155,7 @@ pub fn convert_rgba_to_bw_old(
     )
 }
 
+#[cfg(not(feature = "lite"))]
 /// Cuts Region of image. Inputs are top left x , y pixel coordinates on image,
 ///     width and height of region and the image being cut.
 ///     Returns image os same datatype
@@ -180,6 +184,7 @@ where
     sub_image
 }
 
+#[cfg(not(feature = "lite"))]
 ///Converts Imagebuffer to Vector format
 pub fn imagebuffer_to_vec<T: Copy + Primitive + 'static>(
     image: &ImageBuffer<Luma<T>, Vec<T>>,
