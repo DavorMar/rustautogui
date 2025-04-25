@@ -243,7 +243,7 @@ impl RustAutoGui {
         ),
         AutoGuiError,
     > {
-        let context = imports::Context::builder().build().unwrap();
+        let context = imports::Context::builder().build()?;
         let available_devices = context.devices();
         let device_count = available_devices.len();
         let mut device_list: Vec<imports::DevicesInfo> = Vec::new();
@@ -309,7 +309,7 @@ impl RustAutoGui {
         }
         let used_device = context.devices()[best_device_index as usize];
 
-        let queue = imports::Queue::new(&context, used_device, None).unwrap();
+        let queue = imports::Queue::new(&context, used_device, None)?;
         let program_source = crate::template_match::opencl_kernel::OCL_KERNEL;
         let program = imports::Program::builder()
             .src(program_source)
@@ -544,13 +544,13 @@ impl RustAutoGui {
                         &prepared_data.template_segments_slow,
                         &prepared_data.template_segments_fast,
                     )?;
-                    let (image_w, image_h) = self.screen.dimension();
+
                     let kernels = imports::KernelStorage::new(
                         &ocl_buffer_data,
                         &self.ocl_program,
                         &self.ocl_queue,
-                        image_w as u32,
-                        image_h as u32,
+                        region.2,
+                        region.3,
                         template_width,
                         template_height,
                         prepared_data.template_segments_fast.len() as u32,

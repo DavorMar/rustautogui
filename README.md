@@ -33,7 +33,10 @@ Main functions:
     - [Loading images into memory](#loading-images-into-memory)
       - [Loading single image into memory](#loading-single-image-into-memory)
       - [Loading multiple images into memory](#loading-multiple-images-into-memory)
-      - [Custom Image Preparation \& Storage (\*\_custom Functions)](#custom-image-preparation--storage-_custom-functions)
+    - [Custom Image Preparation \& Storage (\*\_custom Functions)](#custom-image-preparation--storage-_custom-functions)
+      - [What's different?](#whats-different)
+      - [Why Use Custom Thresholds?\*\*](#why-use-custom-thresholds)
+      - [Performance Tips](#performance-tips)
     - [Template matching](#template-matching)
       - [Single loaded template match](#single-loaded-template-match)
       - [Multiple stored templates search](#multiple-stored-templates-search)
@@ -131,6 +134,7 @@ let mut rustautogui = rustautogui::RustAutoGui::new(false); // arg: debug
 ### Loading images into memory
 
 #### Loading single image into memory
+---
 
 From file, same as load_and_prepare_template which will be deprecated
 ```rust
@@ -163,6 +167,7 @@ rustautogui.prepare_template_from_raw_encoded( // returns Result<(), String>
 
 
 #### Loading multiple images into memory
+---
 
 Functions  work the same as single image loads, with additional parameter of alias for the image.
 
@@ -195,13 +200,14 @@ rustautogui.store_template_from_raw_encoded( // returns Result<(), String>
 
 ```
 
-#### Custom Image Preparation & Storage (*_custom Functions)
-
+### Custom Image Preparation & Storage (*_custom Functions)
+---
 
 All standard image functions have corresponding custom variants, identifiable by the _custom suffix (e.g., prepare_template_from_file_custom, store__template_from_imagebuffer_custom).
 
 
-**What's different?**
+#### What's different?
+---
 These _custom functions include an extra threshold parameter. While the default segmented template matching uses an automatic threshold estimation, the custom version gives you manual control over this value.
 
 - Threshold determines how finely the image is segmented:
@@ -210,8 +216,8 @@ These _custom functions include an extra threshold parameter. While the default 
 
   - Lower threshold → Coarser segmentation → Faster processing
 
-**Why Use Custom Thresholds?**
-
+#### Why Use Custom Thresholds?**
+---
 The automatic thresholding works well in many cases, but:
 
 - It can introduce a slight performance overhead.
@@ -225,7 +231,8 @@ The automatic thresholding works well in many cases, but:
 💡 Internally, the threshold represents the correlation between the fast-segmented image and the original template.
 
 
-⚠️ Performance Tips
+#### Performance Tips
+---
 - Threshold > 0.85:
 
   - May slow down the algorithm significantly.
@@ -257,7 +264,7 @@ rustautogui.store_template_from_imagebuffer_custom( // returns Result<(), String
 
 ### Template matching
 #### Single loaded template match
-
+---
 Find image and get pixel coordinates
 ```rust
 let found_locations: Option<Vec<(u32, u32, f64)>> = rustautogui.find_image_on_screen(0.9).unwrap(); // arg: precision
@@ -287,6 +294,8 @@ rustautogui
 ```
 
 #### Multiple stored templates search
+
+---
 
 Again, functions are the same, just having alias argument
 
@@ -322,6 +331,7 @@ rustautogui
 
 
 ### MacOS retina display issues:
+---
 Macos retina display functions by digitally doubling the amount of displayed pixels. The original screen size registered by OS is,
 for instance, 1400x800. Retina display doubles it to 2800x1600. If a user provides a screengrab, the image will be saved with doubled the amount
 of pixels, where it then fails to match template since screen provided by OS api is not doubled.
@@ -331,6 +341,7 @@ It can also not be known if user is providing template from a screen grab, or an
 and also resized by half. The template search first searches for resized template, and if it fails then it tries with original. For that reason, users on macOS will experience slower search times than users on other operating systems.
 
 ### Segmented vs FFT matching
+---
 
 This info does not include OpenCL in comparison. More info about it below. 
 
@@ -495,7 +506,7 @@ To enable OpenCL, as mentioned above, add crate to your Cargo.toml with opencl f
 
    `sudo apt install ocl-icd-opencl-dev`
 
-2) Ff clinfo is not installed:
+2) If clinfo is not installed:
 
    `sudo apt install clinfo`
 
@@ -532,6 +543,18 @@ Run clinfo, if no GPU detected, continue. Otherwise you're finished.
 - ⚠️ OpenCL performance highly depends on your GPU. On low-end or integrated GPUs, it may perform worse than CPU processing.
 
 - to utilize opencl, prepare templates with matchmodes SegmentedOcl or SegmentedOclV2
+
+- In case there are multiple GPU devices(often found on mac), the best gpu is chosen my scoring them according to their memory size, clock freq and compute units count
+  
+
+To display available devices and change default device:
+```rust
+gui.list_devices();
+
+gui.change_ocl_device(1); // selects device on index = 1
+```
+⚠️ Changing device completely resets all the prepared data. 
+
 
 ## V1 vs V2 Algorithms
 Your choice between V1 and V2 algorithms can significantly affect performance and reliability, depending on your use case.
