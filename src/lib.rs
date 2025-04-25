@@ -256,6 +256,8 @@ impl RustAutoGui {
         let mut best_device_index = 0;
         let mut max_workgroup_size = 0;
         for (i, device) in available_devices.into_iter().enumerate() {
+
+            let device_type = device.info(imports::enums::DeviceInfo::Type)?.to_string();
             let workgroup_size: u32 = device
                 .info(imports::enums::DeviceInfo::MaxWorkGroupSize)?
                 .to_string()
@@ -291,6 +293,7 @@ impl RustAutoGui {
                 device_name,
                 score,
             );
+            
             device_list.push(gui_device);
             match device_id {
                 Some(x) => {
@@ -304,7 +307,7 @@ impl RustAutoGui {
                     }
                 }
                 None => {
-                    if score >= highest_score {
+                    if score >= highest_score && device_type.contains("GPU") {
                         highest_score = score;
                         best_device_index = i;
                         max_workgroup_size = workgroup_size;
@@ -313,7 +316,6 @@ impl RustAutoGui {
             }
         }
         let used_device = context.devices()[best_device_index as usize];
-
         let queue = imports::Queue::new(&context, used_device, None)?;
         let program_source = crate::template_match::opencl_kernel::OCL_KERNEL;
         let program = imports::Program::builder()
@@ -345,8 +347,8 @@ impl RustAutoGui {
     }
     #[cfg(feature = "opencl")]
     pub fn list_devices(&self) {
-        for item in &self.device_list {
-            println!("Device 1:");
+        for (i, item) in (&self.device_list).iter().enumerate() {
+            println!("Device {i}:");
             println!("{}", item.print_device());
             println!("\n");
         }
@@ -1221,7 +1223,6 @@ impl RustAutoGui {
             }
             #[cfg(feature = "opencl")]
             MatchMode::SegmentedOcl => {
-                println!("Running OCL mode");
                 let data = match &self.prepared_data {
                     imports::PreparedData::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(
@@ -1246,7 +1247,6 @@ impl RustAutoGui {
             }
             #[cfg(feature = "opencl")]
             MatchMode::SegmentedOclV2 => {
-                println!("Running V2 mode");
                 let data = match &self.prepared_data {
                     imports::PreparedData::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(
@@ -1270,7 +1270,6 @@ impl RustAutoGui {
                 )?
             }
         };
-        println!("Duration:{}", start.elapsed().as_secs_f32());
         if found_locations.len() > 0 {
             if self.debug {
                 let corrected_found_location: (u32, u32, f32);
