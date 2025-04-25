@@ -31,7 +31,25 @@ winapi = { version = "0.3", features = ["winuser", "windef"] }
 
 
 [features]
-default = ["opencl"]
+default = ["lite"]
 full = ["rustfft", "num-complex", "rayon", "image"]
 lite = []
 opencl = ["ocl", "full"]
+
+
+[[example]]
+name = "opencl_example"
+path = "examples/opencl_example.rs"
+required-features = ["opencl"]
+
+
+[[example]]
+name = "find_image_move_mouse_and_input"
+path = "examples/find_image_move_mouse_and_input.rs"
+required-features = ["full"]
+
+
+[[example]]
+name = "open_github_page"
+path = "examples/open_github_page.rs"
+required-features = ["full"]
