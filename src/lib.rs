@@ -32,7 +32,7 @@ mod imports {
         DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba,
     };
     #[cfg(feature = "opencl")]
-    pub use ocl::{Buffer, Context, Kernel, Program, Queue, enums};
+    pub use ocl::{enums, Buffer, Context, Kernel, Program, Queue};
     #[cfg(not(feature = "lite"))]
     pub use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
     pub use std::{collections::HashMap, env, fmt, fs, path::Path, str::FromStr};
@@ -44,16 +44,14 @@ use crate::errors::*;
 #[cfg(not(feature = "lite"))]
 use data_structs::SegmentedData;
 #[cfg(not(feature = "lite"))]
-
 pub use mouse::mouse_position::print_mouse_position;
 pub use mouse::MouseClick;
 
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
 const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
 
-
 /// Matchmode Segmented correlation and Fourier transform correlation
-#[derive(PartialEq,Debug)]
+#[derive(PartialEq, Debug)]
 #[cfg(not(feature = "lite"))]
 pub enum MatchMode {
     Segmented,
@@ -81,10 +79,7 @@ impl Clone for MatchMode {
 /// Struct gets assigned keyboard, mouse and struct to it implemented functions execute commands from each of assigned substructs
 /// executes also correlation algorithms when doing find_image_on_screen
 
-pub struct OclData {
-
-}
-
+pub struct OclData {}
 
 #[allow(dead_code)]
 pub struct RustAutoGui {
@@ -142,7 +137,6 @@ impl RustAutoGui {
         // OCL INITIALIZATION
         #[cfg(feature = "opencl")]
         let (context, queue, program, device_list, workgroup_size) = Self::setup_opencl(None)?;
-        
 
         Ok(Self {
             #[cfg(not(feature = "lite"))]
@@ -200,7 +194,6 @@ impl RustAutoGui {
         #[cfg(feature = "opencl")]
         let (context, queue, program, device_list, workgroup_size) = Self::setup_opencl(None)?;
 
-   
         Ok(Self {
             #[cfg(not(feature = "lite"))]
             template: None,
@@ -279,12 +272,8 @@ impl RustAutoGui {
                 .to_string()
                 .parse()
                 .map_err(|_| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
-            let device_vendor = device
-                .info(imports::enums::DeviceInfo::Vendor)?
-                .to_string();
-            let device_name = device
-                .info(imports::enums::DeviceInfo::Name)?
-                .to_string();
+            let device_vendor = device.info(imports::enums::DeviceInfo::Vendor)?.to_string();
+            let device_name = device.info(imports::enums::DeviceInfo::Name)?.to_string();
             let global_mem_gb = global_mem / 1_048_576;
             let score = global_mem_gb as u32 * 2 + compute_units * 10 + clock_frequency;
             let gui_device = imports::DevicesInfo::new(
@@ -491,7 +480,7 @@ impl RustAutoGui {
         // FFT pads the image, does fourier transformations,
         // calculates conjugate and inverses transformation on template
         // Segmented creates vector of picture segments with coordinates, dimensions and average pixel value
-        let (template_data, match_mode_option) = match match_mode {
+        let (template_data, match_mode_option) = match match_mode.clone() {
             MatchMode::FFT => {
                 let prepared_data =
                     imports::PreparedData::FFT(template_match::fft_ncc::prepare_template_picture(
@@ -521,16 +510,18 @@ impl RustAutoGui {
 
                 (prepared_data, match_mode)
             }
+
             #[cfg(feature = "opencl")]
-            MatchMode::SegmentedOcl | MatchMode::SegmentedOclV2 => {
+            matchmode_val @ MatchMode::SegmentedOcl | matchmode_val @ MatchMode::SegmentedOclV2 => {
                 let prepared_data: imports::PreparedData =
                     template_match::segmented_ncc::prepare_template_picture(
                         &template,
                         &self.debug,
                         user_threshold,
                     );
-                let prepared_data: SegmentedData = if let imports::PreparedData::Segmented(segmented) =
-                    prepared_data
+                let prepared_data: SegmentedData = if let imports::PreparedData::Segmented(
+                    segmented,
+                ) = prepared_data
                 {
                     // mostly happens due to using too complex image with small max segments value
                     if (segmented.template_segments_fast.len() == 1)
@@ -542,7 +533,7 @@ impl RustAutoGui {
                 } else {
                     return Err(ImageProcessingError::new("Wrong data prepared  / stored."))?;
                 };
-                let match_mode = Some(MatchMode::Segmented);
+                let match_mode = Some(matchmode_val);
                 {
                     let ocl_buffer_data = imports::GpuMemoryPointers::new(
                         region.2,
@@ -1019,7 +1010,9 @@ impl RustAutoGui {
                 self.template_width = data.template_width;
                 self.template_height = data.template_height;
             }
-            imports::PreparedData::None => Err(ImageProcessingError::new("No prepared data loaded"))?,
+            imports::PreparedData::None => {
+                Err(ImageProcessingError::new("No prepared data loaded"))?
+            }
         };
         let points = self.find_image_on_screen(precision)?;
         // reset to starting info
@@ -1093,7 +1086,9 @@ impl RustAutoGui {
                 self.template_width = data.template_width;
                 self.template_height = data.template_height;
             }
-            imports::PreparedData::None => Err(ImageProcessingError::new("No prepared data loaded"))?,
+            imports::PreparedData::None => {
+                Err(ImageProcessingError::new("No prepared data loaded"))?
+            }
         };
         let found_points = self.find_image_on_screen_and_move_mouse(precision, moving_time);
 
@@ -1191,6 +1186,7 @@ impl RustAutoGui {
         let start = std::time::Instant::now();
         let found_locations: Vec<(u32, u32, f32)> = match match_mode {
             MatchMode::FFT => {
+                println!("Running FFT mode");
                 let data = match &self.prepared_data {
                     imports::PreparedData::FFT(data) => data,
                     _ => Err(ImageProcessingError::new(
@@ -1205,6 +1201,7 @@ impl RustAutoGui {
                     .collect()
             }
             MatchMode::Segmented => {
+                println!("Running Segmented mode");
                 let data = match &self.prepared_data {
                     imports::PreparedData::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(
@@ -1220,6 +1217,7 @@ impl RustAutoGui {
             }
             #[cfg(feature = "opencl")]
             MatchMode::SegmentedOcl => {
+                println!("Running OCL mode");
                 let data = match &self.prepared_data {
                     imports::PreparedData::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(
@@ -1244,6 +1242,7 @@ impl RustAutoGui {
             }
             #[cfg(feature = "opencl")]
             MatchMode::SegmentedOclV2 => {
+                println!("Running V2 mode");
                 let data = match &self.prepared_data {
                     imports::PreparedData::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(

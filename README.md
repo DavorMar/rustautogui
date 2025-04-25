@@ -26,15 +26,19 @@ Main functions:
     - [Why not OpenCV?](#why-not-opencv)
     - [Segmented template matching algorithm](#segmented-template-matching-algorithm)
   - [Installation](#installation)
+    - [Lite version](#lite-version)
 - [Usage:](#usage)
     - [Import and Initialize RustAutoGui](#import-and-initialize-rustautogui)
   - [Finding image on screen](#finding-image-on-screen)
-    - [Loading single image into memory](#loading-single-image-into-memory)
-    - [Segmented vs FFT matching](#segmented-vs-fft-matching)
-    - [Loading multiple images into memory](#loading-multiple-images-into-memory)
-    - [Single loaded template search](#single-loaded-template-search)
-    - [Multiple stored templates search](#multiple-stored-templates-search)
+    - [Loading images into memory](#loading-images-into-memory)
+      - [Loading single image into memory](#loading-single-image-into-memory)
+      - [Loading multiple images into memory](#loading-multiple-images-into-memory)
+      - [Custom Image Preparation \& Storage (\*\_custom Functions)](#custom-image-preparation--storage-_custom-functions)
+    - [Template matching](#template-matching)
+      - [Single loaded template match](#single-loaded-template-match)
+      - [Multiple stored templates search](#multiple-stored-templates-search)
     - [MacOS retina display issues:](#macos-retina-display-issues)
+    - [Segmented vs FFT matching](#segmented-vs-fft-matching)
   - [General Functions](#general-functions)
   - [Mouse Functions](#mouse-functions)
     - [Mouse Clicks](#mouse-clicks)
@@ -49,11 +53,11 @@ Main functions:
     - [Windows](#windows)
     - [MacOS](#macos)
   - [Please read before using OpenCL ⚠️⚠️](#please-read-before-using-opencl-️️)
-  - [OpenCL V2 variant](#opencl-v2-variant)
+  - [V1 vs V2 Algorithms](#v1-vs-v2-algorithms)
 - [Other Info](#other-info)
   - [How does crate work](#how-does-crate-work)
   - [Major changes](#major-changes)
-  - [Additional notes](#additional-notes)
+  
 
 
 ## Achievable speed
@@ -92,6 +96,11 @@ With OpenCL support ( ⚠️ Please read info below before using):
 
 `rustautogui = { version = "2.5.0", features = ["opencl"] }`
 
+Lite Version 
+
+`rustautogui = { version = "2.5.0", features = ["lite"] }`
+
+
 For Linux additionally run:
 
 `sudo apt-get update`
@@ -99,11 +108,10 @@ For Linux additionally run:
 `sudo apt-get install libx11-dev libxtst-dev`
 
 
-
-
-
 For macOS: grant necessary permissions in your settings.
 
+### Lite version
+Lite version provides just keyboard and mouse function. No template matching code included
 
 # Usage:
 
@@ -120,7 +128,9 @@ let mut rustautogui = rustautogui::RustAutoGui::new(false); // arg: debug
 
 ## Finding image on screen
 
-### Loading single image into memory
+### Loading images into memory
+
+#### Loading single image into memory
 
 From file, same as load_and_prepare_template which will be deprecated
 ```rust
@@ -149,27 +159,10 @@ rustautogui.prepare_template_from_raw_encoded( // returns Result<(), String>
 ```
 
 
-### Segmented vs FFT matching
-
-This info does not include OpenCL in comparison. More info about it below. 
 
 
-It is hard to give a 100% correct answer when to use which algorithm. FFT algorithm is mostly consistent, with no big variances in speed. Segmented on other hand can heavily vary and speed can be up to 10x faster than FFT, but also slower by factor of up to thousands. The best would be for users to test both methods and determine when to use which method. A general advice can be: Use segmented on smaller template images and when template is less visually complex (visual complexity is randomness of pixels in an image, for instance an image that is half white vs half black vs random noise image). 
-FFT would probably be better when comparing large template images on a large region, but also when template size approaches image region size. 
 
-
-Generally, if you're following the idea of maximizing speeds by using as small as possible template images and determining small as possible screen regions, in most cases Segmented will perform faster than FFT. 
-
-Matchmodes enum:
-```rust
-pub enum MatchMode {
-   Segmented,
-   FFT,
-}
-```
-
-
-### Loading multiple images into memory
+#### Loading multiple images into memory
 
 Functions  work the same as single image loads, with additional parameter of alias for the image.
 
@@ -202,8 +195,68 @@ rustautogui.store_template_from_raw_encoded( // returns Result<(), String>
 
 ```
 
+#### Custom Image Preparation & Storage (*_custom Functions)
 
-### Single loaded template search
+
+All standard image functions have corresponding custom variants, identifiable by the _custom suffix (e.g., prepare_template_from_file_custom, store__template_from_imagebuffer_custom).
+
+
+**What's different?**
+These _custom functions include an extra threshold parameter. While the default segmented template matching uses an automatic threshold estimation, the custom version gives you manual control over this value.
+
+- Threshold determines how finely the image is segmented:
+
+  - Higher threshold → Finer segmentation → More detailed image
+
+  - Lower threshold → Coarser segmentation → Faster processing
+
+**Why Use Custom Thresholds?**
+
+The automatic thresholding works well in many cases, but:
+
+- It can introduce a slight performance overhead.
+
+- In some scenarios, manual tuning of the threshold can result in significantly faster matching.
+
+- By choosing the right threshold for each image, you can maximize performance.
+  
+- threshold is only important for Segmented match modes and has no influence on FFT match mode
+
+💡 Internally, the threshold represents the correlation between the fast-segmented image and the original template.
+
+
+⚠️ Performance Tips
+- Threshold > 0.85:
+
+  - May slow down the algorithm significantly.
+  - Offers diminishing returns in terms of accuracy or speed.
+
+- Threshold < 0.3:
+
+  - Often produces similar results as 0.0 in most cases.
+
+  - Can be a good baseline for experimentation.
+- What do we gain with higher threshold? -> Fast template match produces less false positives, giving less work to slow template match process and increasing speed 
+
+
+*the algorithm does two correlation checks. First with roughly segmented image, with small number of segments, then on second finer segmented image, with higher precision and more segments. Positions found by rough image, which runs very fast, are checked with finer image. Sometimes, rough image is segmented by too small factor and leads to many false positives, which slows down algorithm due to too many checks on finer image*
+
+Example: 
+```rust
+rustautogui.store_template_from_imagebuffer_custom( // returns Result<(), String>
+   img_buffer,
+   None, 
+   rustautogui::MatchMode::Segmented,
+   "button_image",
+   0.0 
+).unwrap();
+```
+
+
+
+
+### Template matching
+#### Single loaded template match
 
 Find image and get pixel coordinates
 ```rust
@@ -220,7 +273,7 @@ let found_locations: Option<Vec<(u32, u32, f64)>> =  rustautogui.find_image_on_s
 IMPORTANT: Difference between linux and windows/macOS when using multiple monitors. On Windows and macOS, search for template image can be done only on the main monitor. On Linux, searches can be done on all monitors if multiple are used, with (0,0) starting from the top-left monitor.
 
 Loop search with timeout. Searches till image is found or timeout in seconds is hit.
-<br><strong> Warning: timeout of 0 initiates infinite loop</strong>
+<br><strong>⚠️ Timeout of 0 initiates infinite loop</strong>
 ```rust
 rustautogui
         .loop_find_image_on_screen(0.95, 15) // args: precision, timeout
@@ -233,7 +286,7 @@ rustautogui
         .unwrap();
 ```
 
-### Multiple stored templates search
+#### Multiple stored templates search
 
 Again, functions are the same, just having alias argument
 
@@ -249,7 +302,7 @@ rustautogui
       .unwrap();
 ```
 Loop search
-<br><strong> Warning: timeout of 0 initiates infinite loop</strong>
+<br><strong>⚠️ Timeout of 0 initiates infinite loop</strong>
 
 ```rust
 rustautogui
@@ -263,13 +316,40 @@ rustautogui
         .unwrap();
 ```
 
+
+
+
+
+
 ### MacOS retina display issues:
 Macos retina display functions by digitally doubling the amount of displayed pixels. The original screen size registered by OS is,
 for instance, 1400x800. Retina display doubles it to 2800x1600. If a user provides a screengrab, the image will be saved with doubled the amount
-of pixels, where it then fails to match template since screen provided by OS api is not doubled. It can also not be known if user is providing template from a screen grab, or an image thats coming from some other source. For that reason, every template is saved in its original format,
+of pixels, where it then fails to match template since screen provided by OS api is not doubled.
+
+
+It can also not be known if user is providing template from a screen grab, or an image thats coming from some other source. For that reason, every template is saved in its original format,
 and also resized by half. The template search first searches for resized template, and if it fails then it tries with original. For that reason, users on macOS will experience slower search times than users on other operating systems.
 
+### Segmented vs FFT matching
 
+This info does not include OpenCL in comparison. More info about it below. 
+
+
+It is hard to give a 100% correct answer when to use which algorithm. FFT algorithm is mostly consistent, with no big variances in speed. Segmented on other hand can heavily vary and speed can be up to 10x faster than FFT, but also slower by factor of up to thousands. The best would be for users to test both methods and determine when to use which method. A general advice can be: Use segmented on smaller template images and when template is less visually complex (visual complexity is randomness of pixels in an image, for instance an image that is half white vs half black vs random noise image). 
+FFT would probably be better when comparing large template images on a large region, but also when template size approaches image region size. 
+
+
+Generally, if you're following the idea of maximizing speeds by using as small as possible template images and determining small as possible screen regions, in most cases Segmented will perform faster than FFT. 
+
+Matchmodes enum:
+```rust
+pub enum MatchMode {
+    Segmented,
+    FFT,
+    SegmentedOcl, // Only with opencl feature enabled
+    SegmentedOclV2, // Only with opencl feature enabled
+}
+```
 
 
 ## General Functions
@@ -348,7 +428,7 @@ rustautogui.drag_mouse(500, -500, 1.0).unwrap(); // args: x, y, moving_time. Dra
 ```
 
 Below is a helper function to determine coordinates on screen, helpful when determining region or mouse move target when developing
-- Before 0.3.0 this function popped up window, now it just prints. This was changed to reduce dependencies.
+
 ```rust
 use rustautogui::print_mouse_position;
 fn main() {
@@ -447,34 +527,42 @@ Run clinfo, if no GPU detected, continue. Otherwise you're finished.
 ## Please read before using OpenCL ⚠️⚠️
 
 
-- **OpenCL works only on Segmented match mode**. Running FFT matchmode will back to CPU. 
+- **OpenCL works only on Segmented match mode**. Running FFT matchmode will fall back to CPU. 
 
-- The OpenCL implementation includes automatic detection of (sub)optimal segmentation levels.
+- ⚠️ OpenCL performance highly depends on your GPU. On low-end or integrated GPUs, it may perform worse than CPU processing.
 
-   - "Suboptimal" here means it may slightly reduce performance on some images but can drastically improve it on others.
+- to utilize opencl, prepare templates with matchmodes SegmentedOcl or SegmentedOclV2
 
-- This auto-detection is more effective on GPU than CPU, so it’s only used in GPU mode. The slight reduction is barely noticable on GPU. 
+## V1 vs V2 Algorithms
+Your choice between V1 and V2 algorithms can significantly affect performance and reliability, depending on your use case.
 
-⚠️ Note: OpenCL performance highly depends on your GPU. On low-end or integrated GPUs, it may perform worse than CPU processing.
+⚙️ V1 — Robust & Consistent
+- Less sensitive to GPU performance variations.
 
-When the opencl feature is enabled, the RustAutoGUI struct defaults to ocl_state = true. Template images will be stored in GPU memory during preparation. You can change this state manually at any time using the change_ocl_state function.
+- Generally slower than V1, but more reliable across different hardware.
 
-⚠️ Important: Preparing an image with ocl_state = false (CPU mode) and then searching with ocl_state = true (GPU mode) will cause errors. Ensure consistency.
+- Best used with non-_custom functions, where threshold is automatically determined.
 
-To change OCL state:
-```rust
-gui.change_ocl_state = false;
-```
+- ✅ Recommended for general use and when you prefer consistency over raw speed.
+
+⚡ V2 — Fast & Flexible
+- More sensitive to the template image and the search image used.
+
+- Can be faster than V1, but only when the threshold is well-tuned.
+
+- Best used with _custom functions where you manually set the threshold.
+
+- ⚠️ Using a bad threshold can lead to performance worse than V1.
+  
+- ⚠️ Not intended for built in or lower tier GPUs
+
+💡 In short:
+
+- Use V1 for safety and automatic tuning.
+
+- Use V2 when optimizing for speed and you're ready to tune thresholds.
 
 
-## OpenCL V2 variant
-----
-- more omptimised
-- more sucsceptible to the types of images searched for
-- has an open parameter which should be tweaked by user, unlike V1 which has auto tweaking and detection of segmentation levels, and is less succeptible to changes 
-
-
-*the algorithm does two correlation checks. First with roughly segmented image, with small number of segments, then on second finer segmented image, with higher precision and more segments. Positions found by rough image, which runs very fast, are checked with finer image. Sometimes, rough image is segmented by too small factor and leads to many false positives, which slows down algorithm due to too many checks on finer image*
 
 
 
@@ -486,6 +574,7 @@ gui.change_ocl_state = false;
 - On Windows, RustAutoGUI interacts with winapi
 - on Linux, it uses x11, and Wayland is not supported
 - on macOS, it uses core-graphics crate
+- OpenCL is utilized through ocl crate
 
 
 ## Major changes
@@ -501,34 +590,3 @@ For more details, check CHANGELOG.md
 
 
 
-## Additional notes
-Data stored in prepared template data
-```rust
-pub enum PreparedData {
-    Segmented(
-        (
-            Vec<(u32, u32, u32, u32, f32)>, // template_segments_fast
-            Vec<(u32, u32, u32, u32, f32)>, // template_segments_slow
-            u32,                            // template_width
-            u32,                            // template_height
-            f32,                            // segment_sum_squared_deviations_fast
-            f32,                            // segment_sum_squared_deviations_slow
-            f32,                            // expected_corr_fast
-            f32,                            // expected_corr_slow
-            f32,                            // segments_mean_fast
-            f32,                            // segments_mean_slow
-        ),
-    ),
-    FFT(
-        (
-            Vec<Complex<f32>>, // template_conj_freq
-            f32,               // template_sum_squared_deviations
-            u32,               // template_width
-            u32,               // template_height
-            u32,               // padded_size
-        ),
-    ),
-
-    None,
-}
-```
