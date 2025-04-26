@@ -1,7 +1,7 @@
 use super::opencl_v2;
-use crate::data_structs::SegmentedData;
-use crate::data_structs::{GpuMemoryPointers, KernelStorage};
-use crate::template_match::{compute_integral_images, sum_region};
+use crate::data::SegmentedData;
+use crate::data::{GpuMemoryPointers, KernelStorage};
+use crate::core::template_match::{compute_integral_images, sum_region};
 use image::{ImageBuffer, Luma};
 use ocl;
 use ocl::{Buffer, Context, Kernel, Program, Queue};

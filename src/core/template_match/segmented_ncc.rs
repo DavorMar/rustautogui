@@ -6,10 +6,10 @@
  * Please read NOTICE.md file
  */
 
-use crate::template_match::{compute_integral_images, sum_region};
+use crate::core::template_match::{compute_integral_images, sum_region};
 
 use crate::{
-    data_structs::{PreparedData, SegmentedData},
+    data::{PreparedData, SegmentedData},
     imgtools,
 };
 use image::{ImageBuffer, Luma};

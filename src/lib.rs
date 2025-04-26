@@ -5,14 +5,13 @@
 compile_error!("Features `lite` and `opencl` cannot be enabled at the same time.");
 
 #[cfg(not(feature = "lite"))]
-pub mod data_structs;
+pub mod data;
 pub mod errors;
 pub mod imgtools;
-mod keyboard;
-mod mouse;
-mod screen;
-#[cfg(not(feature = "lite"))]
-pub mod template_match;
+pub mod core;
+
+
+
 
 mod imports {
     // main stuff that is used by all features
@@ -21,25 +20,27 @@ mod imports {
     #[cfg(target_os = "macos")]
     pub use crate::{keyboard::macos::Keyboard, mouse::macos::Mouse, screen::macos::Screen};
     #[cfg(target_os = "windows")]
-    pub use crate::{keyboard::windows::Keyboard, mouse::windows::Mouse, screen::windows::Screen};
+    pub use crate::{core::keyboard::windows::Keyboard, core::mouse::windows::Mouse, core::screen::windows::Screen};
     pub use std::{collections::HashMap, env, fmt, fs, path::Path, str::FromStr};
 
     // this is in default, not featured in lite
     #[cfg(not(feature = "lite"))]
-    pub use crate::data_structs::{BackupData, PreparedData, SegmentedData, TemplateMatchingData};
+    pub use crate::data::{BackupData, PreparedData, SegmentedData, TemplateMatchingData};
     #[cfg(not(feature = "lite"))]
     pub use image::{
         imageops::{resize, FilterType::Nearest},
         DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba,
     };
     #[cfg(not(feature = "lite"))]
+    pub use crate::core::{template_match, keyboard, mouse};
+    #[cfg(not(feature = "lite"))]
     pub use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
 
     // opencl stuff
     #[cfg(feature = "opencl")]
-    pub use crate::data_structs::{DevicesInfo, GpuMemoryPointers, KernelStorage, OpenClData};
+    pub use crate::data::{DevicesInfo, GpuMemoryPointers, KernelStorage, OpenClData};
     #[cfg(feature = "opencl")]
-    pub use crate::template_match::open_cl::OclVersion;
+    pub use crate::core::template_match::open_cl::OclVersion;
     #[cfg(feature = "opencl")]
     pub use ocl::{enums, Buffer, Context, Kernel, Program, Queue};
 }
@@ -47,10 +48,10 @@ mod imports {
 use crate::errors::*;
 
 #[cfg(not(feature = "lite"))]
-use data_structs::SegmentedData; ///////////////////////// REMOVE
+use data::SegmentedData; ///////////////////////// REMOVE
 
-pub use mouse::mouse_position::print_mouse_position;
-pub use mouse::MouseClick;
+pub use core::mouse::mouse_position::print_mouse_position;
+pub use core::mouse::MouseClick;
 #[cfg(not(feature = "lite"))]
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
 #[cfg(not(feature = "lite"))]
@@ -265,7 +266,7 @@ impl RustAutoGui {
         }
         let used_device = context.devices()[best_device_index as usize];
         let queue = imports::Queue::new(&context, used_device, None)?;
-        let program_source = crate::template_match::opencl_kernel::OCL_KERNEL;
+        let program_source = crate::core::template_match::opencl_kernel::OCL_KERNEL;
         let program = imports::Program::builder()
             .src(program_source)
             .build(&context)?;
@@ -443,7 +444,7 @@ impl RustAutoGui {
         let (template_data, match_mode_option) = match match_mode.clone() {
             MatchMode::FFT => {
                 let prepared_data =
-                    imports::PreparedData::FFT(template_match::fft_ncc::prepare_template_picture(
+                    imports::PreparedData::FFT(imports::template_match::fft_ncc::prepare_template_picture(
                         &template, region.2, region.3,
                     ));
                 let match_mode = Some(MatchMode::FFT);
@@ -452,7 +453,7 @@ impl RustAutoGui {
 
             MatchMode::Segmented => {
                 let prepared_data: imports::PreparedData =
-                    template_match::segmented_ncc::prepare_template_picture(
+                    imports::template_match::segmented_ncc::prepare_template_picture(
                         &template,
                         &self.debug,
                         user_threshold,
@@ -474,7 +475,7 @@ impl RustAutoGui {
             #[cfg(feature = "opencl")]
             matchmode_val @ MatchMode::SegmentedOcl | matchmode_val @ MatchMode::SegmentedOclV2 => {
                 let prepared_data: imports::PreparedData =
-                    template_match::segmented_ncc::prepare_template_picture(
+                    imports::template_match::segmented_ncc::prepare_template_picture(
                         &template,
                         &self.debug,
                         user_threshold,
@@ -1161,7 +1162,7 @@ impl RustAutoGui {
                     ))?,
                 };
                 let found_locations: Vec<(u32, u32, f64)> =
-                    template_match::fft_ncc::fft_ncc(&image, precision, data);
+                    imports::template_match::fft_ncc::fft_ncc(&image, precision, data);
                 found_locations
                     .into_iter()
                     .map(|(x, y, value)| (x, y, value as f32))
@@ -1175,7 +1176,7 @@ impl RustAutoGui {
                         "error in prepared data type. Matchmode does not match prepare data type",
                     ))?,
                 };
-                template_match::segmented_ncc::fast_ncc_template_match(
+                imports::template_match::segmented_ncc::fast_ncc_template_match(
                     &image,
                     precision,
                     data,
@@ -1195,7 +1196,7 @@ impl RustAutoGui {
                     .ocl_buffer_storage
                     .get(&self.template_data.alias_used)
                     .ok_or(ImageProcessingError::new("Error , no OCL data prepared"))?;
-                template_match::open_cl::gui_opencl_ncc_template_match(
+                imports::template_match::open_cl::gui_opencl_ncc_template_match(
                     &self.opencl_data.ocl_queue,
                     &self.opencl_data.ocl_program,
                     self.opencl_data.ocl_workgroup_size,
@@ -1220,7 +1221,7 @@ impl RustAutoGui {
                     .ocl_buffer_storage
                     .get(&self.template_data.alias_used)
                     .ok_or(ImageProcessingError::new("Error , no OCL data prepared"))?;
-                template_match::open_cl::gui_opencl_ncc_template_match(
+                imports::template_match::open_cl::gui_opencl_ncc_template_match(
                     &self.opencl_data.ocl_queue,
                     &self.opencl_data.ocl_program,
                     self.opencl_data.ocl_workgroup_size,
@@ -1463,7 +1464,7 @@ impl RustAutoGui {
         #[cfg(target_os = "linux")]
         return self.mouse.mouse_click(button);
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::mouse_click(button));
+        return Ok(imports::mouse::platform::Mouse::mouse_click(button));
         #[cfg(target_os = "macos")]
         return mouse::platform::Mouse::mouse_click(button);
     }
@@ -1473,7 +1474,7 @@ impl RustAutoGui {
         #[cfg(target_os = "linux")]
         return self.mouse.mouse_click(mouse::MouseClick::LEFT);
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT));
+        return Ok(imports::mouse::platform::Mouse::mouse_click(imports::mouse::MouseClick::LEFT));
         #[cfg(target_os = "macos")]
         return mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
     }
@@ -1485,8 +1486,8 @@ impl RustAutoGui {
         #[cfg(target_os = "macos")]
         return mouse::platform::Mouse::mouse_click(mouse::MouseClick::RIGHT);
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::mouse_click(
-            mouse::MouseClick::RIGHT,
+        return Ok(imports::mouse::platform::Mouse::mouse_click(
+            imports::mouse::MouseClick::RIGHT,
         ));
     }
 
@@ -1495,8 +1496,8 @@ impl RustAutoGui {
         #[cfg(target_os = "linux")]
         return self.mouse.mouse_click(mouse::MouseClick::MIDDLE);
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::mouse_click(
-            mouse::MouseClick::MIDDLE,
+        return Ok(imports::mouse::platform::Mouse::mouse_click(
+            imports::mouse::MouseClick::MIDDLE,
         ));
         #[cfg(target_os = "macos")]
         return mouse::platform::Mouse::mouse_click(mouse::MouseClick::MIDDLE);
@@ -1511,8 +1512,8 @@ impl RustAutoGui {
         }
         #[cfg(target_os = "windows")]
         {
-            mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
-            mouse::platform::Mouse::mouse_click(mouse::MouseClick::LEFT);
+            imports::mouse::platform::Mouse::mouse_click(imports::mouse::MouseClick::LEFT);
+            imports::mouse::platform::Mouse::mouse_click(imports::mouse::MouseClick::LEFT);
             return Ok(());
         }
         #[cfg(target_os = "macos")]
@@ -1525,7 +1526,7 @@ impl RustAutoGui {
         #[cfg(target_os = "macos")]
         return mouse::platform::Mouse::mouse_down(button);
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::mouse_down(button));
+        return Ok(imports::mouse::platform::Mouse::mouse_down(button));
     }
     pub fn click_up(&self, button: MouseClick) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
@@ -1533,15 +1534,15 @@ impl RustAutoGui {
         #[cfg(target_os = "macos")]
         return mouse::platform::Mouse::mouse_up(button);
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::mouse_up(button));
+        return Ok(imports::mouse::platform::Mouse::mouse_up(button));
     }
 
     pub fn scroll_up(&self, intensity: u32) -> Result<(), AutoGuiError> {
         #[cfg(target_os = "linux")]
         return Ok(self.mouse.scroll(mouse::MouseScroll::UP, intensity));
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::scroll(
-            mouse::MouseScroll::UP,
+        return Ok(imports::mouse::platform::Mouse::scroll(
+            imports::mouse::MouseScroll::UP,
             intensity,
         ));
         #[cfg(target_os = "macos")]
@@ -1552,8 +1553,8 @@ impl RustAutoGui {
         #[cfg(target_os = "linux")]
         return Ok(self.mouse.scroll(mouse::MouseScroll::DOWN, intensity));
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::scroll(
-            mouse::MouseScroll::DOWN,
+        return Ok(imports::mouse::platform::Mouse::scroll(
+            imports::mouse::MouseScroll::DOWN,
             intensity,
         ));
         #[cfg(target_os = "macos")]
@@ -1564,8 +1565,8 @@ impl RustAutoGui {
         #[cfg(target_os = "linux")]
         return Ok(self.mouse.scroll(mouse::MouseScroll::LEFT, intensity));
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::scroll(
-            mouse::MouseScroll::LEFT,
+        return Ok(imports::mouse::platform::Mouse::scroll(
+            imports::mouse::MouseScroll::LEFT,
             intensity,
         ));
         #[cfg(target_os = "macos")]
@@ -1576,8 +1577,8 @@ impl RustAutoGui {
         #[cfg(target_os = "linux")]
         return Ok(self.mouse.scroll(mouse::MouseScroll::RIGHT, intensity));
         #[cfg(target_os = "windows")]
-        return Ok(mouse::platform::Mouse::scroll(
-            mouse::MouseScroll::RIGHT,
+        return Ok(imports::mouse::platform::Mouse::scroll(
+            imports::mouse::MouseScroll::RIGHT,
             intensity,
         ));
         #[cfg(target_os = "macos")]

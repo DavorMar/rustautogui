@@ -4,7 +4,7 @@
  * http://scribblethink.org/Work/nvisionInterface/vi95_lewis.pdf
  */
 
-use crate::{data_structs::FFTData, imgtools};
+use crate::{data::FFTData, imgtools};
 use core::cmp::max;
 use image::{ImageBuffer, Luma};
 use rayon::prelude::*;

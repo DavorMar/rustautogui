@@ -1,4 +1,4 @@
-use crate::data_structs::GpuMemoryPointers;
+use crate::data::GpuMemoryPointers;
 use ocl;
 use ocl::core::Int2;
 use ocl::{Buffer, Context, Device, Kernel, Program, Queue};

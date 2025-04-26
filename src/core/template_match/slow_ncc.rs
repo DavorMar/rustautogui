@@ -1,4 +1,4 @@
-use crate::template_match::{compute_integral_image, compute_squared_integral_image, sum_region};
+use crate::core::template_match::{compute_integral_image, compute_squared_integral_image, sum_region};
 
 use crate::imgtools;
 use rayon::prelude::*;

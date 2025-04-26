@@ -1,5 +1,5 @@
 use crate::errors::AutoGuiError;
-use crate::keyboard::get_keymap_key;
+use crate::core::keyboard::get_keymap_key;
 use std::{collections::HashMap, mem::size_of, thread::sleep, time::Duration};
 use winapi::um::wingdi::SRCAND;
 use winapi::um::winuser::{MapVirtualKeyW, MAPVK_VK_TO_VSC};

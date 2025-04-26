@@ -1,4 +1,4 @@
-use crate::mouse::{MouseClick, MouseScroll};
+use crate::core::mouse::{MouseClick, MouseScroll};
 use std::mem::{size_of, zeroed};
 use std::{thread, time, time::Instant};
 use winapi::shared::windef::POINT;
