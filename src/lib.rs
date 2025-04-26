@@ -4,7 +4,6 @@
 #[cfg(all(feature = "lite", feature = "opencl"))]
 compile_error!("Features `lite` and `opencl` cannot be enabled at the same time.");
 
-
 // Regular private modules
 #[cfg(not(any(test, feature = "dev")))]
 mod core;
@@ -12,38 +11,28 @@ mod core;
 mod data;
 
 // Public modules during testing
-#[cfg(any(test, feature= "dev"))]
+#[cfg(any(test, feature = "dev"))]
 pub mod core;
 
-#[cfg(any(test, feature= "dev"))]
+#[cfg(any(test, feature = "dev"))]
 pub mod data;
-
 
 pub mod errors;
 pub mod imgtools;
 mod rustautogui_impl;
 
-
 #[cfg(not(feature = "lite"))]
 use data::*;
 
-
 use crate::errors::*;
 use std::{collections::HashMap, env};
-
-
-
 
 use core::{
     keyboard::Keyboard,
     mouse::{mouse_position, Mouse, MouseScroll},
     screen::Screen,
     template_match,
-    
 };
-
-
-
 
 // opencl stuff
 #[cfg(feature = "opencl")]
@@ -51,11 +40,8 @@ use crate::data::{DevicesInfo, OpenClData};
 #[cfg(feature = "opencl")]
 use ocl::{enums, Buffer, Context, Kernel, Program, Queue};
 
-
 pub use core::mouse::mouse_position::print_mouse_position;
 pub use core::mouse::MouseClick;
-
-
 
 #[cfg(not(feature = "lite"))]
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
@@ -227,9 +213,7 @@ impl RustAutoGui {
         let used_device = context.devices()[best_device_index as usize];
         let queue = Queue::new(&context, used_device, None)?;
         let program_source = template_match::opencl_kernel::OCL_KERNEL;
-        let program = Program::builder()
-            .src(program_source)
-            .build(&context)?;
+        let program = Program::builder().src(program_source).build(&context)?;
 
         let opencl_data = OpenClData {
             device_list: device_list,

@@ -3,8 +3,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::errors::AutoGuiError;
 use crate::core::mouse::{MouseClick, MouseScroll};
+use crate::errors::AutoGuiError;
 use core_graphics::{
     event::{CGEvent, CGEventTapLocation, CGEventType, CGMouseButton, ScrollEventUnit},
     event_source::{CGEventSource, CGEventSourceStateID},

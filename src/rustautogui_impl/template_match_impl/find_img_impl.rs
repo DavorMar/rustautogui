@@ -1,6 +1,5 @@
-
 use crate::core::template_match;
-#[cfg(feature="opencl")]
+#[cfg(feature = "opencl")]
 use crate::template_match::open_cl::OclVersion;
 
 use crate::data::*;
