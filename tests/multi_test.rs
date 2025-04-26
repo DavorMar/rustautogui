@@ -21,26 +21,31 @@ mod multi_test {
         let sh = s_h as u32;
         
         #[cfg(target_os = "windows")]
-        {
-            let img: image::ImageBuffer<image::Luma<u8>, Vec<u8>> = imgtools::load_image_bw("tests/testing_images/gui_tests/windows.png").unwrap();
-            gui.store_template_from_imagebuffer(
+        let insert = 'w';
+        #[cfg(target_os = "macos")]
+        let insert = "m";
+        #[cfg(target_os = "linux")]
+        let insert = 'l';
+            let img: image::ImageBuffer<image::Luma<u8>, Vec<u8>> = imgtools::load_image_bw(format!("tests/testing_images/gui_tests/step_1_{}.png", insert).as_str()).unwrap();
+            gui.store_template_from_imagebuffer_custom(
                 img,
-                Some((0, 500, 500, sh - 500)),
-                rustautogui::MatchMode::Segmented,
+                None,
+                rustautogui::MatchMode::SegmentedOcl,
                 "step_0",
+                0.9
             )
             .unwrap();
 
             gui.store_template_from_file(
-                "tests/testing_images/gui_tests/win_settings.png",
-                Some((0, 500, 500, sh - 500)),
+                format!("tests/testing_images/gui_tests/step_2_{}.png", insert).as_str(),
+                None,
                 rustautogui::MatchMode::SegmentedOclV2,
                 "step_1",
             )
             .unwrap();
 
             gui.store_template_from_file_custom(
-                "tests/testing_images/gui_tests/win_find_setting.png",
+                format!("tests/testing_images/gui_tests/step_3_{}.png", insert).as_str(),
                 None,
                 rustautogui::MatchMode::SegmentedOcl,
                 "step_2",
@@ -49,4 +54,4 @@ mod multi_test {
             .unwrap();
         }
     }
-}
+
