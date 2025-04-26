@@ -7,7 +7,6 @@ pub mod tmpl_match_tests {
     use rustautogui::data::{opencl::KernelStorage, opencl::*, PreparedData};
     use rustautogui::imgtools;
 
-    use ocl::{Context, Device, Program, Queue};
 
     #[test]
     fn testing_speeds() {
@@ -104,7 +103,6 @@ pub mod tmpl_match_tests {
         template: &image::ImageBuffer<image::Luma<u8>, Vec<u8>>,
         main_image: &image::ImageBuffer<image::Luma<u8>, Vec<u8>>,
         target_positions: (i32, i32),
-        template_path: &str,
         custom: bool,
         ocl_v: OclVersion,
         image_width: u32,
@@ -112,8 +110,13 @@ pub mod tmpl_match_tests {
         template_width: u32,
         template_height: u32,
     ) {
-        let platform = ocl::Platform::default();
-        let device = Device::first(platform).unwrap();
+        
+        use rustautogui::RustAutoGui;
+
+        
+        let data = RustAutoGui::dev_setup_opencl(Some(1)).unwrap();
+
+        
         let mut threshold = None;
         let mut insert_str = String::new();
         let mut v_string = String::new();
@@ -127,17 +130,10 @@ pub mod tmpl_match_tests {
         }
 
         // Create a context for that device
-        let context = Context::builder()
-            .platform(platform)
-            .devices(device.clone())
-            .build()
-            .unwrap();
-        let program_source = opencl_kernel::OCL_KERNEL;
-        let queue = Queue::new(&context, device, None).unwrap();
-        let program: Program = Program::builder()
-            .src(program_source)
-            .build(&context)
-            .unwrap();
+
+        let queue = data.ocl_queue;
+        let program = data.ocl_program;
+        
         //////////////////////////////////////////////////////////////////////// OPENCL V1
 
         let template_data = segmented_ncc::prepare_template_picture(&template, &false, threshold);
@@ -260,7 +256,6 @@ pub mod tmpl_match_tests {
             &template,
             &main_image,
             target_positions,
-            template_path,
             false,
             OclVersion::V1,
             image_width,
@@ -272,7 +267,6 @@ pub mod tmpl_match_tests {
             &template,
             &main_image,
             target_positions,
-            template_path,
             false,
             OclVersion::V2,
             image_width,
@@ -284,7 +278,6 @@ pub mod tmpl_match_tests {
             &template,
             &main_image,
             target_positions,
-            template_path,
             true,
             OclVersion::V1,
             image_width,
@@ -296,7 +289,6 @@ pub mod tmpl_match_tests {
             &template,
             &main_image,
             target_positions,
-            template_path,
             true,
             OclVersion::V2,
             image_width,

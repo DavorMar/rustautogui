@@ -7,6 +7,7 @@ mod multi_test {
     #[test]
     fn main_test() {
         let mut gui = rustautogui::RustAutoGui::new(true).unwrap();
+        gui.list_devices();
         load_imgs(&mut gui);
         gui.loop_find_stored_image_on_screen_and_move_mouse(0.9, 1.0, 10, "step_0")
             .unwrap();
@@ -21,9 +22,7 @@ mod multi_test {
     }
 
     fn load_imgs(gui: &mut RustAutoGui) {
-        let (s_w, s_h) = gui.get_screen_size();
-        let sw = s_w as u32;
-        let sh = s_h as u32;
+
 
         #[cfg(target_os = "windows")]
         let insert = 'w';
@@ -55,7 +54,7 @@ mod multi_test {
         gui.store_template_from_file_custom(
             format!("tests/testing_images/gui_tests/step_3_{}.png", insert).as_str(),
             None,
-            rustautogui::MatchMode::SegmentedOcl,
+            rustautogui::MatchMode::Segmented,
             "step_2",
             0.8,
         )

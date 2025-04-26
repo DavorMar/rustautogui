@@ -33,7 +33,7 @@ winapi = { version = "0.3", features = ["winuser", "windef"] }
 
 
 [dev-dependencies]
-rustautogui = { path = "." , features = ["opencl"]}
+rustautogui = { path = "." , features = ["dev"]}
 
 [features]
 default = ["full"]

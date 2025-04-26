@@ -2,9 +2,11 @@ use crate::AutoGuiError;
 use ocl::{Buffer, Context, Program, Queue};
 use std::collections::HashMap;
 
+
 pub struct OpenClData {
     pub device_list: Vec<DevicesInfo>,
     pub ocl_program: Program,
+    #[allow(dead_code)]
     pub ocl_context: Context,
     pub ocl_queue: Queue,
     pub ocl_buffer_storage: HashMap<String, GpuMemoryPointers>,
@@ -307,8 +309,8 @@ impl DevicesInfo {
     }
     pub fn print_device(&self) -> String {
         format!(
-            "Device brand: {}, name: {}\nMemory: {} MB, Compute units: {}, Clock Freq :{} mhz",
-            self.brand, self.name, self.global_mem_size, self.compute_units, self.clock_frequency
+            "Device brand: {}, name: {}\nMemory: {} MB, Compute units: {}, Clock Freq :{} mhz, index: {}, score: {}",
+            self.brand, self.name, self.global_mem_size, self.compute_units, self.clock_frequency, self.index, self.score
         )
     }
 }

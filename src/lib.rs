@@ -103,10 +103,21 @@ impl RustAutoGui {
         // on windows there is no need to share display pointer accross other structs
         #[cfg(any(target_os = "windows", target_os = "macos"))]
         let screen = Screen::new()?;
+        #[cfg(any(target_os = "windows", target_os = "macos"))]
+        let keyboard = Keyboard::new();
+        #[cfg(any(target_os = "windows", target_os = "macos"))]
+        let mouse_struct: Mouse = Mouse::new();
+
         #[cfg(target_os = "linux")]
         let screen = Screen::new();
+        #[cfg(target_os = "linux")]
         let keyboard = Keyboard::new(screen.display);
+        #[cfg(target_os = "linux")]
         let mouse_struct: Mouse = Mouse::new(screen.display, screen.root_window);
+        
+
+
+        
         // check for env variable to suppress warnings, otherwise set default false value
         let suppress_warnings = env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
             .map(|val| val == "1" || val.eq_ignore_ascii_case("true"))
@@ -141,6 +152,11 @@ impl RustAutoGui {
             #[cfg(feature = "opencl")]
             opencl_data: opencl_data,
         })
+    }
+
+    #[cfg(feature = "dev")]
+    pub fn dev_setup_opencl(device_id: Option<u32>) -> Result<OpenClData, AutoGuiError> {
+        Self::setup_opencl(device_id)
     }
 
     #[cfg(feature = "opencl")]
