@@ -131,6 +131,7 @@ impl RustAutoGui {
         };
 
         Ok(Self {
+            #[cfg(not(feature="lite"))]
             template_data: template_match_data,
             debug: debug,
             template_width: 0,
@@ -1637,7 +1638,15 @@ impl RustAutoGui {
     }
 }
 
-#[cfg(any(target_os = "linux", target_os = "windows"))]
+#[cfg(target_os = "linux")]
+impl Drop for RustAutoGui {
+    fn drop(&mut self) {
+        self.screen.destroy();
+    }
+}
+
+#[cfg(not(feature="lite"))]
+#[cfg(target_os = "windows")]
 impl Drop for RustAutoGui {
     fn drop(&mut self) {
         self.screen.destroy();
