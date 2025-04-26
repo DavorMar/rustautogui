@@ -9,25 +9,19 @@ pub use opencl::*;
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
 
 #[cfg(not(feature = "lite"))]
-use image::{ImageBuffer,Luma};
+use image::{ImageBuffer, Luma};
 #[cfg(not(feature = "lite"))]
 use std::collections::HashMap;
-
 
 #[cfg(not(feature = "lite"))]
 pub struct TemplateMatchingData {
     pub template: Option<ImageBuffer<Luma<u8>, Vec<u8>>>,
     pub prepared_data: PreparedData, // used direct load and search
-    pub prepared_data_stored:HashMap<String, (PreparedData, (u32, u32, u32, u32), MatchMode)>, //prepared data, region, matchmode
+    pub prepared_data_stored: HashMap<String, (PreparedData, (u32, u32, u32, u32), MatchMode)>, //prepared data, region, matchmode
     pub match_mode: Option<MatchMode>,
     pub region: (u32, u32, u32, u32),
     pub alias_used: String,
 }
-
-
-
-
-
 
 #[cfg(not(feature = "lite"))]
 pub struct BackupData {

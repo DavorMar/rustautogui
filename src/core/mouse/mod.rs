@@ -8,13 +8,13 @@ pub mod linux;
 pub mod macos;
 
 #[cfg(target_os = "windows")]
-pub use windows as platform;
+pub use windows::Mouse;
 
 #[cfg(target_os = "macos")]
-pub use macos as platform;
+pub use macos::Mouse;
 
 #[cfg(target_os = "linux")]
-pub use linux as platform;
+pub use linux::Mouse;
 
 pub enum MouseClick {
     LEFT,
