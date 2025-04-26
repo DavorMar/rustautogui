@@ -21,8 +21,8 @@ pub struct Screen {
 pub struct ScreenImgData {
     pub display: CGDisplay,
     pub pixel_data: Vec<u8>,
-    pub scaling_factor_x: f64, // difference between logical and phyisical resolution
-    pub scaling_factor_y: f64,
+    pub scaling_factor_x: f32, // difference between logical and phyisical resolution
+    pub scaling_factor_y: f32,
     pub screen_region_width: u32,
     pub screen_region_height: u32,
 }
@@ -159,8 +159,8 @@ impl Screen {
             grayscale_data.push(gray_value);
         }
         let mut image = GrayImage::from_raw(
-            (self.screen_data.scaling_factor_x * self.screen_width as f64) as u32,
-            (self.screen_data.scaling_factor_y * self.screen_height as f64) as u32,
+            (self.screen_data.scaling_factor_x * self.screen_width as f32) as u32,
+            (self.screen_data.scaling_factor_y * self.screen_height as f32) as u32,
             grayscale_data,
         )
         .ok_or(AutoGuiError::ImgError(
@@ -178,8 +178,8 @@ impl Screen {
     /// convert vector to RGBA ImageBuffer
     fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
         ImageBuffer::from_raw(
-            (self.screen_data.scaling_factor_x * self.screen_width as f64) as u32,
-            (self.screen_data.scaling_factor_y * self.screen_height as f64) as u32,
+            (self.screen_data.scaling_factor_x * self.screen_width as f32) as u32,
+            (self.screen_data.scaling_factor_y * self.screen_height as f32) as u32,
             self.screen_data.pixel_data.clone(),
         )
         .ok_or(AutoGuiError::ImgError(

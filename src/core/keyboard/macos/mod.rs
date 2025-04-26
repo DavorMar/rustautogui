@@ -54,13 +54,13 @@ impl Keyboard {
     }
 
     pub fn key_down(&self, key: &str) -> Result<(), AutoGuiError> {
-        let value = crate::keyboard::get_keymap_key(self, key)?;
+        let value = get_keymap_key(self, key)?;
 
         self.press_key(value.0)?;
         Ok(())
     }
     pub fn key_up(&self, key: &str) -> Result<(), AutoGuiError> {
-        let value = crate::keyboard::get_keymap_key(self, key)?;
+        let value = get_keymap_key(self, key)?;
 
         self.release_key(value.0)?;
         Ok(())
@@ -87,7 +87,7 @@ impl Keyboard {
     }
 
     pub fn send_command(&self, key: &str) -> Result<(), AutoGuiError> {
-        let value = crate::keyboard::get_keymap_key(self, key)?;
+        let value = get_keymap_key(self, key)?;
 
         self.send_key(value.0)?;
         Ok(())

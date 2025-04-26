@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::errors::AutoGuiError;
-use crate::mouse::{MouseClick, MouseScroll};
+use crate::core::mouse::{MouseClick, MouseScroll};
 use core_graphics::{
     event::{CGEvent, CGEventTapLocation, CGEventType, CGMouseButton, ScrollEventUnit},
     event_source::{CGEventSource, CGEventSourceStateID},

@@ -2,8 +2,9 @@ use crate::core::template_match;
 use crate::data::*;
 use crate::imgtools;
 use crate::{AutoGuiError, ImageProcessingError, MatchMode, DEFAULT_ALIAS, DEFAULT_BCKP_ALIAS};
-use image::{ImageBuffer, Luma, Pixel, Primitive};
+use image::{ImageBuffer, Luma, Pixel, Primitive,imageops::{resize, FilterType::Nearest}};
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
+
 
 impl crate::RustAutoGui {
     #[cfg(not(feature = "lite"))]

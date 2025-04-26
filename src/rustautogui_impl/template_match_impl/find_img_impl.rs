@@ -1,6 +1,11 @@
-use crate::core::{template_match, template_match::open_cl::OclVersion};
+
+use crate::core::template_match;
+#[cfg(feature="opencl")]
+use create::template_match::open_cl::OclVersion;
+
 use crate::data::*;
 use crate::{AutoGuiError, ImageProcessingError, MatchMode};
+use crate::{DEFAULT_ALIAS, DEFAULT_BCKP_ALIAS};
 
 use image::{ImageBuffer, Luma};
 
@@ -78,7 +83,7 @@ impl crate::RustAutoGui {
         // if retina and if this is not already a recursively ran backup
         if ((self.screen.screen_data.scaling_factor_x > 1.0)
             | (self.screen.screen_data.scaling_factor_y > 1.0))
-            & (!self.alias_used.contains(DEFAULT_BCKP_ALIAS))
+            & (!self.template_data.alias_used.contains(DEFAULT_BCKP_ALIAS))
         {
             match first_match? {
                 Some(result) => return Ok(Some(result)),
@@ -86,8 +91,8 @@ impl crate::RustAutoGui {
                     let mut bckp_alias = String::new();
 
                     // if its not a single image search, create a alias_backup hash
-                    if self.alias_used != DEFAULT_ALIAS.to_string() {
-                        bckp_alias.push_str(self.alias_used.as_str());
+                    if self.template_data.alias_used != DEFAULT_ALIAS.to_string() {
+                        bckp_alias.push_str(self.template_data.alias_used.as_str());
                         bckp_alias.push('_');
                     }
                     bckp_alias.push_str(DEFAULT_BCKP_ALIAS);
