@@ -7,6 +7,7 @@ use rayon::prelude::*;
 
 use image::{ImageBuffer, Luma};
 
+#[allow(dead_code)]
 pub fn slow_ncc_template_match(
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
     template: &ImageBuffer<Luma<u8>, Vec<u8>>,

@@ -1,13 +1,19 @@
+#[cfg(not(feature = "lite"))]
 use crate::core::template_match;
+#[cfg(not(feature = "lite"))]
 use crate::data::*;
+#[cfg(not(feature = "lite"))]
 use crate::imgtools;
+#[cfg(not(feature = "lite"))]
 use crate::{AutoGuiError, ImageProcessingError, MatchMode, DEFAULT_ALIAS, DEFAULT_BCKP_ALIAS};
+#[cfg(not(feature = "lite"))]
 use image::{
     imageops::{resize, FilterType::Nearest},
     ImageBuffer, Luma, Pixel, Primitive,
 };
+#[cfg(not(feature = "lite"))]
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
-
+#[cfg(not(feature = "lite"))]
 impl crate::RustAutoGui {
     #[cfg(not(feature = "lite"))]
     /// main prepare template picture which takes ImageBuffer Luma u8. all the other variants

@@ -1,3 +1,4 @@
+#[cfg(feature = "opencl")]
 pub const OCL_KERNEL: &str = r#"
 inline ulong sum_region(
     __global const ulong* integral,

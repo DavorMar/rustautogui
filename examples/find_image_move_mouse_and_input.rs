@@ -1,10 +1,8 @@
-// use rustautogui;
-
-use rustautogui::imgtools;
-
 fn main() {
     #[cfg(not(feature = "lite"))]
     {
+        use rustautogui;
+        use rustautogui::imgtools;
         // initialize autogui
         let mut gui = rustautogui::RustAutoGui::new(false).unwrap();
 

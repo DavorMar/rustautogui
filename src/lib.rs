@@ -27,11 +27,12 @@ use data::*;
 use crate::errors::*;
 use std::{collections::HashMap, env};
 
+#[cfg(not(feature = "lite"))]
+use core::template_match;
 use core::{
     keyboard::Keyboard,
     mouse::{mouse_position, Mouse, MouseScroll},
     screen::Screen,
-    template_match,
 };
 
 // opencl stuff

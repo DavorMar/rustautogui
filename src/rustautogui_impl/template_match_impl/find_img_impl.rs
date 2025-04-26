@@ -1,15 +1,18 @@
+#[cfg(not(feature = "lite"))]
 use crate::core::template_match;
+#[cfg(not(feature = "lite"))]
+use crate::data::*;
 #[cfg(feature = "opencl")]
 use crate::template_match::open_cl::OclVersion;
-
-use crate::data::*;
+#[cfg(not(feature = "lite"))]
 use crate::{AutoGuiError, ImageProcessingError, MatchMode};
+#[cfg(not(feature = "lite"))]
 use crate::{DEFAULT_ALIAS, DEFAULT_BCKP_ALIAS};
-
+#[cfg(not(feature = "lite"))]
 use image::{ImageBuffer, Luma};
-
+#[cfg(not(feature = "lite"))]
 pub use std::{collections::HashMap, env, fmt, fs, path::Path, str::FromStr};
-
+#[cfg(not(feature = "lite"))]
 impl crate::RustAutoGui {
     /// Searches for prepared template on screen.
     /// On windows only main monitor search is supported, while on linux, all monitors work.

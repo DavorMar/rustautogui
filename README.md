@@ -103,6 +103,9 @@ Lite Version
 
 `rustautogui = { version = "2.5.0", features = ["lite"] }`
 
+Dev Version - allows access to private mods (immediately has opencl included)
+
+`rustautogui = { version = "2.5.0", features = ["dev"] }`
 
 For Linux additionally run:
 
