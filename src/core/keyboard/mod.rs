@@ -5,17 +5,17 @@ use crate::errors::AutoGuiError;
 #[cfg(target_os = "windows")]
 pub mod windows;
 #[cfg(target_os = "windows")]
-use windows::Keyboard;
+pub use windows::Keyboard;
 
 #[cfg(target_os = "linux")]
 pub mod linux;
 #[cfg(target_os = "linux")]
-use linux::Keyboard;
+pub use linux::Keyboard;
 
 #[cfg(target_os = "macos")]
 pub mod macos;
 #[cfg(target_os = "macos")]
-use macos::Keyboard;
+pub use macos::Keyboard;
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 fn get_keymap_key<'a>(target: &'a Keyboard, key: &str) -> Result<&'a (u16, bool), AutoGuiError> {

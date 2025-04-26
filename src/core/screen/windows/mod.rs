@@ -1,9 +1,8 @@
-#[cfg(not(feature="lite"))]
+#[cfg(not(feature = "lite"))]
 extern crate rayon;
 extern crate winapi;
 
-
-#[cfg(not(feature="lite"))]
+#[cfg(not(feature = "lite"))]
 use image::{GrayImage, ImageBuffer, ImageError, Luma, Rgba};
 use std::mem::size_of;
 use std::ptr::null_mut;
@@ -21,8 +20,8 @@ use crate::{imgtools, AutoGuiError};
 pub struct Screen {
     pub screen_width: i32,
     pub screen_height: i32,
-    #[cfg(not(feature="lite"))]
-    pub screen_data: ScreenImgData
+    #[cfg(not(feature = "lite"))]
+    pub screen_data: ScreenImgData,
 }
 #[derive(Debug, Clone)]
 #[cfg(not(feature = "lite"))]
@@ -41,9 +40,9 @@ impl Screen {
         unsafe {
             let screen_width: i32 = winapi::um::winuser::GetSystemMetrics(0);
             let screen_height = winapi::um::winuser::GetSystemMetrics(1);
-            
-            #[cfg(not(feature="lite"))]
-            let screen_data = ScreenImgData{
+
+            #[cfg(not(feature = "lite"))]
+            let screen_data = ScreenImgData {
                 screen_region_height: screen_height as u32,
                 screen_region_width: screen_width as u32,
                 pixel_data: vec![0u8; (screen_width * screen_height * 4) as usize],
@@ -56,7 +55,7 @@ impl Screen {
             Ok(Screen {
                 screen_height,
                 screen_width,
-                #[cfg(not(feature="lite"))]
+                #[cfg(not(feature = "lite"))]
                 screen_data,
             })
         }
@@ -64,12 +63,15 @@ impl Screen {
     pub fn dimension(&self) -> (i32, i32) {
         return (self.screen_width, self.screen_height);
     }
-    #[cfg(not(feature="lite"))]
+    #[cfg(not(feature = "lite"))]
     #[allow(dead_code)]
     pub fn region_dimension(&self) -> (u32, u32) {
-        return (self.screen_data.screen_region_width, self.screen_data.screen_region_height);
+        return (
+            self.screen_data.screen_region_width,
+            self.screen_data.screen_region_height,
+        );
     }
-    #[cfg(not(feature="lite"))]
+    #[cfg(not(feature = "lite"))]
     /// clear memory and delete screen
     pub fn destroy(&self) {
         unsafe {
@@ -78,7 +80,7 @@ impl Screen {
             ReleaseDC(null_mut(), self.screen_data.h_screen_dc);
         }
     }
-    #[cfg(not(feature="lite"))]
+    #[cfg(not(feature = "lite"))]
     #[allow(dead_code)]
     /// captures screen and returns Imagebuffer in RGBA cropped for the selected region
     pub fn grab_screen_image(
@@ -95,7 +97,7 @@ impl Screen {
             imgtools::cut_screen_region(x, y, width, height, &image);
         Ok(cropped_image)
     }
-    #[cfg(not(feature="lite"))]
+    #[cfg(not(feature = "lite"))]
     /// captures screen, and returns grayscale Imagebuffer cropped for the selected region
     pub fn grab_screen_image_grayscale(
         &mut self,
@@ -111,18 +113,21 @@ impl Screen {
             imgtools::cut_screen_region(*x, *y, *width, *height, &image);
         Ok(cropped_image)
     }
-    #[cfg(not(feature="lite"))]
+    #[cfg(not(feature = "lite"))]
     /// grabs screen image and saves file at provided
     pub fn grab_screenshot(&mut self, image_path: &str) -> Result<(), AutoGuiError> {
         self.capture_screen();
         let image = self.convert_bitmap_to_rgba()?;
         Ok(image.save(image_path)?)
     }
-    #[cfg(not(feature="lite"))]
+    #[cfg(not(feature = "lite"))]
     fn capture_screen(&mut self) {
         unsafe {
             // here we select the memory device context and the bitmap as main ones
-            SelectObject(self.screen_data.h_memory_dc, self.screen_data.h_bitmap as HGLOBAL);
+            SelectObject(
+                self.screen_data.h_memory_dc,
+                self.screen_data.h_bitmap as HGLOBAL,
+            );
             // this function writes data to memory device context
             BitBlt(
                 self.screen_data.h_memory_dc,
@@ -175,7 +180,7 @@ impl Screen {
             self.screen_data.pixel_data = bitmap_data
         }
     }
-    #[cfg(not(feature="lite"))]
+    #[cfg(not(feature = "lite"))]
     fn convert_bitmap_to_grayscale(&self) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
         let mut grayscale_data =
             Vec::with_capacity((self.screen_width * self.screen_height) as usize);
@@ -197,7 +202,7 @@ impl Screen {
             "could not convert image to grayscale".to_string(),
         ))
     }
-    #[cfg(not(feature="lite"))]
+    #[cfg(not(feature = "lite"))]
     fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
         ImageBuffer::from_raw(
             self.screen_width as u32,
