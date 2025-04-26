@@ -1,7 +1,7 @@
 
 use crate::core::template_match;
 #[cfg(feature="opencl")]
-use create::template_match::open_cl::OclVersion;
+use crate::template_match::open_cl::OclVersion;
 
 use crate::data::*;
 use crate::{AutoGuiError, ImageProcessingError, MatchMode};
@@ -339,7 +339,6 @@ impl crate::RustAutoGui {
         precision: f32,
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         let match_mode = self.template_data.match_mode.clone().ok_or(ImageProcessingError::new("No template chosen and no template data prepared. Please run load_and_prepare_template before searching image on screen"))?;
-        let start = std::time::Instant::now();
         let found_locations: Vec<(u32, u32, f32)> = match match_mode {
             MatchMode::FFT => {
                 println!("Running FFT mode");

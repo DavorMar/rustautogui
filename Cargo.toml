@@ -30,11 +30,15 @@ core-graphics = {version = "0.23.2", features = ["highsierra"]}
 winapi = { version = "0.3", features = ["winuser", "windef"] }
 
 
+[dev-dependencies]
+rustautogui = { path = "." , default = "dev"}
+
 [features]
-default = ["full"]
+default = ["dev"]
 full = ["rustfft", "num-complex", "rayon", "image"]
 lite = []
 opencl = ["ocl", "full"]
+dev = ["opencl"]
 
 
 [[example]]

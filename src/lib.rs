@@ -4,42 +4,59 @@
 #[cfg(all(feature = "lite", feature = "opencl"))]
 compile_error!("Features `lite` and `opencl` cannot be enabled at the same time.");
 
+
+// Regular private modules
+#[cfg(not(any(test, feature = "dev")))]
+mod core;
+#[cfg(not(any(test, feature = "dev")))]
+mod data;
+
+// Public modules during testing
+#[cfg(any(test, feature= "dev"))]
 pub mod core;
-#[cfg(not(feature = "lite"))]
+
+#[cfg(any(test, feature= "dev"))]
 pub mod data;
+
+
 pub mod errors;
 pub mod imgtools;
 mod rustautogui_impl;
 
-mod imports {
-    // main stuff that is used by all features
-
-    pub use std::{collections::HashMap, env};
-
-    // this is in default, not featured in lite
-    #[cfg(not(feature = "lite"))]
-    pub use crate::core::{
-        keyboard::Keyboard,
-        mouse::{mouse_position, Mouse, MouseScroll},
-        screen::Screen,
-        template_match,
-    };
-    #[cfg(not(feature = "lite"))]
-    pub use crate::data::{BackupData, PreparedData, SegmentedData, TemplateMatchingData};
-    // opencl stuff
-    #[cfg(feature = "opencl")]
-    pub use crate::data::{DevicesInfo, OpenClData};
-    #[cfg(feature = "opencl")]
-    pub use ocl::{enums, Buffer, Context, Kernel, Program, Queue};
-}
-
-use crate::errors::*;
 
 #[cfg(not(feature = "lite"))]
-use data::SegmentedData; ///////////////////////// REMOVE
+use data::*;
+
+
+use crate::errors::*;
+use std::{collections::HashMap, env};
+
+
+
+
+use core::{
+    keyboard::Keyboard,
+    mouse::{mouse_position, Mouse, MouseScroll},
+    screen::Screen,
+    template_match,
+    
+};
+
+
+
+
+// opencl stuff
+#[cfg(feature = "opencl")]
+use crate::data::{DevicesInfo, OpenClData};
+#[cfg(feature = "opencl")]
+use ocl::{enums, Buffer, Context, Kernel, Program, Queue};
+
 
 pub use core::mouse::mouse_position::print_mouse_position;
 pub use core::mouse::MouseClick;
+
+
+
 #[cfg(not(feature = "lite"))]
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
 #[cfg(not(feature = "lite"))]
@@ -77,18 +94,18 @@ impl Clone for MatchMode {
 #[allow(dead_code)]
 pub struct RustAutoGui {
     #[cfg(not(feature = "lite"))]
-    template_data: imports::TemplateMatchingData,
+    template_data: TemplateMatchingData,
     debug: bool,
     template_height: u32,
     template_width: u32,
-    keyboard: imports::Keyboard,
-    mouse: imports::Mouse,
-    screen: imports::Screen,
+    keyboard: Keyboard,
+    mouse: Mouse,
+    screen: Screen,
 
     suppress_warnings: bool,
 
     #[cfg(feature = "opencl")]
-    opencl_data: imports::OpenClData,
+    opencl_data: OpenClData,
 }
 impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
@@ -98,13 +115,13 @@ impl RustAutoGui {
         // initiation of screen, keyboard and mouse
         // on windows there is no need to share display pointer accross other structs
         #[cfg(any(target_os = "windows", target_os = "macos"))]
-        let screen = imports::Screen::new()?;
+        let screen = Screen::new()?;
         #[cfg(target_os = "linux")]
-        let screen = imports::Screen::new();
-        let keyboard = imports::Keyboard::new();
-        let mouse_struct: imports::Mouse = imports::Mouse::new();
+        let screen = Screen::new();
+        let keyboard = Keyboard::new();
+        let mouse_struct: Mouse = Mouse::new();
         // check for env variable to suppress warnings, otherwise set default false value
-        let suppress_warnings = imports::env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
+        let suppress_warnings = env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
             .map(|val| val == "1" || val.eq_ignore_ascii_case("true"))
             .unwrap_or(false); // Default: warnings are NOT suppressed
 
@@ -113,10 +130,10 @@ impl RustAutoGui {
         let opencl_data = Self::setup_opencl(None)?;
 
         #[cfg(not(feature = "lite"))]
-        let template_match_data = imports::TemplateMatchingData {
+        let template_match_data = TemplateMatchingData {
             template: None,
-            prepared_data: imports::PreparedData::None,
-            prepared_data_stored: imports::HashMap::new(),
+            prepared_data: PreparedData::None,
+            prepared_data_stored: HashMap::new(),
             match_mode: None,
             region: (0, 0, 0, 0),
             alias_used: DEFAULT_ALIAS.to_string(),
@@ -140,42 +157,42 @@ impl RustAutoGui {
     }
 
     #[cfg(feature = "opencl")]
-    fn setup_opencl(device_id: Option<u32>) -> Result<imports::OpenClData, AutoGuiError> {
-        let context = imports::Context::builder().build()?;
+    fn setup_opencl(device_id: Option<u32>) -> Result<OpenClData, AutoGuiError> {
+        let context = Context::builder().build()?;
         let available_devices = context.devices();
         let device_count = available_devices.len();
-        let mut device_list: Vec<imports::DevicesInfo> = Vec::new();
+        let mut device_list: Vec<DevicesInfo> = Vec::new();
         let mut highest_score = 0;
         let mut best_device_index = 0;
         let mut max_workgroup_size = 0;
         for (i, device) in available_devices.into_iter().enumerate() {
-            let device_type = device.info(imports::enums::DeviceInfo::Type)?.to_string();
+            let device_type = device.info(enums::DeviceInfo::Type)?.to_string();
             let workgroup_size: u32 = device
-                .info(imports::enums::DeviceInfo::MaxWorkGroupSize)?
+                .info(enums::DeviceInfo::MaxWorkGroupSize)?
                 .to_string()
                 .parse()
                 .map_err(|_| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
             let global_mem: u64 = device
-                .info(imports::enums::DeviceInfo::GlobalMemSize)?
+                .info(enums::DeviceInfo::GlobalMemSize)?
                 .to_string()
                 .parse()
                 .map_err(|_| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
             let compute_units: u32 = device
-                .info(imports::enums::DeviceInfo::MaxComputeUnits)?
+                .info(enums::DeviceInfo::MaxComputeUnits)?
                 .to_string()
                 .parse()
                 .map_err(|_| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
 
             let clock_frequency = device
-                .info(imports::enums::DeviceInfo::MaxClockFrequency)?
+                .info(enums::DeviceInfo::MaxClockFrequency)?
                 .to_string()
                 .parse()
                 .map_err(|_| AutoGuiError::OSFailure("Failed to read GPU data".to_string()))?;
-            let device_vendor = device.info(imports::enums::DeviceInfo::Vendor)?.to_string();
-            let device_name = device.info(imports::enums::DeviceInfo::Name)?.to_string();
+            let device_vendor = device.info(enums::DeviceInfo::Vendor)?.to_string();
+            let device_name = device.info(enums::DeviceInfo::Name)?.to_string();
             let global_mem_gb = global_mem / 1_048_576;
             let score = global_mem_gb as u32 * 2 + compute_units * 10 + clock_frequency;
-            let gui_device = imports::DevicesInfo::new(
+            let gui_device = DevicesInfo::new(
                 device,
                 i as u32,
                 global_mem_gb as u32,
@@ -208,19 +225,19 @@ impl RustAutoGui {
             }
         }
         let used_device = context.devices()[best_device_index as usize];
-        let queue = imports::Queue::new(&context, used_device, None)?;
-        let program_source = imports::template_match::opencl_kernel::OCL_KERNEL;
-        let program = imports::Program::builder()
+        let queue = Queue::new(&context, used_device, None)?;
+        let program_source = template_match::opencl_kernel::OCL_KERNEL;
+        let program = Program::builder()
             .src(program_source)
             .build(&context)?;
 
-        let opencl_data = imports::OpenClData {
+        let opencl_data = OpenClData {
             device_list: device_list,
             ocl_program: program,
             ocl_context: context,
             ocl_queue: queue,
-            ocl_buffer_storage: imports::HashMap::new(),
-            ocl_kernel_storage: imports::HashMap::new(),
+            ocl_buffer_storage: HashMap::new(),
+            ocl_kernel_storage: HashMap::new(),
             ocl_workgroup_size: max_workgroup_size,
         };
         Ok(opencl_data)
@@ -260,8 +277,8 @@ impl RustAutoGui {
         self.opencl_data = new_opencl_data;
 
         self.template_data.template = None;
-        self.template_data.prepared_data = imports::PreparedData::None;
-        self.template_data.prepared_data_stored = imports::HashMap::new();
+        self.template_data.prepared_data = PreparedData::None;
+        self.template_data.prepared_data_stored = HashMap::new();
         self.template_width = 0;
         self.template_height = 0;
         self.template_data.alias_used = DEFAULT_ALIAS.to_string();

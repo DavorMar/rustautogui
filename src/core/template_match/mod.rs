@@ -7,6 +7,8 @@ pub mod opencl_v2;
 pub mod segmented_ncc;
 pub mod slow_ncc;
 
+
+#[allow(dead_code)]
 fn compute_integral_image(image: &[Vec<u8>]) -> Vec<Vec<u64>> {
     /*
     Function that takes an image as input and computes an integral table (sum table).
@@ -58,6 +60,7 @@ fn compute_integral_image(image: &[Vec<u8>]) -> Vec<Vec<u64>> {
     integral_image
 }
 
+#[allow(dead_code)]
 fn compute_squared_integral_image(image: &[Vec<u8>]) -> Vec<Vec<u64>> {
     /*
     Same as compute_integral_image, except we always take squared value of pixel f(x,y).
