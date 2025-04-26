@@ -104,8 +104,8 @@ impl RustAutoGui {
         let screen = Screen::new()?;
         #[cfg(target_os = "linux")]
         let screen = Screen::new();
-        let keyboard = Keyboard::new();
-        let mouse_struct: Mouse = Mouse::new();
+        let keyboard = Keyboard::new(screen.display);
+        let mouse_struct: Mouse = Mouse::new(screen.display, screen.root_window);
         // check for env variable to suppress warnings, otherwise set default false value
         let suppress_warnings = env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
             .map(|val| val == "1" || val.eq_ignore_ascii_case("true"))

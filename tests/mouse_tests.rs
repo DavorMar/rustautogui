@@ -1,3 +1,5 @@
+// run with cargo test --tests --release -- --nocapture
+
 #[cfg(feature = "dev")]
 pub mod mouse_tests {
     use rustautogui;

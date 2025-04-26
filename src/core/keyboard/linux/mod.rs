@@ -1,5 +1,5 @@
+use super::get_keymap_key;
 use crate::errors::AutoGuiError;
-use crate::keyboard::get_keymap_key;
 use std::{collections::HashMap, ffi::CString, process::Command, thread, time::Duration};
 use x11::xlib::{CurrentTime, XFlush, XKeysymToKeycode, XStringToKeysym, _XDisplay};
 use x11::xtest::XTestFakeKeyEvent;

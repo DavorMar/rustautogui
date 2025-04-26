@@ -1,6 +1,6 @@
-use crate::errors::AutoGuiError;
 #[cfg(target_os = "linux")]
-use crate::mouse::platform::Mouse;
+use super::Mouse;
+use crate::errors::AutoGuiError;
 #[cfg(target_os = "linux")]
 use std::ptr;
 #[cfg(target_os = "linux")]
