@@ -1,0 +1,25 @@
+on:
+  push:
+    branches: [main]
+  pull_request:
+  merge_group:
+
+name: Cargo.toml validation
+
+jobs:
+  check-cargo-toml:
+    name: Check Cargo.toml consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Cargo.toml
+        run: |
+          # Check [features] default = ["full"]
+          DEFAULT_FEATURES=$(grep -A 1 "^\[features\]" Cargo.toml | grep "default" || true)
+          echo "Found default features: $DEFAULT_FEATURES"
+          if [[ "$DEFAULT_FEATURES" != *'default = ["full"]'* ]]; then
+            echo "::error ::[features] default must be [\"full\"]"
+            exit 1
+          fi
+          echo "Cargo.toml checks passed successfully!"

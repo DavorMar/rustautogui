@@ -3,6 +3,9 @@ use std::{
     fmt,
 };
 
+#[cfg(feature = "opencl")]
+use ocl;
+
 #[derive(Debug)]
 pub enum AutoGuiError {
     OSFailure(String),
@@ -10,9 +13,12 @@ pub enum AutoGuiError {
     IoError(std::io::Error),
     AliasError(String),
     OutOfBoundsError(String),
+    #[cfg(not(feature = "lite"))]
     ImageError(ImageProcessingError),
     ImgError(String),
     NulError(NulError),
+    #[cfg(feature = "opencl")]
+    OclError(ocl::Error),
 }
 
 impl fmt::Display for AutoGuiError {
@@ -23,9 +29,12 @@ impl fmt::Display for AutoGuiError {
             AutoGuiError::IoError(err) => write!(f, "IO Error: {}", err),
             AutoGuiError::AliasError(err) => write!(f, "Alias Error: {}", err),
             AutoGuiError::OutOfBoundsError(err) => write!(f, "Out of bounds error: {}", err),
+            #[cfg(not(feature = "lite"))]
             AutoGuiError::ImageError(err) => write!(f, "Image Error: {}", err),
             AutoGuiError::ImgError(err) => write!(f, "Image Error: {}", err),
             AutoGuiError::NulError(err) => write!(f, "Convert to C String nulerror: {}", err),
+            #[cfg(feature = "opencl")]
+            AutoGuiError::OclError(err) => write!(f, "OpenCL Error: {}", err),
         }
     }
 }
@@ -35,13 +44,13 @@ impl From<NulError> for AutoGuiError {
         AutoGuiError::NulError(err)
     }
 }
-
+#[cfg(not(feature = "lite"))]
 impl From<image::ImageError> for AutoGuiError {
     fn from(err: image::ImageError) -> Self {
         AutoGuiError::ImageError(ImageProcessingError::External(err))
     }
 }
-
+#[cfg(not(feature = "lite"))]
 impl From<ImageProcessingError> for AutoGuiError {
     fn from(err: ImageProcessingError) -> Self {
         AutoGuiError::ImageError(err)
@@ -53,19 +62,26 @@ impl From<std::io::Error> for AutoGuiError {
         AutoGuiError::IoError(err)
     }
 }
+#[cfg(feature = "opencl")]
+impl From<ocl::Error> for AutoGuiError {
+    fn from(err: ocl::Error) -> Self {
+        AutoGuiError::OclError(err)
+    }
+}
 
 #[derive(Debug)]
+#[cfg(not(feature = "lite"))]
 pub enum ImageProcessingError {
     External(image::ImageError),
     Custom(String),
 }
-
+#[cfg(not(feature = "lite"))]
 impl ImageProcessingError {
     pub fn new(msg: &str) -> Self {
         Self::Custom(msg.to_string())
     }
 }
-
+#[cfg(not(feature = "lite"))]
 impl fmt::Display for ImageProcessingError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -76,4 +92,5 @@ impl fmt::Display for ImageProcessingError {
 }
 
 impl std::error::Error for AutoGuiError {}
+#[cfg(not(feature = "lite"))]
 impl std::error::Error for ImageProcessingError {}

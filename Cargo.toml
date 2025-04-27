@@ -1,24 +1,27 @@
 [package]
 name = "rustautogui"
-version = "2.4.0"
+authors = ["Davor Marusic"]
+version = "2.5.0"
 edition = "2021"
-description = "rustautogui is a GUI automation module used to control the mouse and keyboard"
+description = "Highly optimized GUI automation library for controlling the mouse and keyboard, with template matching support."
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/DavorMar/rustautogui"
 keywords = ["automation", "autogui", "gui", "mouse", "keyboard"]
 categories = ["gui", "development-tools"]
-exclude = ["testspeed.gif"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+exclude = ["testspeed.gif", "tests/testing_images/"]
+repository = "https://github.com/DavorMar/rustautogui"
 
 
 [dependencies]
-image = "0.25"
-rustfft = "6.2.0"
-num-complex = "0.4.6"
-rayon = "1.10.0"
+rustfft = { version = "6.2.0", optional = true }
+rayon = { version = "1.10.0", optional = true }
+num-complex = { version = "0.4.6", optional = true }
+ocl = { version = "0.19.7", optional = true }
+image = { version = "0.25", optional = true}
 rand = "0.9"
+
+[target.'cfg(target_os = "linux")'.dependencies]
 x11 = "2.21.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -29,3 +32,27 @@ core-graphics = {version = "0.23.2", features = ["highsierra"]}
 winapi = { version = "0.3", features = ["winuser", "windef"] }
 
 
+[features]
+default = ["full"]
+full = ["rustfft", "num-complex", "rayon", "image"]
+lite = []
+opencl = ["ocl", "full"]
+dev = ["opencl"]
+
+
+[[example]]
+name = "opencl_example"
+path = "examples/opencl_example.rs"
+required-features = ["opencl"]
+
+
+[[example]]
+name = "find_image_move_mouse_and_input"
+path = "examples/find_image_move_mouse_and_input.rs"
+required-features = ["full"]
+
+
+[[example]]
+name = "open_github_page"
+path = "examples/open_github_page.rs"
+required-features = ["full"]

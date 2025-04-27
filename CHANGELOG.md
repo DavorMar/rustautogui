@@ -1,6 +1,16 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [2.5.0] - 2025-04-27
+### Added 
+- Added **OpenCL** implementation of the algorithm. Now you can run the template matching process of GPU to achieve better performance. Two variants of algorithm included
+- Added additional fields to MatchMode enum: SegmentedOcl and SegmentedOclV2 - only available with opencl feature
+- Added optimization to segmented template match with automatic threshold detection
+- Added *_custom template preparation functions which allow user to input threshold themselves if they dont want automatic detection
+- Code cleanup / restructure
+- Added feature "lite". This includes much lighter version of library with no template matching possibility, just keyboard and mouse included
+- Added feature "dev" which opens core functions and structs as pub
+
 ## [2.4.0] - 2025-04-05
 ### Added / Changed / Fixed
 - Changed: function drag_mouse to drag_mouse_to_pos. Reason is the new drag_mouse function that moves mouse in relation to current position
