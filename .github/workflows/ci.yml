@@ -19,19 +19,45 @@ jobs:
   check:
     strategy:
       matrix:
-        include:
-          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
-          - { target: x86_64-apple-darwin, os: macos-latest }
-          - { target: aarch64-apple-darwin, os: macos-latest }
-          - { target: x86_64-pc-windows-msvc, os: windows-latest }
+         include:
+          # Linux
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, feature: lite }
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, feature: full }
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, feature: opencl }
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest, feature: dev }
+
+          # macOS
+          - { target: x86_64-apple-darwin, os: macos-latest, feature: lite }
+          - { target: x86_64-apple-darwin, os: macos-latest, feature: full }
+          - { target: x86_64-apple-darwin, os: macos-latest, feature: opencl }
+          - { target: x86_64-apple-darwin, os: macos-latest, feature: dev }
+
+          - { target: aarch64-apple-darwin, os: macos-latest, feature: lite }
+          - { target: aarch64-apple-darwin, os: macos-latest, feature: full }
+          - { target: aarch64-apple-darwin, os: macos-latest, feature: opencl }
+          - { target: aarch64-apple-darwin, os: macos-latest, feature: dev }
+
+          # Windows (only lite and full)
+          - { target: x86_64-pc-windows-msvc, os: windows-latest, feature: lite }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest, feature: full }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
+      - name: Display build info
+        run: |
+          echo "========================================"
+          echo "Building for OS: ${{ matrix.os }}"
+          echo "Target: ${{ matrix.target }}"
+          echo "Feature: ${{ matrix.feature }}"
+          echo "========================================"
+        shell: bash
+
+
       - name: Install x11 dev packages (linux)
         run: |
           sudo apt update
-          sudo apt install -y libx11-dev libxtst-dev
+          sudo apt install -y libx11-dev libxtst-dev ocl-icd-opencl-dev
         # Only install on Ubuntu
         if: matrix.os == 'ubuntu-latest'
 
@@ -41,9 +67,9 @@ jobs:
       - name: Cache Dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          key: v2.1-${{ matrix.target }}
+          key: v2.1-${{ matrix.target }}-${{ matrix.feature }}
 
       - uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --target ${{ matrix.target }} --release --examples
+          args: --target ${{ matrix.target }} --release --examples --no-default-features --features ${{ matrix.feature }}
