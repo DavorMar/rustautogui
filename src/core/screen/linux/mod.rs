@@ -70,19 +70,17 @@ impl Screen {
 
     /// returns screen dimensions. All monitors included
     pub fn dimension(&self) -> (i32, i32) {
-        let dimensions = (self.screen_width, self.screen_height);
-        dimensions
+        (self.screen_width, self.screen_height)
     }
 
     #[cfg(not(feature = "lite"))]
     #[allow(dead_code)]
     /// return region dimension which is set up when template is precalculated
     pub fn region_dimension(&self) -> (u32, u32) {
-        let dimensions = (
+        (
             self.screen_data.screen_region_width,
             self.screen_data.screen_region_height,
-        );
-        dimensions
+        )
     }
 
     pub fn destroy(&self) {

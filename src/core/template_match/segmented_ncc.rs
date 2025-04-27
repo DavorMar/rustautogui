@@ -732,14 +732,13 @@ fn merge_picture_segments_old_slow(
             let mut segment_merged = false;
 
             // Try to merge with another segment
-            for j in (i + 1)..segmented_template.len() {
+            for (j, &(x_a, y_a, width_a, height_a, value_a)) in
+                segmented_template.iter().enumerate().skip(i + 1)
+            {
                 // Skip already merged segments
                 if removed_indexes.contains(&j) {
                     continue;
                 }
-
-                // Get other segment details
-                let (x_a, y_a, width_a, height_a, value_a) = segmented_template[j];
 
                 // Check for vertical merge
                 if x_b == x_a

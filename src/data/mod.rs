@@ -47,6 +47,7 @@ impl BackupData {
 }
 
 #[cfg(not(feature = "lite"))]
+#[allow(clippy::upper_case_acronyms)]
 pub enum PreparedData {
     Segmented(SegmentedData),
     FFT(FFTData),
