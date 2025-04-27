@@ -7,7 +7,6 @@ pub mod tmpl_match_tests {
     use rustautogui::data::{opencl::KernelStorage, opencl::*, PreparedData};
     use rustautogui::imgtools;
 
-
     #[test]
     fn testing_speeds() {
         let image_paths = vec![
@@ -110,13 +109,10 @@ pub mod tmpl_match_tests {
         template_width: u32,
         template_height: u32,
     ) {
-        
         use rustautogui::RustAutoGui;
 
-        
         let data = RustAutoGui::dev_setup_opencl(Some(1)).unwrap();
 
-        
         let mut threshold = None;
         let mut insert_str = String::new();
         let mut v_string = String::new();
@@ -133,7 +129,7 @@ pub mod tmpl_match_tests {
 
         let queue = data.ocl_queue;
         let program = data.ocl_program;
-        
+
         //////////////////////////////////////////////////////////////////////// OPENCL V1
 
         let template_data = segmented_ncc::prepare_template_picture(&template, &false, threshold);

@@ -33,14 +33,12 @@ pub fn fast_ncc_template_match(
 
     // compute image integral, or in other words sum tables where each pixel
     // corresponds to sum of all the pixels above and left
-    let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(&image);
+    let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(image);
     let (image_integral, squared_image_integral) = compute_integral_images(&image_vec);
 
     // calculate precision into expected correlation
-    let adjusted_fast_expected_corr: f32 =
-        precision * template_data.expected_corr_fast - 0.0001 as f32;
-    let adjusted_slow_expected_corr: f32 =
-        precision * template_data.expected_corr_slow - 0.0001 as f32;
+    let adjusted_fast_expected_corr: f32 = precision * template_data.expected_corr_fast - 0.0001;
+    let adjusted_slow_expected_corr: f32 = precision * template_data.expected_corr_slow - 0.0001;
 
     if *debug {
         let fast_name = "debug/fast.png";
@@ -82,7 +80,7 @@ pub fn fast_ncc_template_match(
             );
             (x, y, corr as f32)
         })
-        .filter(|&(_, _, corr)| corr as f32 >= adjusted_slow_expected_corr)
+        .filter(|&(_, _, corr)| corr >= adjusted_slow_expected_corr)
         .collect();
 
     // returned list of found points
@@ -109,11 +107,9 @@ fn save_template_segmented_images(
     let mut rng = rand::rng();
     let debug_path = Path::new("debug");
     // not returning error , just printing it because debug mode shouldnt cause crashes here
-    if !debug_path.exists() {
-        if fs::create_dir_all(debug_path).is_err() {
-            println!("Failed to create debug folder. Please create it manually in the root folder");
-            return;
-        }
+    if !debug_path.exists() && fs::create_dir_all(debug_path).is_err() {
+        println!("Failed to create debug folder. Please create it manually in the root folder");
+        return;
     }
     for (x, y, segment_width, segment_height, segment_mean) in template_segments {
         let mut rng_mult: f32 = rng.random();
@@ -234,7 +230,7 @@ fn fast_correlation_calculation(
             );
             let segment_nominator_value: f32 = (segment_image_sum as f32
                 - mean_image * (segment_height * segment_width) as f32)
-                * (*segment_value as f32 - segments_slow_mean as f32);
+                * (*segment_value - segments_slow_mean);
             nominator += segment_nominator_value;
         }
 
@@ -300,7 +296,7 @@ pub fn prepare_template_picture(
     for y in 0..template_height {
         for x in 0..template_width {
             let template_value = template.get_pixel(x, y)[0] as f32;
-            let squared_deviation = (template_value - mean_template_value as f32).powf(2.0);
+            let squared_deviation = (template_value - mean_template_value).powf(2.0);
             template_sum_squared_deviations += squared_deviation;
         }
     }
@@ -314,7 +310,7 @@ pub fn prepare_template_picture(
         expected_corr_fast,
         segments_mean_fast,
     ) = create_picture_segments(
-        &template,
+        template,
         mean_template_value,
         avg_deviation_of_template,
         "fast",
@@ -327,7 +323,7 @@ pub fn prepare_template_picture(
         expected_corr_slow,
         segments_mean_slow,
     ) = create_picture_segments(
-        &template,
+        template,
         mean_template_value,
         avg_deviation_of_template,
         "slow",
@@ -419,7 +415,7 @@ fn create_picture_segments(
     loop {
         divide_and_conquer(
             &mut picture_segments,
-            &template,
+            template,
             0,
             0,
             threshold * avg_deviation_of_template,
@@ -454,9 +450,8 @@ fn create_picture_segments(
                     let template_pixel_value = template.get_pixel(x + x_segment, y + y_segment)[0];
 
                     let template_diff = template_pixel_value as f32 - mean_template_value;
-                    let segment_diff = *segment_value as f32 - segments_mean;
-                    segment_sum_squared_deviations +=
-                        (segment_value - segments_mean as f32).powf(2.0);
+                    let segment_diff = *segment_value - segments_mean;
+                    segment_sum_squared_deviations += (segment_value - segments_mean).powf(2.0);
                     numerator += template_diff * segment_diff;
                     denom1 += template_diff.powf(2.0);
                     denom2 += segment_diff.powf(2.0);
@@ -504,12 +499,12 @@ fn create_picture_segments(
             }
         }
     }
-    return (
+    (
         picture_segments,
         segment_sum_squared_deviations,
         expected_corr,
         segments_mean,
-    );
+    )
 }
 
 fn divide_and_conquer(
@@ -578,7 +573,7 @@ fn divide_and_conquer(
                 segment,
             );
 
-            let x1 = &x + segment_width / 2 + additional_pixel;
+            let x1 = x + segment_width / 2 + additional_pixel;
             // go recursively into first and second image halfs
             divide_and_conquer(picture_segments, &image_1, x, y, threshhold);
             divide_and_conquer(picture_segments, &image_2, x1, y, threshhold);
@@ -613,9 +608,8 @@ fn divide_and_conquer(
     // recursion exit
     } else {
         let segment_informations: (u32, u32, u32, u32, f32) =
-            (x, y, segment_width, segment_height, segment_mean as f32);
+            (x, y, segment_width, segment_height, segment_mean);
         picture_segments.push(segment_informations);
-        return;
     }
 }
 
@@ -660,7 +654,7 @@ fn merge_picture_segments(
                     && value_current == value_second
                     && (y_current + height_current == y_second)
                 {
-                    height_current = height_current + height_second;
+                    height_current += height_second;
                     segmented_template[segment_i].3 = height_current;
                     segmented_template[second_segment_i].2 = 0; // width_second
                     segmented_template[second_segment_i].3 = 0; // height_second
@@ -695,7 +689,7 @@ fn merge_picture_segments(
                     && value_current == value_second
                     && (x_current + width_current == x_second)
                 {
-                    width_current = width_current + width_second;
+                    width_current += width_second;
                     segmented_template[segment_i].2 = width_current;
                     segmented_template[second_segment_i].2 = 0; // width_second
                     segmented_template[second_segment_i].3 = 0; // height_second

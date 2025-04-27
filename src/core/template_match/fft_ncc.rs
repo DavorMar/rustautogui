@@ -24,7 +24,7 @@ pub fn fft_ncc(
     let fft: std::sync::Arc<dyn Fft<f32>> =
         planner.plan_fft_forward((prepared_data.padded_size * prepared_data.padded_size) as usize);
     let (image_width, image_height) = image.dimensions();
-    let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(&image);
+    let image_vec: Vec<Vec<u8>> = imgtools::imagebuffer_to_vec(image);
 
     if (image_width < prepared_data.template_width)
         || (image_height < prepared_data.template_height)
@@ -178,7 +178,7 @@ pub fn prepare_template_picture(
     for y in 0..template_height {
         for x in 0..template_width {
             let template_value = template.get_pixel(x, y)[0] as f32;
-            let squared_deviation = (template_value - mean_template_value as f32).powf(2.0);
+            let squared_deviation = (template_value - mean_template_value).powf(2.0);
             template_sum_squared_deviations += squared_deviation;
 
             // set zero mean value on new template

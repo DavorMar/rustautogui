@@ -22,8 +22,6 @@ mod multi_test {
     }
 
     fn load_imgs(gui: &mut RustAutoGui) {
-
-
         #[cfg(target_os = "windows")]
         let insert = 'w';
         #[cfg(target_os = "macos")]

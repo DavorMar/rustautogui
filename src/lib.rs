@@ -77,7 +77,6 @@ impl Clone for MatchMode {
 /// Main struct for Rustautogui
 /// Struct gets assigned keyboard, mouse and struct to it implemented functions execute commands from each of assigned substructs
 /// executes also correlation algorithms when doing find_image_on_screen
-
 #[allow(dead_code)]
 pub struct RustAutoGui {
     #[cfg(not(feature = "lite"))]
@@ -97,7 +96,6 @@ pub struct RustAutoGui {
 impl RustAutoGui {
     /// initiation of screen, keyboard and mouse that are assigned to new rustautogui struct.
     /// all the other struct fields are initiated as 0 or None
-
     pub fn new(debug: bool) -> Result<Self, AutoGuiError> {
         // initiation of screen, keyboard and mouse
         // on windows there is no need to share display pointer accross other structs
@@ -114,10 +112,7 @@ impl RustAutoGui {
         let keyboard = Keyboard::new(screen.display);
         #[cfg(target_os = "linux")]
         let mouse_struct: Mouse = Mouse::new(screen.display, screen.root_window);
-        
 
-
-        
         // check for env variable to suppress warnings, otherwise set default false value
         let suppress_warnings = env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
             .map(|val| val == "1" || val.eq_ignore_ascii_case("true"))
@@ -140,14 +135,13 @@ impl RustAutoGui {
         Ok(Self {
             #[cfg(not(feature = "lite"))]
             template_data: template_match_data,
-            debug: debug,
+            debug,
             template_width: 0,
             template_height: 0,
-            keyboard: keyboard,
+            keyboard,
             mouse: mouse_struct,
-            screen: screen,
-
-            suppress_warnings: suppress_warnings,
+            screen,
+            suppress_warnings,
 
             #[cfg(feature = "opencl")]
             opencl_data: opencl_data,

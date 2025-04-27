@@ -61,15 +61,15 @@ impl Screen {
         }
     }
     pub fn dimension(&self) -> (i32, i32) {
-        return (self.screen_width, self.screen_height);
+        (self.screen_width, self.screen_height)
     }
     #[cfg(not(feature = "lite"))]
     #[allow(dead_code)]
     pub fn region_dimension(&self) -> (u32, u32) {
-        return (
+        (
             self.screen_data.screen_region_width,
             self.screen_data.screen_region_height,
-        );
+        )
     }
     #[cfg(not(feature = "lite"))]
     /// clear memory and delete screen

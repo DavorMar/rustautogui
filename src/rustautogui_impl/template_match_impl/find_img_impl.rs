@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 #[cfg(not(feature = "lite"))]
 use crate::core::template_match;
 #[cfg(not(feature = "lite"))]
@@ -36,12 +38,12 @@ impl crate::RustAutoGui {
                         println!("Created a debug folder in your root for saving segmented template images");
                         match image.save("debug/screen_capture.png") {
                             Ok(_) => (),
-                            Err(x) => println!("{}", x.to_string()),
+                            Err(x) => println!("{}", x),
                         };
                     }
                     Err(x) => {
                         println!("Failed to create debug folder");
-                        println!("{}", x.to_string());
+                        println!("{}", x);
                     }
                 };
             }
@@ -67,7 +69,7 @@ impl crate::RustAutoGui {
             })
             .collect();
 
-        return Ok(Some(locations_ajusted));
+        Ok(Some(locations_ajusted))
     }
 
     // for macOS with retina display, two runs are made. One for resized template
@@ -149,10 +151,10 @@ impl crate::RustAutoGui {
         // save to reset after finished
         let backup = BackupData {
             starting_data: self.template_data.prepared_data.clone(),
-            starting_region: self.template_data.region.clone(),
+            starting_region: self.template_data.region,
             starting_match_mode: self.template_data.match_mode.clone(),
-            starting_template_height: self.template_height.clone(),
-            starting_template_width: self.template_width.clone(),
+            starting_template_height: self.template_height,
+            starting_template_width: self.template_width,
             starting_alias_used: self.template_data.alias_used.clone(),
         };
 
@@ -225,10 +227,10 @@ impl crate::RustAutoGui {
         // save to reset after finished
         let backup = BackupData {
             starting_data: self.template_data.prepared_data.clone(),
-            starting_region: self.template_data.region.clone(),
+            starting_region: self.template_data.region,
             starting_match_mode: self.template_data.match_mode.clone(),
-            starting_template_height: self.template_height.clone(),
-            starting_template_width: self.template_width.clone(),
+            starting_template_height: self.template_height,
+            starting_template_width: self.template_width,
             starting_alias_used: self.template_data.alias_used.clone(),
         };
         self.template_data.alias_used = alias.into();
@@ -304,7 +306,7 @@ impl crate::RustAutoGui {
 
         self.move_mouse_to_pos(target_x, target_y, moving_time)?;
 
-        return Ok(Some(locations));
+        Ok(Some(locations))
     }
     #[cfg(not(feature = "lite"))]
     /// loops until image is found and returns found values, or until it times out
@@ -423,17 +425,14 @@ impl crate::RustAutoGui {
                 )?
             }
         };
-        if found_locations.len() > 0 {
+        if !found_locations.is_empty() {
             if self.debug {
-                let corrected_found_location: (u32, u32, f32);
-                let x = found_locations[0].0 as u32
-                    + (self.template_width / 2) as u32
-                    + self.template_data.region.0 as u32;
-                let y = found_locations[0].1 as u32
-                    + (self.template_height / 2) as u32
-                    + self.template_data.region.1 as u32;
+                let x =
+                    found_locations[0].0 + (self.template_width / 2) + self.template_data.region.0;
+                let y =
+                    found_locations[0].1 + (self.template_height / 2) + self.template_data.region.1;
                 let corr = found_locations[0].2;
-                corrected_found_location = (x, y, corr);
+                let corrected_found_location = (x, y, corr);
 
                 println!(
                     "Location found at x: {}, y {}, corr {} ",
@@ -442,9 +441,9 @@ impl crate::RustAutoGui {
                     corrected_found_location.2
                 )
             }
-            return Ok(Some(found_locations));
+            Ok(Some(found_locations))
         } else {
-            return Ok(None);
-        };
+            Ok(None)
+        }
     }
 }

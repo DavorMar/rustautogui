@@ -1,3 +1,5 @@
+#![allow(clippy::unit_arg)]
+
 use crate::core::mouse::{mouse_position, Mouse, MouseClick, MouseScroll};
 use crate::AutoGuiError;
 
@@ -103,7 +105,7 @@ impl crate::RustAutoGui {
         };
         #[cfg(target_os = "windows")]
         {
-            Mouse::drag_mouse(x as i32, y as i32, moving_time);
+            Mouse::drag_mouse(x, y, moving_time);
 
             Ok(())
         }
@@ -146,7 +148,7 @@ impl crate::RustAutoGui {
         }
         #[cfg(target_os = "windows")]
         {
-            Mouse::drag_mouse(x as i32, y as i32, moving_time);
+            Mouse::drag_mouse(x, y, moving_time);
 
             Ok(())
         }
@@ -245,16 +247,16 @@ impl crate::RustAutoGui {
         #[cfg(target_os = "linux")]
         {
             self.mouse.mouse_click(MouseClick::LEFT)?;
-            return self.mouse.mouse_click(MouseClick::LEFT);
+            self.mouse.mouse_click(MouseClick::LEFT)
         }
         #[cfg(target_os = "windows")]
         {
             Mouse::mouse_click(MouseClick::LEFT);
             Mouse::mouse_click(MouseClick::LEFT);
-            return Ok(());
+            Ok(())
         }
         #[cfg(target_os = "macos")]
-        return Mouse::double_click();
+        Mouse::double_click()
     }
 
     pub fn click_down(&self, button: MouseClick) -> Result<(), AutoGuiError> {

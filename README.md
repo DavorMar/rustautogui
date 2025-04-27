@@ -444,10 +444,7 @@ rustautogui.drag_mouse(500, -500, 1.0).unwrap(); // args: x, y, moving_time. Dra
 Below is a helper function to determine coordinates on screen, helpful when determining region or mouse move target when developing
 
 ```rust
-use rustautogui::print_mouse_position;
-fn main() {
-   print_mouse_position().unwrap();
-}
+print_mouse_position().unwrap();
 ```
 
 ## Keyboard Functions

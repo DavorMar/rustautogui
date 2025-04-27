@@ -5,7 +5,7 @@ use crate::MatchMode;
 use crate::RustAutoGui;
 #[cfg(feature = "opencl")]
 pub use opencl::*;
-#[cfg(not(feature="lite"))]
+#[cfg(not(feature = "lite"))]
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
 
 #[cfg(not(feature = "lite"))]
@@ -46,13 +46,13 @@ impl BackupData {
     }
 }
 
-#[cfg(not(feature="lite"))]
+#[cfg(not(feature = "lite"))]
 pub enum PreparedData {
     Segmented(SegmentedData),
     FFT(FFTData),
     None,
 }
-#[cfg(not(feature="lite"))]
+#[cfg(not(feature = "lite"))]
 impl Clone for PreparedData {
     fn clone(&self) -> Self {
         match self {
@@ -63,7 +63,7 @@ impl Clone for PreparedData {
     }
 }
 
-#[cfg(not(feature="lite"))]
+#[cfg(not(feature = "lite"))]
 pub struct SegmentedData {
     pub template_segments_fast: Vec<(u32, u32, u32, u32, f32)>,
     pub template_segments_slow: Vec<(u32, u32, u32, u32, f32)>,
@@ -76,7 +76,7 @@ pub struct SegmentedData {
     pub segments_mean_fast: f32,
     pub segments_mean_slow: f32,
 }
-#[cfg(not(feature="lite"))]
+#[cfg(not(feature = "lite"))]
 impl Clone for SegmentedData {
     fn clone(&self) -> Self {
         Self {
@@ -93,7 +93,7 @@ impl Clone for SegmentedData {
         }
     }
 }
-#[cfg(not(feature="lite"))]
+#[cfg(not(feature = "lite"))]
 pub struct FFTData {
     pub template_conj_freq: Vec<Complex<f32>>,
     pub template_sum_squared_deviations: f32,
@@ -101,7 +101,7 @@ pub struct FFTData {
     pub template_height: u32,
     pub padded_size: u32,
 }
-#[cfg(not(feature="lite"))]
+#[cfg(not(feature = "lite"))]
 impl Clone for FFTData {
     fn clone(&self) -> Self {
         Self {

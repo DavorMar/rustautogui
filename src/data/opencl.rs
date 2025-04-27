@@ -2,7 +2,6 @@ use crate::AutoGuiError;
 use ocl::{Buffer, Context, Program, Queue};
 use std::collections::HashMap;
 
-
 pub struct OpenClData {
     pub device_list: Vec<DevicesInfo>,
     pub ocl_program: Program,

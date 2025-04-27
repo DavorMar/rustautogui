@@ -212,7 +212,7 @@ impl crate::RustAutoGui {
                 self.template_data.template = Some(template.clone());
             }
         }
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(not(feature = "lite"))]
