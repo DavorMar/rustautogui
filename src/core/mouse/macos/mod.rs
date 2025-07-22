@@ -282,9 +282,9 @@ impl Mouse {
     pub fn scroll(direction: MouseScroll, intensity: u32) -> Result<(), AutoGuiError> {
         let delta = match direction {
             MouseScroll::UP => (intensity as i32, 0),
-            MouseScroll::DOWN => (-intensity as i32, 0),
+            MouseScroll::DOWN => (-1 * intensity as i32, 0),
             MouseScroll::LEFT => (0, intensity as i32),
-            MouseScroll::RIGHT => (0, -intensity as i32),
+            MouseScroll::RIGHT => (0, -1 * intensity as i32),
         };
         let cg_event_source =
             CGEventSource::new(CGEventSourceStateID::HIDSystemState).map_err(|_| {
