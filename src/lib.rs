@@ -249,7 +249,7 @@ impl RustAutoGui {
     }
 
     /// returns screen width and height
-    pub fn get_screen_size(&mut self) -> (i32, i32) {
+    pub fn get_screen_size(&self) -> (i32, i32) {
         self.screen.dimension()
     }
     #[cfg(not(feature = "lite"))]
