@@ -17,10 +17,7 @@ impl Keyboard {
         let is_us_layout: bool = Self::is_us_layout();
 
         let keymap = Keyboard::create_keymap(is_us_layout);
-        Self {
-            keymap: keymap,
-            screen: screen,
-        }
+        Self { keymap, screen }
     }
 
     pub fn key_down(&self, key: &str) -> Result<(), AutoGuiError> {

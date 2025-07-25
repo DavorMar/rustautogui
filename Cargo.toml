@@ -1,7 +1,7 @@
 [package]
 name = "rustautogui"
 authors = ["Davor Marusic"]
-version = "2.5.0"
+version = "2.5.1"
 edition = "2021"
 description = "Highly optimized GUI automation library for controlling the mouse and keyboard, with template matching support."
 license = "MIT"

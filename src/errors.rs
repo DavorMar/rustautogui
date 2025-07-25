@@ -24,17 +24,17 @@ pub enum AutoGuiError {
 impl fmt::Display for AutoGuiError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            AutoGuiError::OSFailure(err) => write!(f, "OS Failure: {}", err),
-            AutoGuiError::UnSupportedKey(err) => write!(f, "Key not supported: {}", err),
-            AutoGuiError::IoError(err) => write!(f, "IO Error: {}", err),
-            AutoGuiError::AliasError(err) => write!(f, "Alias Error: {}", err),
-            AutoGuiError::OutOfBoundsError(err) => write!(f, "Out of bounds error: {}", err),
+            AutoGuiError::OSFailure(err) => write!(f, "OS Failure: {err}"),
+            AutoGuiError::UnSupportedKey(err) => write!(f, "Key not supported: {err}"),
+            AutoGuiError::IoError(err) => write!(f, "IO Error: {err}"),
+            AutoGuiError::AliasError(err) => write!(f, "Alias Error: {err}"),
+            AutoGuiError::OutOfBoundsError(err) => write!(f, "Out of bounds error: {err}"),
             #[cfg(not(feature = "lite"))]
-            AutoGuiError::ImageError(err) => write!(f, "Image Error: {}", err),
-            AutoGuiError::ImgError(err) => write!(f, "Image Error: {}", err),
-            AutoGuiError::NulError(err) => write!(f, "Convert to C String nulerror: {}", err),
+            AutoGuiError::ImageError(err) => write!(f, "Image Error: {err}"),
+            AutoGuiError::ImgError(err) => write!(f, "Image Error: {err}"),
+            AutoGuiError::NulError(err) => write!(f, "Convert to C String nulerror: {err}"),
             #[cfg(feature = "opencl")]
-            AutoGuiError::OclError(err) => write!(f, "OpenCL Error: {}", err),
+            AutoGuiError::OclError(err) => write!(f, "OpenCL Error: {err}"),
         }
     }
 }
@@ -85,8 +85,8 @@ impl ImageProcessingError {
 impl fmt::Display for ImageProcessingError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ImageProcessingError::External(err) => write!(f, "{}", err),
-            ImageProcessingError::Custom(err) => write!(f, "{}", err),
+            ImageProcessingError::External(err) => write!(f, "{err}"),
+            ImageProcessingError::Custom(err) => write!(f, "{err}"),
         }
     }
 }

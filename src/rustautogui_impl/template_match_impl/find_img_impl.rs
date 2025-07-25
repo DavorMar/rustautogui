@@ -38,12 +38,12 @@ impl crate::RustAutoGui {
                         println!("Created a debug folder in your root for saving segmented template images");
                         match image.save("debug/screen_capture.png") {
                             Ok(_) => (),
-                            Err(x) => println!("{}", x),
+                            Err(x) => println!("{x}"),
                         };
                     }
                     Err(x) => {
                         println!("Failed to create debug folder");
-                        println!("{}", x);
+                        println!("{x}");
                     }
                 };
             }
