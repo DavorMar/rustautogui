@@ -25,7 +25,11 @@ mod rustautogui_impl;
 use data::*;
 
 use crate::errors::*;
-use std::{collections::HashMap, env};
+use std::{
+    collections::HashMap,
+    env,
+    ops::{Deref, DerefMut},
+};
 
 #[cfg(not(feature = "lite"))]
 use core::template_match;
@@ -48,6 +52,70 @@ pub use core::mouse::MouseClick;
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
 #[cfg(not(feature = "lite"))]
 const DEFAULT_BCKP_ALIAS: &str = "bckp_tmpl_.#!123!#.";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, PartialOrd)]
+pub struct Region {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl Region {
+    pub fn new(x: u32, y: u32, width: u32, height: u32) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+    pub fn area(&self) -> u32 {
+        self.width * self.height
+    }
+    pub fn zero_size(&self) -> bool {
+        self.width == 0 || self.height == 0
+    }
+}
+
+impl From<(u32, u32, u32, u32)> for Region {
+    fn from(value: (u32, u32, u32, u32)) -> Self {
+        Self::new(value.0, value.1, value.2, value.3)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct Segment {
+    pub rect: Region,
+    pub mean: f32,
+}
+
+impl Segment {
+    pub fn new(x: u32, y: u32, width: u32, height: u32, mean: f32) -> Self {
+        Self {
+            rect: Region {
+                x,
+                y,
+                width,
+                height,
+            },
+            mean,
+        }
+    }
+}
+
+impl Deref for Segment {
+    type Target = Region;
+    fn deref(&self) -> &Self::Target {
+        &self.rect
+    }
+}
+
+impl DerefMut for Segment {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.rect
+    }
+}
 
 /// Matchmode Segmented correlation and Fourier transform correlation
 #[derive(PartialEq, Debug)]
@@ -128,7 +196,7 @@ impl RustAutoGui {
             prepared_data: PreparedData::None,
             prepared_data_stored: HashMap::new(),
             match_mode: None,
-            region: (0, 0, 0, 0),
+            region: Region::new(0, 0, 0, 0),
             alias_used: DEFAULT_ALIAS.to_string(),
         };
 
@@ -277,7 +345,7 @@ impl RustAutoGui {
         self.template_width = 0;
         self.template_height = 0;
         self.template_data.alias_used = DEFAULT_ALIAS.to_string();
-        self.template_data.region = (0, 0, 0, 0);
+        self.template_data.region = (0, 0, 0, 0).into();
         self.template_data.match_mode = None;
 
         Ok(())
@@ -289,11 +357,14 @@ impl RustAutoGui {
         &mut self,
         template_width: u32,
         template_height: u32,
-        region_x: u32,
-        region_y: u32,
-        region_width: u32,
-        region_height: u32,
+        region: Region,
     ) -> Result<(), AutoGuiError> {
+        let Region {
+            x: region_x,
+            y: region_y,
+            width: region_width,
+            height: region_height,
+        } = region;
         if (region_x + region_width > self.screen.screen_width as u32)
             | (region_y + region_height > self.screen.screen_height as u32)
         {

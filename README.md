@@ -60,18 +60,18 @@ Main functions:
 - [Other Info](#other-info)
   - [How does crate work](#how-does-crate-work)
   - [Major changes](#major-changes)
-  
+
 
 
 ## Achievable speed
 Unlike PyAutoGUI, this library does not use OpenCV for template matching. Instead, it employs a custom multithreaded implementation.
-Since version 2.5, OpenCL is included, with more info further down this Readme file.  While OpenCV's template matching algorithm is highly 
-optimized, in some cases Segmented algorithm using OpenCL may be even faster. RustAutoGui aims to provide faster overall performance by 
+Since version 2.5, OpenCL is included, with more info further down this Readme file.  While OpenCV's template matching algorithm is highly
+optimized, in some cases Segmented algorithm using OpenCL may be even faster. RustAutoGui aims to provide faster overall performance by
 optimizing the entire process of screen capture, processing, and image matching. From tests so far, the performance appears to be ~5x faster
-than python counterpart(on Windows). The speed will also vary between operating systems, where Windows outperforms Linux for instance. 
+than python counterpart(on Windows). The speed will also vary between operating systems, where Windows outperforms Linux for instance.
 
 
-Gif presentation (intentionally captured with phone camera): 
+Gif presentation (intentionally captured with phone camera):
 
 ![](testspeed.gif)
 
@@ -82,7 +82,7 @@ OpenCV requires complex dependencies and a lengthy setup process in Rust. To kee
 
 ### Segmented template matching algorithm
 
-RustAutoGUI crate includes another variation of template matching algorithm using Segmented Normalized Cross-Correlation. 
+RustAutoGUI crate includes another variation of template matching algorithm using Segmented Normalized Cross-Correlation.
 More information: https://arxiv.org/pdf/2502.01286
 
 
@@ -99,7 +99,7 @@ With OpenCL support ( ⚠️ Please read info below before using):
 
 `rustautogui = { version = "2.5.0", features = ["opencl"] }`
 
-Lite Version 
+Lite Version
 
 `rustautogui = { version = "2.5.0", features = ["lite"] }`
 
@@ -143,7 +143,7 @@ From file, same as load_and_prepare_template which will be deprecated
 ```rust
 rustautogui.prepare_template_from_file( // returns Result<(), String>
    "template.png", // template_path: &str path to the image file on disk
-   Some((0,0,1000,1000)), // region: Option<(u32, u32, u32, u32)>  region of monitor to search (x, y, width, height)
+   Some((0,0,1000,1000).into()), // region: Option<Region>  region of monitor to search (x, y, width, height)
    rustautogui::MatchMode::Segmented, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)
 ).unwrap();
 ```
@@ -151,7 +151,7 @@ From ImageBuffer<RGB/RGBA/Luma<u8>>
 ```rust
 rustautogui.prepare_template_from_imagebuffer( // returns Result<(), String>
    img_buffer, // image:  ImageBuffer<P, Vec<T>> -- Accepts RGB/RGBA/Luma(black and white)
-   None,  // region: Option<(u32, u32, u32, u32)> searches whole screen when None
+   None,  // region: Option<Region> searches whole screen when None
    rustautogui::MatchMode::FFT, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)
 ).unwrap();
 ```
@@ -159,7 +159,7 @@ From raw bytes of encoded image
 ```rust
 rustautogui.prepare_template_from_raw_encoded( // returns Result<(), String>
    img_raw // img_raw:  &[u8] - encoded raw bytes
-   None,  // region: Option<(u32, u32, u32, u32)>
+   None,  // region: Option<Region>
    rustautogui::MatchMode::FFT, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)
 ).unwrap();
 
@@ -172,13 +172,13 @@ rustautogui.prepare_template_from_raw_encoded( // returns Result<(), String>
 #### Loading multiple images into memory
 ---
 
-Functions  work the same as single image loads, with additional parameter of alias for the image.
+Functions work the same as single image loads, with additional parameter of alias for the image.
 
 Load from file
 ```rust
 rustautogui.store_template_from_file( // returns Result<(), String>
    "template.png", // template_path: &str path to the image file on disk
-   Some((0,0,1000,1000)), // region: Option<(u32, u32, u32, u32)>  region of monitor to search (x, y, width, height)
+   Some((0,0,1000,1000).into()), // region: Option<Region>  region of monitor to search (x, y, width, height)
    rustautogui::MatchMode::Segmented, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)
    "button_image" // alias: &str. Keyword used to select which image to search for
 ).unwrap();
@@ -187,7 +187,7 @@ Load from Imagebuffer
 ```rust
 rustautogui.store_template_from_imagebuffer( // returns Result<(), String>
    img_buffer, // image:  ImageBuffer<P, Vec<T>> -- Accepts RGB/RGBA/Luma(black and white)
-   None,  // region: Option<(u32, u32, u32, u32)>
+   None,  // region: Option<Region>
    rustautogui::MatchMode::Segmented, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)
    "button_image" // alias: &str. Keyword used to select which image to search for
 ).unwrap();
@@ -196,7 +196,7 @@ Load from encoded raw bytes
 ```rust
 rustautogui.store_template_from_raw_encoded( // returns Result<(), String>
    img_raw // img_raw:  &[u8] encoded raw bytes
-   None,  // region: Option<(u32, u32, u32, u32)>
+   None,  // region: Option<Region>
    rustautogui::MatchMode::Segmented, // match_mode: rustautogui::MatchMode search mode (Segmented or FFT)
    "button_image" // alias: &str. Keyword used to select which image to search for
 ).unwrap();
@@ -228,7 +228,7 @@ The automatic thresholding works well in many cases, but:
 - In some scenarios, manual tuning of the threshold can result in significantly faster matching.
 
 - By choosing the right threshold for each image, you can maximize performance.
-  
+
 - threshold is only important for Segmented match modes and has no influence on FFT match mode
 
 💡 Internally, the threshold represents the correlation between the fast-segmented image and the original template.
@@ -246,19 +246,19 @@ The automatic thresholding works well in many cases, but:
   - Often produces similar results as 0.0 in most cases.
 
   - Can be a good baseline for experimentation.
-- What do we gain with higher threshold? -> Fast template match produces less false positives, giving less work to slow template match process and increasing speed 
+- What do we gain with higher threshold? -> Fast template match produces less false positives, giving less work to slow template match process and increasing speed
 
 
 *the algorithm does two correlation checks. First with roughly segmented image, with small number of segments, then on second finer segmented image, with higher precision and more segments. Positions found by rough image, which runs very fast, are checked with finer image. Sometimes, rough image is segmented by too small factor and leads to many false positives, which slows down algorithm due to too many checks on finer image*
 
-Example: 
+Example:
 ```rust
 rustautogui.store_template_from_imagebuffer_custom( // returns Result<(), String>
    img_buffer,
-   None, 
+   None,
    rustautogui::MatchMode::Segmented,
    "button_image",
-   0.0 
+   0.0
 ).unwrap();
 ```
 
@@ -346,14 +346,14 @@ and also resized by half. The template search first searches for resized templat
 ### Segmented vs FFT matching
 ---
 
-This info does not include OpenCL in comparison. More info about it below. 
+This info does not include OpenCL in comparison. More info about it below.
 
 
-It is hard to give a 100% correct answer when to use which algorithm. FFT algorithm is mostly consistent, with no big variances in speed. Segmented on other hand can heavily vary and speed can be up to 10x faster than FFT, but also slower by factor of up to thousands. The best would be for users to test both methods and determine when to use which method. A general advice can be: Use segmented on smaller template images and when template is less visually complex (visual complexity is randomness of pixels in an image, for instance an image that is half white vs half black vs random noise image). 
-FFT would probably be better when comparing large template images on a large region, but also when template size approaches image region size. 
+It is hard to give a 100% correct answer when to use which algorithm. FFT algorithm is mostly consistent, with no big variances in speed. Segmented on other hand can heavily vary and speed can be up to 10x faster than FFT, but also slower by factor of up to thousands. The best would be for users to test both methods and determine when to use which method. A general advice can be: Use segmented on smaller template images and when template is less visually complex (visual complexity is randomness of pixels in an image, for instance an image that is half white vs half black vs random noise image).
+FFT would probably be better when comparing large template images on a large region, but also when template size approaches image region size.
 
 
-Generally, if you're following the idea of maximizing speeds by using as small as possible template images and determining small as possible screen regions, in most cases Segmented will perform faster than FFT. 
+Generally, if you're following the idea of maximizing speeds by using as small as possible template images and determining small as possible screen regions, in most cases Segmented will perform faster than FFT.
 
 Matchmodes enum:
 ```rust
@@ -421,12 +421,12 @@ rustautogui.scroll_right().unwrap();
 rustautogui.move_mouse_to_pos(1920, 1080, 1.0).unwrap(); // args: x, y, moving_time. Moves mouse to position for certain time
 rustautogui.move_mouse_to(Some(500), None, 1.0).unwrap(); // args: x, y, moving_time. Moves mouse to position, but acceps Option
 //                                                                                    None Value keeps same position
-rustautogui.move_mouse(-50, 120, 1.0).unwrap(); //  args: x, y, moving_time. Moves mouse relative to its current position. 
+rustautogui.move_mouse(-50, 120, 1.0).unwrap(); //  args: x, y, moving_time. Moves mouse relative to its current position.
 //                                                                            -x left, +x right, -y up, +y down. 0 maintain position
 ```
 
 ### Mouse Drags
- 
+
 
 For all mouse drag commands, use moving time > 0.2, or even higher, depending on distance. Especially important for macOS
 
@@ -434,7 +434,7 @@ In version 2.4.0 drag_mouse() was renamed to drag_mouse_to_pos(). New drag_mouse
 
 Drag action is: left click down, move mouse to position, left click up. Like when moving icons
 ```rust
-rustautogui.drag_mouse_to_pos(150, 980, 2.0).unwrap(); // args: x, y, moving_time. 
+rustautogui.drag_mouse_to_pos(150, 980, 2.0).unwrap(); // args: x, y, moving_time.
 rustautogui.drag_mouse_to(Some(200), Some(400), 1.2).unwrap(); // args: x, y, moving_time. Accepts option. None value keeps current pos.
 rustautogui.drag_mouse(500, -500, 1.0).unwrap(); // args: x, y, moving_time. Drags mouse relative to its current position.
 //                                                                           Same rules as in move_mouse
@@ -492,9 +492,9 @@ let mut rustautogui = RustAutoGui::new(false).unwrap();
 rustautogui.set_suppress_warnings(true);
 ```
 
-# OpenCL 
+# OpenCL
 
-To enable OpenCL, as mentioned above, add crate to your Cargo.toml with opencl feature enabled: 
+To enable OpenCL, as mentioned above, add crate to your Cargo.toml with opencl feature enabled:
 
 `rustautogui = { version = "2.5.0", features = ["opencl"] }`
 
@@ -538,14 +538,14 @@ Run clinfo, if no GPU detected, continue. Otherwise you're finished.
 ## Please read before using OpenCL ⚠️⚠️
 
 
-- **OpenCL works only on Segmented match mode**. Running FFT matchmode will fall back to CPU. 
+- **OpenCL works only on Segmented match mode**. Running FFT matchmode will fall back to CPU.
 
 - ⚠️ OpenCL performance highly depends on your GPU. On low-end or integrated GPUs, it may perform worse than CPU processing.
 
 - to utilize opencl, prepare templates with matchmodes SegmentedOcl or SegmentedOclV2
 
 - In case there are multiple GPU devices(often found on mac), the best gpu is chosen by scoring them according to their memory size, clock freq and compute units count
-  
+
 
 To display available devices and change default device:
 ```rust
@@ -553,7 +553,7 @@ gui.list_devices();
 
 gui.change_ocl_device(1); // selects device on index = 1
 ```
-⚠️ Changing device completely resets all the prepared data. 
+⚠️ Changing device completely resets all the prepared data.
 
 
 ## V1 vs V2 Algorithms
@@ -576,7 +576,7 @@ Your choice between V1 and V2 algorithms can significantly affect performance an
 - Best used with _custom functions where you manually set the threshold.
 
 - ⚠️ Using a bad threshold can lead to performance worse than V1.
-  
+
 - ⚠️ Not intended for built in or lower tier GPUs
 
 💡 In short:
@@ -603,13 +603,10 @@ Your choice between V1 and V2 algorithms can significantly affect performance an
 ## Major changes
 For more details, check CHANGELOG.md
 
-- 1.0.0 - introduces segmented match mode
+- 1.0.0 - introduced segmented match mode
 - 2.0.0 - removed most of panics and crashes
-- 2.1.0 - fixed on keyboard, some methods arguments / returns changed and will cause code breaking.
+- 2.1.0 - fixes on keyboard, some methods arguments / returns changed and will cause code breaking.
 - 2.2.0 - loading multiple images, loading images from memory
 - 2.3.0 - rework and improvement on Segmented match mode
 - 2.4.0 - many additional functions for mouse and keyboard
 - 2.5.0 - OpenCL implementation
-
-
-

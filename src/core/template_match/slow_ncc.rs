@@ -83,6 +83,7 @@ pub fn slow_ncc_template_match(
     (best_match_x, best_match_y, min_corr)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn calculate_corr_value(
     image: &ImageBuffer<Luma<u8>, Vec<u8>>,
     image_integral: &[Vec<u64>],

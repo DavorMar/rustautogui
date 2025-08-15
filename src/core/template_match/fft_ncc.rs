@@ -108,7 +108,7 @@ pub fn fft_ncc(
     found_points
 }
 
-#[allow(dead_code)]
+#[allow(clippy::too_many_arguments)]
 fn fft_correlation_calculation(
     image_integral: &[Vec<u64>],
     squared_image_integral: &[Vec<u64>],
