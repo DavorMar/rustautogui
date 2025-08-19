@@ -1,7 +1,7 @@
 /*
  * Template Matching Algorithm
  * Author: Davor Marušić, Siniša Popović, Zoran Kalafatić
- * License: GPLv3
+ * License: MIT
  * (c) 2024 Davor Marušić, Siniša Popović, Zoran Kalafatić  All rights reserved.
  * Please read NOTICE.md file
  */
