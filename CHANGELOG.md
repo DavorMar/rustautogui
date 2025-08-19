@@ -1,8 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+### Added / Changed
+- `Region` structure instead of just `(u32, u32, u32, u32)`, add `Segment` structure
+- Reduced intensity of macos mouse scroll
+
 ## [2.5.0] - 2025-04-27
-### Added 
+### Added
 - Added **OpenCL** implementation of the algorithm. Now you can run the template matching process of GPU to achieve better performance. Two variants of algorithm included
 - Added additional fields to MatchMode enum: SegmentedOcl and SegmentedOclV2 - only available with opencl feature
 - Added optimization to segmented template match with automatic threshold detection
@@ -15,25 +19,25 @@ All notable changes to this project will be documented in this file.
 ### Added / Changed / Fixed
 - Changed: function drag_mouse to drag_mouse_to_pos. Reason is the new drag_mouse function that moves mouse in relation to current position
 - made MouseClick enum public
-- Added functions: 
+- Added functions:
 -    - move_mouse() - Moves mouse relative to its current position. -x left, +x right, -y up, +y down
 -    - move_mouse_to() -- Accepts Option<x>, Option<y>. None value keeps the same x or y. Usefull for horizontal and vertical movement
 -    - drag_mouse() - performs mouse drag action relative to current position. Same rules as in move_mouse function
--    - drag_mouse_to() - same as in mouse_move_to, accepts Options. 
--    - drag_mouse_to_pos() - same as in move_mouse_to_pos(). This is the old drag_mouse() func 
+-    - drag_mouse_to() - same as in mouse_move_to, accepts Options.
+-    - drag_mouse_to_pos() - same as in move_mouse_to_pos(). This is the old drag_mouse() func
 -    - get_mouse_position() - returns Result<(i32, i32)> current mouse position
 -    - click() - Mouse click - choose button with MouseClick enum
 -    - click_down() - accepts MouseClick enum (does not work on macOS)
 -    - click_up() - accepts MouseClick enum (does not work on macOS)
--    - key_down() - executes key press down only 
+-    - key_down() - executes key press down only
 -    - key_up() - executes key press up only
 - move_mouse_to_pos() remains the same, while drag_mouse_to_pos() is new name for the old version of drag_mouse() function
 
 ## [2.3.0] - 2025-03-30
 ### Fixed / Removed
-- Rework of Segmented NCC template match. Completely removed argument of Max segments and made it always work robustly, never sacrificing precision for  speed. Additionally fixed part of formulas which will additionally reduce false positives, regardless of max segments. The fix also improves algorithms speed when compared to previous version, if max_segments is not taken into consideration. The speed gain is due to much less checks and verifications in the algorithm. 
+- Rework of Segmented NCC template match. Completely removed argument of Max segments and made it always work robustly, never sacrificing precision for  speed. Additionally fixed part of formulas which will additionally reduce false positives, regardless of max segments. The fix also improves algorithms speed when compared to previous version, if max_segments is not taken into consideration. The speed gain is due to much less checks and verifications in the algorithm.
 - Fixed returned values from find image on screen, where its correctly returning positions adjusted for screen region and template size, where previously that worked only on find image and move mouse
-- Removed completely the change prepared template function. 
+- Removed completely the change prepared template function.
 
 
 ## [2.2.2] - 2025-03-27

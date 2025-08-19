@@ -1,4 +1,4 @@
-use crate::AutoGuiError;
+use crate::{AutoGuiError, Segment};
 use ocl::{Buffer, Context, Program, Queue};
 use std::collections::HashMap;
 
@@ -152,30 +152,24 @@ impl GpuMemoryPointers {
         template_width: u32,
         template_height: u32,
         queue: &Queue,
-        template_segments_slow: &[(u32, u32, u32, u32, f32)],
-        template_segments_fast: &[(u32, u32, u32, u32, f32)],
+        template_segments_slow: &[Segment],
+        template_segments_fast: &[Segment],
     ) -> Result<Self, ocl::Error> {
         let result_width = (image_width - template_width + 1) as usize;
         let result_height = (image_height - template_height + 1) as usize;
         let output_size = result_width * result_height;
         let segment_fast_int4: Vec<ocl::prm::Int4> = template_segments_fast
             .iter()
-            .map(|&(x, y, w, h, _)| ocl::prm::Int4::new(x as i32, y as i32, w as i32, h as i32))
+            .map(|s| ocl::prm::Int4::new(s.x as i32, s.y as i32, s.width as i32, s.height as i32))
             .collect();
 
         let segment_slow_int4: Vec<ocl::prm::Int4> = template_segments_slow
             .iter()
-            .map(|&(x, y, w, h, _)| ocl::prm::Int4::new(x as i32, y as i32, w as i32, h as i32))
+            .map(|s| ocl::prm::Int4::new(s.x as i32, s.y as i32, s.width as i32, s.height as i32))
             .collect();
 
-        let segment_values_fast: Vec<f32> = template_segments_fast
-            .iter()
-            .map(|&(_, _, _, _, v)| v)
-            .collect();
-        let segment_values_slow: Vec<f32> = template_segments_slow
-            .iter()
-            .map(|&(_, _, _, _, v)| v)
-            .collect();
+        let segment_values_fast: Vec<f32> = template_segments_fast.iter().map(|s| s.mean).collect();
+        let segment_values_slow: Vec<f32> = template_segments_slow.iter().map(|s| s.mean).collect();
 
         let buffer_segments_fast: Buffer<ocl::prm::Int4> = Buffer::<ocl::prm::Int4>::builder()
             .queue(queue.clone())

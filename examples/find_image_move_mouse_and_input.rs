@@ -14,7 +14,7 @@ fn main() {
             // load the image searching for. Region is Option<(startx, starty, width, height)> of search. Matchmode FFT or Segmented (not implemented before 1.0 version), max segments, only important for Segmented match mode
             gui.prepare_template_from_file(
                 "test.png",
-                Some((0, 0, 500, 300)),
+                Some((0, 0, 500, 300).into()),
                 rustautogui::MatchMode::FFT,
             )
             .unwrap();
@@ -24,7 +24,7 @@ fn main() {
             let img = imgtools::load_image_rgba("test.png").unwrap(); // just loading this way for example
             gui.prepare_template_from_imagebuffer(
                 img,
-                Some((0, 0, 700, 500)),
+                Some((0, 0, 700, 500).into()),
                 rustautogui::MatchMode::Segmented,
             )
             .unwrap();

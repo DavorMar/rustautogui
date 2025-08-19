@@ -1,7 +1,7 @@
 use core_graphics::display;
 use core_graphics::display::CGDisplay;
 
-use crate::{errors::AutoGuiError, imgtools};
+use crate::{errors::AutoGuiError, imgtools, Region};
 
 #[cfg(not(feature = "lite"))]
 use image::{
@@ -84,9 +84,14 @@ impl Screen {
     /// as inputted region area. Not used anywhere at the moment
     pub fn grab_screen_image(
         &mut self,
-        region: (u32, u32, u32, u32),
+        region: Region,
     ) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
-        let (x, y, width, height) = region;
+        let Region {
+            x,
+            y,
+            width,
+            height,
+        } = region;
         self.screen_data.screen_region_width = width;
         self.screen_data.screen_region_height = height;
         self.capture_screen()?;
@@ -100,15 +105,20 @@ impl Screen {
     /// as inputted region area
     pub fn grab_screen_image_grayscale(
         &mut self,
-        region: &(u32, u32, u32, u32),
+        region: Region,
     ) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
-        let (x, y, width, height) = region;
-        self.screen_data.screen_region_width = *width;
-        self.screen_data.screen_region_height = *height;
+        let Region {
+            x,
+            y,
+            width,
+            height,
+        } = region;
+        self.screen_data.screen_region_width = width;
+        self.screen_data.screen_region_height = height;
         self.capture_screen()?;
         let image: ImageBuffer<Luma<u8>, Vec<u8>> = self.convert_bitmap_to_grayscale()?;
         let cropped_image: ImageBuffer<Luma<u8>, Vec<u8>> =
-            imgtools::cut_screen_region(*x, *y, *width, *height, &image);
+            imgtools::cut_screen_region(x, y, width, height, &image);
         Ok(cropped_image)
     }
     #[cfg(not(feature = "lite"))]
@@ -158,7 +168,7 @@ impl Screen {
             let gray_value = ((r * 30 + g * 59 + b * 11) / 100) as u8;
             grayscale_data.push(gray_value);
         }
-        let mut image = GrayImage::from_raw(
+        let image = GrayImage::from_raw(
             (self.screen_data.scaling_factor_x * self.screen_width as f32) as u32,
             (self.screen_data.scaling_factor_y * self.screen_height as f32) as u32,
             grayscale_data,
@@ -167,7 +177,7 @@ impl Screen {
             "Could not convert image to grayscale".to_string(),
         ))?;
         let image = resize(
-            &mut image,
+            &image,
             self.screen_width as u32,
             self.screen_height as u32,
             Nearest,
