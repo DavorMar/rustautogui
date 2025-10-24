@@ -93,19 +93,19 @@ Either run
 
 or add the crate in your Cargo.toml:
 
-`rustautogui = "2.5.0"`
+`rustautogui = "2.5.1"`
 
 With OpenCL support ( ⚠️ Please read info below before using):
 
-`rustautogui = { version = "2.5.0", features = ["opencl"] }`
+`rustautogui = { version = "2.5.1", features = ["opencl"] }`
 
 Lite Version 
 
-`rustautogui = { version = "2.5.0", features = ["lite"] }`
+`rustautogui = { version = "2.5.1", features = ["lite"] }`
 
 Dev Version - allows access to private mods (immediately has opencl included)
 
-`rustautogui = { version = "2.5.0", features = ["dev"] }`
+`rustautogui = { version = "2.5.1", features = ["dev"] }`
 
 For Linux additionally run:
 
@@ -172,7 +172,7 @@ rustautogui.prepare_template_from_raw_encoded( // returns Result<(), String>
 #### Loading multiple images into memory
 ---
 
-Functions  work the same as single image loads, with additional parameter of alias for the image.
+Functions work the same as single image loads, with additional parameter of alias for the image.
 
 Load from file
 ```rust
@@ -496,7 +496,7 @@ rustautogui.set_suppress_warnings(true);
 
 To enable OpenCL, as mentioned above, add crate to your Cargo.toml with opencl feature enabled: 
 
-`rustautogui = { version = "2.5.0", features = ["opencl"] }`
+`rustautogui = { version = "2.5.1", features = ["opencl"] }`
 
 ## OpenCL Installation
 
@@ -603,9 +603,9 @@ Your choice between V1 and V2 algorithms can significantly affect performance an
 ## Major changes
 For more details, check CHANGELOG.md
 
-- 1.0.0 - introduces segmented match mode
+- 1.0.0 - introduced segmented match mode
 - 2.0.0 - removed most of panics and crashes
-- 2.1.0 - fixed on keyboard, some methods arguments / returns changed and will cause code breaking.
+- 2.1.0 - fixes on keyboard, some methods arguments / returns changed and will cause code breaking.
 - 2.2.0 - loading multiple images, loading images from memory
 - 2.3.0 - rework and improvement on Segmented match mode
 - 2.4.0 - many additional functions for mouse and keyboard

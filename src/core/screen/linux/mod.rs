@@ -58,9 +58,9 @@ impl Screen {
                 screen_region_height: 0,
             };
             Screen {
-                screen_width: screen_width,
-                screen_height: screen_height,
-                display: display,
+                screen_width,
+                screen_height,
+                display,
                 root_window: root,
                 #[cfg(not(feature = "lite"))]
                 screen_data: img_data,
@@ -174,7 +174,7 @@ impl Screen {
             self.screen_data.pixel_data = pixel_data;
             XDestroyImage(ximage);
         }
-        return Ok(());
+        Ok(())
     }
     #[cfg(not(feature = "lite"))]
     /// convert vector to Luma Imagebuffer

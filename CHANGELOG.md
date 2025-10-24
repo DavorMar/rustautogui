@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 
 ## [2.5.0] - 2025-04-27
+### Changed
+- Reduced intensity of macos mouse scroll
+
+## [2.5.0] - 2025-04-27
 ### Added 
 - Added **OpenCL** implementation of the algorithm. Now you can run the template matching process of GPU to achieve better performance. Two variants of algorithm included
 - Added additional fields to MatchMode enum: SegmentedOcl and SegmentedOclV2 - only available with opencl feature
