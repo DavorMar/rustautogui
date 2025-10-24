@@ -17,8 +17,7 @@ impl crate::RustAutoGui {
     pub fn move_mouse_to_pos(&self, x: u32, y: u32, moving_time: f32) -> Result<(), AutoGuiError> {
         if (x as i32 > self.screen.screen_width) | (y as i32 > self.screen.screen_height) {
             return Err(AutoGuiError::OutOfBoundsError(format!(
-                "Out of bounds at positions x,y :{}, {}",
-                x, y
+                "Out of bounds at positions x,y :{x}, {y}"
             )));
         }
 
@@ -51,8 +50,7 @@ impl crate::RustAutoGui {
 
         if (x > self.screen.screen_width) | (y > self.screen.screen_height) {
             return Err(AutoGuiError::OutOfBoundsError(format!(
-                "Out of bounds at positions x,y :{}, {}",
-                x, y
+                "Out of bounds at positions x,y :{x}, {y}"
             )));
         }
 
@@ -77,19 +75,17 @@ impl crate::RustAutoGui {
 
         if (x > self.screen.screen_width) | (y > self.screen.screen_height) | (x < 0) | (y < 0) {
             return Err(AutoGuiError::OutOfBoundsError(
-                format!("Out of bounds at positions x,y :{}, {}", x, y), // "Mouse movement out of screen boundaries".to_string(),
+                format!("Out of bounds at positions x,y :{x}, {y}"), // "Mouse movement out of screen boundaries".to_string(),
             ));
         }
 
         #[cfg(target_os = "windows")]
-        {
-            Mouse::move_mouse_to_pos(x, y, moving_time);
-            Ok(())
-        }
+        Mouse::move_mouse_to_pos(x, y, moving_time);
         #[cfg(target_os = "linux")]
-        return self.mouse.move_mouse_to_pos(x, y, moving_time);
+        self.mouse.move_mouse_to_pos(x, y, moving_time)?;
         #[cfg(target_os = "macos")]
-        return Mouse::move_mouse_to_pos(x, y, moving_time);
+        Mouse::move_mouse_to_pos(x, y, moving_time)?;
+        Ok(())
     }
 
     /// executes left click down, move to position relative to current position, left click up
@@ -100,31 +96,26 @@ impl crate::RustAutoGui {
         let y = y + pos_y;
         if (x > self.screen.screen_width) | (y > self.screen.screen_height) | (x < 0) | (y < 0) {
             return Err(AutoGuiError::OutOfBoundsError(
-                format!("Out of bounds at positions x,y :{}, {}", x, y), // "Mouse movement out of screen boundaries".to_string(),
+                format!("Out of bounds at positions x,y :{x}, {y}"), // "Mouse movement out of screen boundaries".to_string(),
             ));
         };
         #[cfg(target_os = "windows")]
-        {
-            Mouse::drag_mouse(x, y, moving_time);
-
-            Ok(())
-        }
+        Mouse::drag_mouse(x, y, moving_time);
         #[cfg(target_os = "macos")]
         {
             if moving_time < 0.5 && !self.suppress_warnings {
                 eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
             }
-            return Mouse::drag_mouse(x as i32, y as i32, moving_time);
+            Mouse::drag_mouse(x as i32, y as i32, moving_time)?;
         }
         #[cfg(target_os = "linux")]
         {
-            if moving_time < 0.5 {
-                if !self.suppress_warnings {
-                    eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
-                }
+            if moving_time < 0.5 && !self.suppress_warnings {
+                eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
             }
-            return self.mouse.drag_mouse(x as i32, y as i32, moving_time);
+            self.mouse.drag_mouse(x, y, moving_time)?;
         }
+        Ok(())
     }
 
     /// Moves to position x,y. None values maintain current position. Useful for vertical and horizontal movement
@@ -142,32 +133,28 @@ impl crate::RustAutoGui {
 
         if (x > self.screen.screen_width) | (y > self.screen.screen_height) {
             return Err(AutoGuiError::OutOfBoundsError(format!(
-                "Out of bounds at positions x,y :{}, {}",
-                x, y
+                "Out of bounds at positions x,y :{x}, {y}"
             )));
         }
         #[cfg(target_os = "windows")]
         {
             Mouse::drag_mouse(x, y, moving_time);
-
-            Ok(())
         }
         #[cfg(target_os = "macos")]
         {
             if moving_time < 0.5 && !self.suppress_warnings {
                 eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
             }
-            return Mouse::drag_mouse(x as i32, y as i32, moving_time);
+            Mouse::drag_mouse(x as i32, y as i32, moving_time)?;
         }
         #[cfg(target_os = "linux")]
         {
-            if moving_time < 0.5 {
-                if !self.suppress_warnings {
-                    eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
-                }
+            if moving_time < 0.5 && !self.suppress_warnings {
+                eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
             }
-            return self.mouse.drag_mouse(x as i32, y as i32, moving_time);
+            self.mouse.drag_mouse(x, y, moving_time)?;
         }
+        Ok(())
     }
 
     /// moves mouse to x, y pixel coordinate
@@ -179,27 +166,23 @@ impl crate::RustAutoGui {
         }
 
         #[cfg(target_os = "windows")]
-        {
-            Mouse::drag_mouse(x as i32, y as i32, moving_time);
-
-            Ok(())
-        }
+        Mouse::drag_mouse(x as i32, y as i32, moving_time);
         #[cfg(target_os = "macos")]
         {
             if moving_time < 0.5 && !self.suppress_warnings {
                 eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
             }
-            return Mouse::drag_mouse(x as i32, y as i32, moving_time);
+            Mouse::drag_mouse(x as i32, y as i32, moving_time)?;
         }
         #[cfg(target_os = "linux")]
         {
-            if moving_time < 0.5 {
-                if !self.suppress_warnings {
-                    eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
-                }
+            if moving_time < 0.5 && !self.suppress_warnings {
+                eprintln!("WARNING:Small moving time values may cause issues on mouse drag");
             }
-            return self.mouse.drag_mouse(x as i32, y as i32, moving_time);
+
+            self.mouse.drag_mouse(x as i32, y as i32, moving_time)?;
         }
+        Ok(())
     }
 
     /// Mouse click. Choose button Mouseclick::{LEFT,RIGHT,MIDDLE}

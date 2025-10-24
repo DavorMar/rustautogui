@@ -3,7 +3,7 @@ extern crate image;
 extern crate x11;
 #[cfg(not(feature = "lite"))]
 use crate::errors::ImageProcessingError;
-use crate::{errors::AutoGuiError, imgtools};
+use crate::{errors::AutoGuiError, imgtools, Region};
 use core::error;
 #[cfg(not(feature = "lite"))]
 use image::{GrayImage, ImageBuffer, Luma, Rgba};
@@ -58,9 +58,9 @@ impl Screen {
                 screen_region_height: 0,
             };
             Screen {
-                screen_width: screen_width,
-                screen_height: screen_height,
-                display: display,
+                screen_width,
+                screen_height,
+                display,
                 root_window: root,
                 #[cfg(not(feature = "lite"))]
                 screen_data: img_data,
@@ -70,19 +70,17 @@ impl Screen {
 
     /// returns screen dimensions. All monitors included
     pub fn dimension(&self) -> (i32, i32) {
-        let dimensions = (self.screen_width, self.screen_height);
-        dimensions
+        (self.screen_width, self.screen_height)
     }
 
     #[cfg(not(feature = "lite"))]
     #[allow(dead_code)]
     /// return region dimension which is set up when template is precalculated
     pub fn region_dimension(&self) -> (u32, u32) {
-        let dimensions = (
+        (
             self.screen_data.screen_region_width,
             self.screen_data.screen_region_height,
-        );
-        dimensions
+        )
     }
 
     pub fn destroy(&self) {
@@ -97,9 +95,14 @@ impl Screen {
     #[cfg(not(feature = "lite"))]
     pub fn grab_screen_image(
         &mut self,
-        region: (u32, u32, u32, u32),
+        region: Region,
     ) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
-        let (x, y, width, height) = region;
+        let Region {
+            x,
+            y,
+            width,
+            height,
+        } = region;
         self.screen_data.screen_region_width = width;
         self.screen_data.screen_region_height = height;
         self.capture_screen()?;
@@ -114,15 +117,20 @@ impl Screen {
     #[cfg(not(feature = "lite"))]
     pub fn grab_screen_image_grayscale(
         &mut self,
-        region: &(u32, u32, u32, u32),
+        region: Region,
     ) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
-        let (x, y, width, height) = region;
-        self.screen_data.screen_region_width = *width;
-        self.screen_data.screen_region_height = *height;
+        let Region {
+            x,
+            y,
+            width,
+            height,
+        } = region;
+        self.screen_data.screen_region_width = width;
+        self.screen_data.screen_region_height = height;
         self.capture_screen()?;
         let image: ImageBuffer<Luma<u8>, Vec<u8>> = self.convert_bitmap_to_grayscale()?;
         let cropped_image: ImageBuffer<Luma<u8>, Vec<u8>> =
-            imgtools::cut_screen_region(*x, *y, *width, *height, &image);
+            imgtools::cut_screen_region(x, y, width, height, &image);
         Ok(cropped_image)
     }
     #[cfg(not(feature = "lite"))]
@@ -174,7 +182,7 @@ impl Screen {
             self.screen_data.pixel_data = pixel_data;
             XDestroyImage(ximage);
         }
-        return Ok(());
+        Ok(())
     }
     #[cfg(not(feature = "lite"))]
     /// convert vector to Luma Imagebuffer

@@ -5,6 +5,9 @@ use crate::data::*;
 #[cfg(not(feature = "lite"))]
 use crate::imgtools;
 #[cfg(not(feature = "lite"))]
+#[cfg(not(feature = "lite"))]
+use crate::Region;
+#[cfg(not(feature = "lite"))]
 use crate::{AutoGuiError, ImageProcessingError, MatchMode, DEFAULT_ALIAS, DEFAULT_BCKP_ALIAS};
 #[cfg(not(feature = "lite"))]
 use image::{
@@ -22,7 +25,7 @@ impl crate::RustAutoGui {
     fn prepare_template_picture_bw(
         &mut self,
         mut template: ImageBuffer<Luma<u8>, Vec<u8>>,
-        region: Option<(u32, u32, u32, u32)>,
+        region: Option<Region>,
         match_mode: MatchMode,
         alias: Option<&str>,
         user_threshold: Option<f32>,
@@ -68,17 +71,10 @@ impl crate::RustAutoGui {
             Some(region_tuple) => region_tuple,
             None => {
                 let (screen_width, screen_height) = self.screen.dimension();
-                (0, 0, screen_width as u32, screen_height as u32)
+                Region::new(0, 0, screen_width as u32, screen_height as u32)
             }
         };
-        self.check_if_region_out_of_bound(
-            template_width,
-            template_height,
-            region.0,
-            region.1,
-            region.2,
-            region.3,
-        )?;
+        self.check_if_region_out_of_bound(template_width, template_height, region)?;
 
         // do the rest of preparation calculations depending on the matchmode
         // FFT pads the image, does fourier transformations,
@@ -88,7 +84,9 @@ impl crate::RustAutoGui {
             MatchMode::FFT => {
                 let prepared_data =
                     PreparedData::FFT(template_match::fft_ncc::prepare_template_picture(
-                        &template, region.2, region.3,
+                        &template,
+                        region.width,
+                        region.height,
                     ));
                 let match_mode = Some(MatchMode::FFT);
                 (prepared_data, match_mode)
@@ -139,8 +137,8 @@ impl crate::RustAutoGui {
                 let match_mode = Some(matchmode_val);
                 {
                     let ocl_buffer_data = GpuMemoryPointers::new(
-                        region.2,
-                        region.3,
+                        region.width,
+                        region.height,
                         template_width,
                         template_height,
                         &self.opencl_data.ocl_queue,
@@ -152,8 +150,8 @@ impl crate::RustAutoGui {
                         &ocl_buffer_data,
                         &self.opencl_data.ocl_program,
                         &self.opencl_data.ocl_queue,
-                        region.2,
-                        region.3,
+                        region.width,
+                        region.height,
                         template_width,
                         template_height,
                         prepared_data.template_segments_fast.len() as u32,
@@ -203,8 +201,8 @@ impl crate::RustAutoGui {
                 self.template_data.prepared_data = template_data;
                 self.template_data.match_mode = match_mode_option;
                 // update screen struct
-                self.screen.screen_data.screen_region_width = region.2;
-                self.screen.screen_data.screen_region_height = region.3;
+                self.screen.screen_data.screen_region_width = region.width;
+                self.screen.screen_data.screen_region_height = region.height;
                 // update struct values
                 self.template_width = template_width;
                 self.template_height = template_height;
@@ -224,7 +222,7 @@ impl crate::RustAutoGui {
         &mut self,
         match_mode: &MatchMode,
         template: ImageBuffer<Luma<u8>, Vec<u8>>,
-        region: Option<(u32, u32, u32, u32)>,
+        region: Option<Region>,
         alias: Option<&str>,
     ) -> Result<(), AutoGuiError> {
         {
@@ -278,7 +276,7 @@ impl crate::RustAutoGui {
     pub fn prepare_template_from_file(
         &mut self,
         template_path: &str,
-        region: Option<(u32, u32, u32, u32)>,
+        region: Option<Region>,
         match_mode: MatchMode,
     ) -> Result<(), AutoGuiError> {
         let template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
@@ -289,7 +287,7 @@ impl crate::RustAutoGui {
     pub fn prepare_template_from_file_custom(
         &mut self,
         template_path: &str,
-        region: Option<(u32, u32, u32, u32)>,
+        region: Option<Region>,
         match_mode: MatchMode,
         threshold: f32,
     ) -> Result<(), AutoGuiError> {
@@ -301,7 +299,7 @@ impl crate::RustAutoGui {
     pub fn prepare_template_from_imagebuffer<P, T>(
         &mut self,
         image: ImageBuffer<P, Vec<T>>,
-        region: Option<(u32, u32, u32, u32)>,
+        region: Option<Region>,
         match_mode: MatchMode,
     ) -> Result<(), AutoGuiError>
     where
@@ -318,7 +316,7 @@ impl crate::RustAutoGui {
     pub fn prepare_template_from_imagebuffer_custom<P, T>(
         &mut self,
         image: ImageBuffer<P, Vec<T>>,
-        region: Option<(u32, u32, u32, u32)>,
+        region: Option<Region>,
         match_mode: MatchMode,
         threshold: f32,
     ) -> Result<(), AutoGuiError>
@@ -337,7 +335,7 @@ impl crate::RustAutoGui {
     pub fn prepare_template_from_raw_encoded(
         &mut self,
         img_raw: &[u8],
-        region: Option<(u32, u32, u32, u32)>,
+        region: Option<Region>,
         match_mode: MatchMode,
     ) -> Result<(), AutoGuiError> {
         let image = image::load_from_memory(img_raw)?;
@@ -349,7 +347,7 @@ impl crate::RustAutoGui {
     pub fn prepare_template_from_raw_encoded_custom(
         &mut self,
         img_raw: &[u8],
-        region: Option<(u32, u32, u32, u32)>,
+        region: Option<Region>,
         match_mode: MatchMode,
         threshold: f32,
     ) -> Result<(), AutoGuiError> {
@@ -369,7 +367,7 @@ impl crate::RustAutoGui {
     pub fn store_template_from_file(
         &mut self,
         template_path: &str,
-        region: Option<(u32, u32, u32, u32)>,
+        region: Option<Region>,
         match_mode: MatchMode,
         alias: &str,
     ) -> Result<(), AutoGuiError> {
@@ -383,7 +381,7 @@ impl crate::RustAutoGui {
     pub fn store_template_from_file_custom(
         &mut self,
         template_path: &str,
-        region: Option<(u32, u32, u32, u32)>,
+        region: Option<Region>,
         match_mode: MatchMode,
         alias: &str,
         threshold: f32,
@@ -397,7 +395,7 @@ impl crate::RustAutoGui {
     pub fn store_template_from_imagebuffer<P, T>(
         &mut self,
         image: ImageBuffer<P, Vec<T>>,
-        region: Option<(u32, u32, u32, u32)>,
+        region: Option<Region>,
         match_mode: MatchMode,
         alias: &str,
     ) -> Result<(), AutoGuiError>
@@ -416,7 +414,7 @@ impl crate::RustAutoGui {
     pub fn store_template_from_imagebuffer_custom<P, T>(
         &mut self,
         image: ImageBuffer<P, Vec<T>>,
-        region: Option<(u32, u32, u32, u32)>,
+        region: Option<Region>,
         match_mode: MatchMode,
         alias: &str,
         threshold: f32,
@@ -435,7 +433,7 @@ impl crate::RustAutoGui {
     pub fn store_template_from_raw_encoded(
         &mut self,
         img_raw: &[u8],
-        region: Option<(u32, u32, u32, u32)>,
+        region: Option<Region>,
         match_mode: MatchMode,
         alias: &str,
     ) -> Result<(), AutoGuiError> {
@@ -448,7 +446,7 @@ impl crate::RustAutoGui {
     pub fn store_template_from_raw_encoded_custom(
         &mut self,
         img_raw: &[u8],
-        region: Option<(u32, u32, u32, u32)>,
+        region: Option<Region>,
         match_mode: MatchMode,
         alias: &str,
         threshold: f32,
@@ -470,7 +468,7 @@ impl crate::RustAutoGui {
     pub fn load_and_prepare_template(
         &mut self,
         template_path: &str,
-        region: Option<(u32, u32, u32, u32)>,
+        region: Option<Region>,
         match_mode: MatchMode,
     ) -> Result<(), AutoGuiError> {
         let template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;

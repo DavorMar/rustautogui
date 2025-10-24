@@ -138,7 +138,7 @@ impl Keyboard {
         &self,
         key_1: &str,
         key_2: &str,
-        key_3: Option<String>,
+        key_3: Option<&str>,
     ) -> Result<(), AutoGuiError> {
         let (value_1, _) = get_keymap_key(self, key_1)?;
         let (value_2, _) = get_keymap_key(self, key_2)?;
@@ -147,7 +147,7 @@ impl Keyboard {
         let value_3 = match key_3 {
             Some(value) => {
                 third_key = true;
-                let (value_, _) = get_keymap_key(self, &value)?;
+                let (value_, _) = get_keymap_key(self, value)?;
                 value_
             }
             None => &0,

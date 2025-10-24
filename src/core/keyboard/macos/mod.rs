@@ -97,7 +97,7 @@ impl Keyboard {
         &self,
         key_1: &str,
         key_2: &str,
-        key_3: Option<String>,
+        key_3: Option<&str>,
     ) -> Result<(), AutoGuiError> {
         let value1 = self
             .keymap
@@ -120,15 +120,13 @@ impl Keyboard {
         let value3 = match key_3 {
             Some(value) => {
                 third_key = true;
-                let value3 = self
-                    .keymap
-                    .get(&value)
+                self.keymap
+                    .get(value)
                     .ok_or(AutoGuiError::UnSupportedKey(format!(
                         "{} key is not supported",
                         value
                     )))?
-                    .0;
-                value3
+                    .0
             }
             None => 0,
         };

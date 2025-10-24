@@ -17,8 +17,8 @@ impl Mouse {
     pub fn new() -> Self {
         Self {}
     }
-    /// moves mouse to x, y pixel coordinate on screen
 
+    /// moves mouse to x, y pixel coordinate on screen
     pub fn move_mouse_to_pos(x: i32, y: i32, moving_time: f32) -> Result<(), AutoGuiError> {
         if moving_time <= 0.0 {
             Mouse::move_mouse(x, y)
@@ -95,9 +95,7 @@ impl Mouse {
             .map_err(|_| AutoGuiError::OSFailure("Failed to create drag CGEvent".to_string()))?;
             drag_event.post(CGEventTapLocation::HID);
 
-            sleep(Duration::from_millis(
-                (moving_time * 1000.0 / steps as f32) as u64,
-            ));
+            sleep(Duration::from_millis((moving_time * 1000.0 / steps) as u64));
         }
 
         //click up

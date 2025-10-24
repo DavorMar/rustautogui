@@ -23,8 +23,6 @@ impl crate::RustAutoGui {
         input2: &str,
         input3: Option<&str>,
     ) -> Result<(), AutoGuiError> {
-        let input3 = input3.map(String::from);
-
         self.keyboard.send_multi_key(input1, input2, input3)
     }
 

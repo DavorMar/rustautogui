@@ -16,12 +16,16 @@ pub use macos::Mouse;
 #[cfg(target_os = "linux")]
 pub use linux::Mouse;
 
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MouseClick {
     LEFT,
     RIGHT,
     MIDDLE,
 }
 
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MouseScroll {
     UP,
     DOWN,
