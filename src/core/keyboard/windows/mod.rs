@@ -1,11 +1,9 @@
 use crate::core::keyboard::get_keymap_key;
 use crate::errors::AutoGuiError;
 use std::{collections::HashMap, mem::size_of, thread::sleep, time::Duration};
-use winapi::um::wingdi::SRCAND;
-use winapi::um::winuser::{MapVirtualKeyW, MAPVK_VK_TO_VSC};
-use winapi::um::winuser::{
-    SendInput, INPUT, INPUT_KEYBOARD, KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, VK_CONTROL, VK_MENU,
-    VK_SHIFT,
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    MapVirtualKeyW, SendInput, INPUT, INPUT_KEYBOARD, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP,
+    KEYEVENTF_SCANCODE, MAPVK_VK_TO_VSC, VIRTUAL_KEY, VK_CONTROL, VK_MENU, VK_SHIFT,
 };
 
 /// main struct for interacting with keyboard. Keymap is generated upon intialization.
@@ -22,20 +20,17 @@ impl Keyboard {
 
     unsafe fn press_key(scan_code: &u16) {
         let mut input: INPUT = std::mem::zeroed();
-        input.type_ = INPUT_KEYBOARD;
+        input.r#type = INPUT_KEYBOARD;
         {
             let scan_code = *scan_code;
-            let ki = input.u.ki_mut();
-            if scan_code == VK_SHIFT as u16
-                || scan_code == VK_CONTROL as u16
-                || scan_code == VK_MENU as u16
-            {
-                ki.wVk = scan_code; // Use virtual key code for Shift, Control, and Alt
+            let ki = &mut input.Anonymous.ki;
+            if scan_code == VK_SHIFT.0 || scan_code == VK_CONTROL.0 || scan_code == VK_MENU.0 {
+                ki.wVk = VIRTUAL_KEY(scan_code); // Use virtual key code for Shift, Control, and Alt
                 ki.wScan = 0;
-                ki.dwFlags = 0; // No KEYEVENTF_SCANCODE flag for virtual key
+                ki.dwFlags = KEYBD_EVENT_FLAGS(0); // No KEYEVENTF_SCANCODE flag for virtual key
             } else {
                 let scan_code = MapVirtualKeyW(scan_code as u32, MAPVK_VK_TO_VSC) as u16;
-                ki.wVk = 0;
+                ki.wVk = VIRTUAL_KEY(0);
                 ki.wScan = scan_code;
                 ki.dwFlags = KEYEVENTF_SCANCODE;
             }
@@ -44,25 +39,22 @@ impl Keyboard {
         }
 
         // Send key press
-        SendInput(1, &mut input, size_of::<INPUT>() as i32);
+        SendInput(&[input], size_of::<INPUT>() as i32);
     }
 
     unsafe fn release_key(scan_code: &u16) {
         let mut input: INPUT = std::mem::zeroed();
-        input.type_ = INPUT_KEYBOARD;
+        input.r#type = INPUT_KEYBOARD;
         {
             let scan_code = *scan_code;
-            let ki = input.u.ki_mut();
-            if scan_code == VK_SHIFT as u16
-                || scan_code == VK_CONTROL as u16
-                || scan_code == VK_MENU as u16
-            {
-                ki.wVk = scan_code; // Use virtual key code for Shift, Control, and Alt
+            let ki = &mut input.Anonymous.ki;
+            if scan_code == VK_SHIFT.0 || scan_code == VK_CONTROL.0 || scan_code == VK_MENU.0 {
+                ki.wVk = VIRTUAL_KEY(scan_code); // Use virtual key code for Shift, Control, and Alt
                 ki.wScan = 0;
                 ki.dwFlags = KEYEVENTF_KEYUP; // No KEYEVENTF_SCANCODE flag for virtual key
             } else {
                 let scan_code = MapVirtualKeyW(scan_code as u32, MAPVK_VK_TO_VSC) as u16;
-                ki.wVk = 0;
+                ki.wVk = VIRTUAL_KEY(0);
                 ki.wScan = scan_code;
                 ki.dwFlags = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP;
             }
@@ -71,7 +63,7 @@ impl Keyboard {
         }
 
         // Release key
-        SendInput(1, &mut input, size_of::<INPUT>() as i32);
+        SendInput(&[input], size_of::<INPUT>() as i32);
     }
 
     pub fn key_down(&self, key: &str) -> Result<(), AutoGuiError> {

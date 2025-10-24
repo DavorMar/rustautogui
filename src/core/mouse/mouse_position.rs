@@ -69,7 +69,7 @@ pub fn print_mouse_position() -> Result<(), AutoGuiError> {
     #[cfg(target_os = "windows")]
     {
         loop {
-            let (x, y) = Mouse::get_mouse_position();
+            let (x, y) = Mouse::get_mouse_position()?;
             println!("{x}, {y}");
             sleep(Duration::from_millis(20));
         }

@@ -6,6 +6,9 @@ use std::{
 #[cfg(feature = "opencl")]
 use ocl;
 
+#[cfg(target_os = "windows")]
+mod windows;
+
 #[derive(Debug)]
 pub enum AutoGuiError {
     OSFailure(String),

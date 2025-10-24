@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [UNRELEASED]
+### Changed
+- Port windows bindings to the "windows" crate. Was previously using the "winapi" crate.
+
 ## [2.5.0] - 2025-04-27
 ### Added 
 - Added **OpenCL** implementation of the algorithm. Now you can run the template matching process of GPU to achieve better performance. Two variants of algorithm included

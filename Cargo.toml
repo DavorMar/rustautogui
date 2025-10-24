@@ -29,7 +29,8 @@ core-graphics = {version = "0.23.2", features = ["highsierra"]}
 
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["winuser", "windef"] }
+windows = { version = ">=0.59, <=0.62.2", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi"] }
+windows-result = ">= 0.4.0"
 
 
 [features]

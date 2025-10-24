@@ -8,7 +8,7 @@ impl crate::RustAutoGui {
         #[cfg(target_os = "linux")]
         return self.mouse.get_mouse_position();
         #[cfg(target_os = "windows")]
-        return Ok(Mouse::get_mouse_position());
+        return Mouse::get_mouse_position();
         #[cfg(target_os = "macos")]
         return Mouse::get_mouse_position();
     }
@@ -24,8 +24,7 @@ impl crate::RustAutoGui {
 
         #[cfg(target_os = "windows")]
         {
-            Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time);
-            Ok(())
+            Mouse::move_mouse_to_pos(x as i32, y as i32, moving_time)
         }
         #[cfg(target_os = "linux")]
         return self
@@ -58,8 +57,7 @@ impl crate::RustAutoGui {
 
         #[cfg(target_os = "windows")]
         {
-            Mouse::move_mouse_to_pos(x, y, moving_time);
-            Ok(())
+            Mouse::move_mouse_to_pos(x, y, moving_time)
         }
         #[cfg(target_os = "linux")]
         return self.mouse.move_mouse_to_pos(x, y, moving_time);
@@ -82,10 +80,7 @@ impl crate::RustAutoGui {
         }
 
         #[cfg(target_os = "windows")]
-        {
-            Mouse::move_mouse_to_pos(x, y, moving_time);
-            Ok(())
-        }
+        return Mouse::move_mouse_to_pos(x, y, moving_time);
         #[cfg(target_os = "linux")]
         return self.mouse.move_mouse_to_pos(x, y, moving_time);
         #[cfg(target_os = "macos")]
@@ -105,9 +100,7 @@ impl crate::RustAutoGui {
         };
         #[cfg(target_os = "windows")]
         {
-            Mouse::drag_mouse(x, y, moving_time);
-
-            Ok(())
+            Mouse::drag_mouse(x, y, moving_time)
         }
         #[cfg(target_os = "macos")]
         {
@@ -148,9 +141,7 @@ impl crate::RustAutoGui {
         }
         #[cfg(target_os = "windows")]
         {
-            Mouse::drag_mouse(x, y, moving_time);
-
-            Ok(())
+            Mouse::drag_mouse(x, y, moving_time)
         }
         #[cfg(target_os = "macos")]
         {
@@ -180,9 +171,7 @@ impl crate::RustAutoGui {
 
         #[cfg(target_os = "windows")]
         {
-            Mouse::drag_mouse(x as i32, y as i32, moving_time);
-
-            Ok(())
+            Mouse::drag_mouse(x as i32, y as i32, moving_time)
         }
         #[cfg(target_os = "macos")]
         {
