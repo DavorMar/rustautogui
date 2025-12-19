@@ -4,33 +4,33 @@ loading images from disk, converting image to black-white or RGB, cutting image
 and converting image to vector.
 */
 use crate::errors::AutoGuiError;
-#[cfg(not(feature = "lite"))]
+
 use image::{
-    error::LimitError, DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, Rgba,
+    error::LimitError, DynamicImage, GrayImage, ImageBuffer, Luma, Pixel, Primitive, Rgb, RgbImage,
+    Rgba, RgbaImage,
 };
-#[cfg(not(feature = "lite"))]
+
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
 
-#[cfg(not(feature = "lite"))]
 /// Loads image from the provided path and converts to black-white format
 /// Returns image in image::ImageBuffer format
-pub fn load_image_bw(location: &str) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
+pub fn load_image_bw(location: &str) -> Result<GrayImage, AutoGuiError> {
     let img = image::ImageReader::open(location)?;
 
     let img = img.decode()?;
 
-    let gray_image: ImageBuffer<Luma<u8>, Vec<u8>> = img.to_luma8();
+    let gray_image: GrayImage = img.to_luma8();
     Ok(gray_image)
 }
-#[cfg(not(feature = "lite"))]
+
 /// Loads image from the provided path and converts to RGBA format
 /// Returns image in image::ImageBuffer format
-pub fn load_image_rgba(location: &str) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
+pub fn load_image_rgba(location: &str) -> Result<RgbaImage, AutoGuiError> {
     let img = image::ImageReader::open(location)?;
     let img = img.decode()?;
     Ok(img.to_rgba8()) // return rgba image
 }
-#[cfg(not(feature = "lite"))]
+
 pub fn check_imagebuffer_color_scheme<P, T>(
     image: &ImageBuffer<P, Vec<T>>,
 ) -> Result<u32, AutoGuiError>
@@ -46,11 +46,11 @@ where
     }
     Ok(buff_len / (img_w * img_h))
 }
-#[cfg(not(feature = "lite"))]
+
 pub fn convert_t_imgbuffer_to_luma<P, T>(
     image: &ImageBuffer<P, Vec<T>>,
     color_scheme: u32,
-) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError>
+) -> Result<GrayImage, AutoGuiError>
 where
     P: Pixel<Subpixel = T> + 'static,
     T: Primitive + ToPrimitive + 'static,
@@ -70,9 +70,9 @@ where
                 })
                 .collect();
 
-            ImageBuffer::<Luma<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?).ok_or(
-                AutoGuiError::ImgError("failed to convert to Luma".to_string()),
-            )
+            GrayImage::from_raw(img_w, img_h, raw_img?).ok_or(AutoGuiError::ImgError(
+                "failed to convert to Luma".to_string(),
+            ))
         }
         3 => {
             // Rgb
@@ -85,7 +85,7 @@ where
                     ))
                 })
                 .collect();
-            let rgb_img = ImageBuffer::<Rgb<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?).ok_or(
+            let rgb_img = RgbImage::from_raw(img_w, img_h, raw_img?).ok_or(
                 AutoGuiError::ImgError("Failed conversion to RGB".to_string()),
             )?;
             Ok(DynamicImage::ImageRgb8(rgb_img).to_luma8())
@@ -101,10 +101,9 @@ where
                     ))
                 })
                 .collect();
-            let rgba_img = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?)
-                .ok_or(AutoGuiError::ImgError(
-                    "Failed conversion to RGBA".to_string(),
-                ))?;
+            let rgba_img = RgbaImage::from_raw(img_w, img_h, raw_img?).ok_or(
+                AutoGuiError::ImgError("Failed conversion to RGBA".to_string()),
+            )?;
             Ok(DynamicImage::ImageRgba8(rgba_img).to_luma8())
         }
         _ => Err(AutoGuiError::ImgError(
@@ -112,31 +111,14 @@ where
         )),
     }
 }
-#[cfg(not(feature = "lite"))]
+
 /// Does conversion from ImageBuffer RGBA to ImageBuffer Black and White(Luma)
-pub fn convert_rgba_to_bw(
-    image: ImageBuffer<Rgba<u8>, Vec<u8>>,
-) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
-    let (img_w, img_h) = image.dimensions();
-    let raw_img: Result<Vec<u8>, AutoGuiError> = image
-        .as_raw()
-        .iter()
-        .map(|x| {
-            x.to_u8().ok_or(AutoGuiError::ImgError(
-                "Pixel conversion to raw failed".to_string(),
-            ))
-        })
-        .collect();
-    let rgba_img = ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(img_w, img_h, raw_img?).ok_or(
-        AutoGuiError::ImgError("Failed to convert to RGBA".to_string()),
-    )?;
-    Ok(DynamicImage::ImageRgba8(rgba_img).to_luma8())
+pub fn convert_rgba_to_bw(image: RgbaImage) -> Result<GrayImage, AutoGuiError> {
+    Ok(DynamicImage::ImageRgba8(image).to_luma8())
 }
-#[cfg(not(feature = "lite"))]
+
 /// Does conversion from ImageBuffer RGBA to ImageBuffer Black and White(Luma)
-pub fn convert_rgba_to_bw_old(
-    image: ImageBuffer<Rgba<u8>, Vec<u8>>,
-) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
+pub fn convert_rgba_to_bw_old(image: RgbaImage) -> Result<GrayImage, AutoGuiError> {
     let mut grayscale_data: Vec<u8> = Vec::with_capacity(image.len());
     let image_width = image.width();
     let image_height = image.height();
@@ -153,7 +135,6 @@ pub fn convert_rgba_to_bw_old(
     ))
 }
 
-#[cfg(not(feature = "lite"))]
 /// Cuts Region of image. Inputs are top left x , y pixel coordinates on image,
 ///     width and height of region and the image being cut.
 ///     Returns image os same datatype
@@ -169,20 +150,9 @@ where
 {
     assert!(x + width <= screen_image.width());
     assert!(y + height <= screen_image.height());
-
-    let mut sub_image: ImageBuffer<T, Vec<u8>> = ImageBuffer::new(width, height);
-
-    // copy pixels from the original image buffer to the sub-image buffer
-    for y_sub in 0..height {
-        for x_sub in 0..width {
-            let pixel = screen_image.get_pixel(x + x_sub, y + y_sub);
-            sub_image.put_pixel(x_sub, y_sub, *pixel);
-        }
-    }
-    sub_image
+    image::imageops::crop_imm(screen_image, x, y, width, height).to_image()
 }
 
-#[cfg(not(feature = "lite"))]
 ///Converts Imagebuffer to Vector format
 pub fn imagebuffer_to_vec<T: Copy + Primitive + 'static>(
     image: &ImageBuffer<Luma<T>, Vec<T>>,
@@ -197,4 +167,21 @@ pub fn imagebuffer_to_vec<T: Copy + Primitive + 'static>(
         }
     }
     vec
+}
+
+
+/// BGRA to RGBA pixel buffer conversion
+///
+/// Will likely benefit from compile time optimizations a lot, especially with SIMD instruction sets enabled.
+/// `RUSTFLAGS="-C target-cpu=x86-64-v3"` is a relatively safe bet, as according to steam hardware survey ~95% of people have it.
+pub fn bgra_to_rgba_inplace(buf: &mut [u8]) {
+    // adapted from: Source: https://users.rust-lang.org/t/the-fastest-way-to-copy-a-buffer-bgra-to-rgba/126651/11
+    let (chunked, _) = buf.as_chunks_mut::<4>();
+
+    for p in chunked {
+        let bgra = u32::from_be_bytes(*p);
+        let argb = bgra.swap_bytes();
+        let rgba = argb.rotate_left(8);
+        *p = rgba.to_be_bytes();
+    }
 }

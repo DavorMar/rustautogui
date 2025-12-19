@@ -6,7 +6,7 @@ pub mod mouse_tests {
 
     #[test]
     fn execute_tests() {
-        let mut gui = rustautogui::RustAutoGui::new(false).unwrap();
+        let gui = rustautogui::RustAutoGui::new(false).unwrap();
         let (s_w, s_h) = gui.get_screen_size();
 
         let center_x = (s_w / 2) as u32;

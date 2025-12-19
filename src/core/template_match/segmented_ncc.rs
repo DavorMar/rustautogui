@@ -12,7 +12,7 @@ use crate::{
     data::{PreparedData, SegmentedData},
     imgtools,
 };
-use image::{ImageBuffer, Luma};
+use image::{GrayImage, ImageBuffer, Luma};
 use rand::prelude::*;
 use rayon::prelude::*;
 use rustfft::num_traits::Pow;
@@ -21,9 +21,9 @@ use std::fs;
 use std::path::Path;
 
 pub fn fast_ncc_template_match(
-    image: &ImageBuffer<Luma<u8>, Vec<u8>>,
+    image: &GrayImage,
     precision: f32,
-    template_data: &SegmentedData,
+    segmented_data: &SegmentedData,
     debug: &bool,
 ) -> Vec<(u32, u32, f32)> {
     /// Process:
@@ -37,28 +37,28 @@ pub fn fast_ncc_template_match(
     let (image_integral, squared_image_integral) = compute_integral_images(&image_vec);
 
     // calculate precision into expected correlation
-    let adjusted_fast_expected_corr: f32 = precision * template_data.expected_corr_fast - 0.0001;
-    let adjusted_slow_expected_corr: f32 = precision * template_data.expected_corr_slow - 0.0001;
+    let adjusted_fast_expected_corr: f32 = precision * segmented_data.expected_corr_fast - 0.0001;
+    let adjusted_slow_expected_corr: f32 = precision * segmented_data.expected_corr_slow - 0.0001;
 
     if *debug {
         let fast_name = "debug/fast.png";
         save_template_segmented_images(
-            &template_data.template_segments_fast,
-            template_data.template_width,
-            template_data.template_height,
+            &segmented_data.template_segments_fast,
+            segmented_data.template_width,
+            segmented_data.template_height,
             fast_name,
         );
         let slow_name = "debug/slow.png";
         save_template_segmented_images(
-            &template_data.template_segments_slow,
-            template_data.template_width,
-            template_data.template_height,
+            &segmented_data.template_segments_slow,
+            segmented_data.template_width,
+            segmented_data.template_height,
             slow_name,
         );
     }
 
-    let coords: Vec<(u32, u32)> = (0..=(image_height - template_data.template_height))
-        .flat_map(|y| (0..=(image_width - template_data.template_width)).map(move |x| (x, y)))
+    let coords: Vec<(u32, u32)> = (0..=(image_height - segmented_data.template_height))
+        .flat_map(|y| (0..=(image_width - segmented_data.template_width)).map(move |x| (x, y)))
         .collect();
     let mut found_points: Vec<(u32, u32, f32)> = coords
         .par_iter()
@@ -66,14 +66,14 @@ pub fn fast_ncc_template_match(
             let corr = fast_correlation_calculation(
                 &image_integral,
                 &squared_image_integral,
-                &template_data.template_segments_fast,
-                &template_data.template_segments_slow,
-                template_data.template_width,
-                template_data.template_height,
-                template_data.segment_sum_squared_deviations_fast,
-                template_data.segment_sum_squared_deviations_slow,
-                template_data.segments_mean_fast,
-                template_data.segments_mean_slow,
+                &segmented_data.template_segments_fast,
+                &segmented_data.template_segments_slow,
+                segmented_data.template_width,
+                segmented_data.template_height,
+                segmented_data.segment_sum_squared_deviations_fast,
+                segmented_data.segment_sum_squared_deviations_slow,
+                segmented_data.segments_mean_fast,
+                segmented_data.segments_mean_slow,
                 x,
                 y,
                 adjusted_fast_expected_corr,
@@ -102,8 +102,7 @@ fn save_template_segmented_images(
     template_height: u32,
     file_name: &str,
 ) {
-    let mut blurred_template: ImageBuffer<Luma<u8>, Vec<u8>> =
-        ImageBuffer::new(template_width, template_height);
+    let mut blurred_template: GrayImage = ImageBuffer::new(template_width, template_height);
     let mut rng = rand::rng();
     let debug_path = Path::new("debug");
     // not returning error , just printing it because debug mode shouldnt cause crashes here
@@ -138,8 +137,7 @@ fn save_template_segmented_images(
         Err(_) => println!("Failed to save image"),
     }
 
-    let mut blurred_template2: ImageBuffer<Luma<u8>, Vec<u8>> =
-        ImageBuffer::new(template_width, template_height);
+    let mut blurred_template2: GrayImage = ImageBuffer::new(template_width, template_height);
 
     for (x, y, segment_width, segment_height, segment_mean) in template_segments {
         for y1 in 0..*segment_height {
@@ -252,7 +250,7 @@ fn fast_correlation_calculation(
 }
 
 pub fn prepare_template_picture(
-    template: &ImageBuffer<Luma<u8>, Vec<u8>>,
+    template: &GrayImage,
     debug: &bool,
     corr_threshold: Option<f32>,
 ) -> PreparedData {
@@ -366,7 +364,7 @@ pub fn prepare_template_picture(
 
 #[allow(unused_assignments)]
 fn create_picture_segments(
-    template: &ImageBuffer<Luma<u8>, Vec<u8>>,
+    template: &GrayImage,
     mean_template_value: f32,
     avg_deviation_of_template: f32,
     template_type: &str,
@@ -509,7 +507,7 @@ fn create_picture_segments(
 
 fn divide_and_conquer(
     picture_segments: &mut Vec<(u32, u32, u32, u32, f32)>,
-    segment: &ImageBuffer<Luma<u8>, Vec<u8>>,
+    segment: &GrayImage,
     x: u32,
     y: u32,
     threshhold: f32,

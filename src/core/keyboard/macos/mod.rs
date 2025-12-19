@@ -8,8 +8,6 @@ use std::time::Duration;
 
 use crate::errors::AutoGuiError;
 
-use super::get_keymap_key;
-
 pub struct Keyboard {
     pub keymap: HashMap<String, (u16, bool)>,
 }
@@ -18,6 +16,16 @@ impl Keyboard {
         let keymap: HashMap<String, (u16, bool)> = Keyboard::create_keymap();
 
         Self { keymap }
+    }
+    pub fn get_keymap_key(&self, key: &str) -> Result<&(u16, bool), AutoGuiError> {
+        let values = self
+            .keymap
+            .get(key)
+            .ok_or(AutoGuiError::UnSupportedKey(format!(
+                "{} key/command is not supported",
+                key
+            )))?;
+        Ok(values)
     }
 
     fn press_key(&self, keycode: CGKeyCode) -> Result<(), AutoGuiError> {
@@ -54,13 +62,13 @@ impl Keyboard {
     }
 
     pub fn key_down(&self, key: &str) -> Result<(), AutoGuiError> {
-        let value = get_keymap_key(self, key)?;
+        let value = self.get_keymap_key(key)?;
 
         self.press_key(value.0)?;
         Ok(())
     }
     pub fn key_up(&self, key: &str) -> Result<(), AutoGuiError> {
-        let value = get_keymap_key(self, key)?;
+        let value = self.get_keymap_key(key)?;
 
         self.release_key(value.0)?;
         Ok(())
@@ -75,7 +83,7 @@ impl Keyboard {
 
     pub fn send_char(&self, key: &char) -> Result<(), AutoGuiError> {
         let char_string = String::from(*key);
-        let value = get_keymap_key(self, &char_string)?;
+        let value = self.get_keymap_key(&char_string)?;
         let shifted = value.1;
         let value = value.0;
         if shifted {
@@ -87,7 +95,7 @@ impl Keyboard {
     }
 
     pub fn send_command(&self, key: &str) -> Result<(), AutoGuiError> {
-        let value = get_keymap_key(self, key)?;
+        let value = self.get_keymap_key(key)?;
 
         self.send_key(value.0)?;
         Ok(())

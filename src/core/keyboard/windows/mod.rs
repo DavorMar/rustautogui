@@ -1,12 +1,11 @@
-use crate::core::keyboard::get_keymap_key;
 use crate::errors::AutoGuiError;
 use std::{collections::HashMap, mem::size_of, thread::sleep, time::Duration};
 use winapi::um::wingdi::SRCAND;
-use winapi::um::winuser::{MapVirtualKeyW, MAPVK_VK_TO_VSC};
 use winapi::um::winuser::{
-    SendInput, INPUT, INPUT_KEYBOARD, KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, VK_CONTROL, VK_MENU,
+    INPUT, INPUT_KEYBOARD, KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, SendInput, VK_CONTROL, VK_MENU,
     VK_SHIFT,
 };
+use winapi::um::winuser::{MAPVK_VK_TO_VSC, MapVirtualKeyW};
 
 /// main struct for interacting with keyboard. Keymap is generated upon intialization.
 #[derive(Debug)]
@@ -18,6 +17,17 @@ impl Keyboard {
     pub fn new() -> Keyboard {
         let keyset = Keyboard::create_keymap();
         Keyboard { keymap: keyset }
+    }
+
+    pub fn get_keymap_key(&self, key: &str) -> Result<&(u16, bool), AutoGuiError> {
+        let values = self
+            .keymap
+            .get(key)
+            .ok_or(AutoGuiError::UnSupportedKey(format!(
+                "{} key/command is not supported",
+                key
+            )))?;
+        Ok(values)
     }
 
     unsafe fn press_key(scan_code: &u16) {
@@ -75,7 +85,7 @@ impl Keyboard {
     }
 
     pub fn key_down(&self, key: &str) -> Result<(), AutoGuiError> {
-        let (value, _) = get_keymap_key(self, key)?;
+        let (value, _) = self.get_keymap_key(key)?;
         unsafe {
             Keyboard::press_key(value);
         }
@@ -83,7 +93,7 @@ impl Keyboard {
     }
 
     pub fn key_up(&self, key: &str) -> Result<(), AutoGuiError> {
-        let (value, _) = get_keymap_key(self, key)?;
+        let (value, _) = self.get_keymap_key(key)?;
         unsafe {
             Keyboard::release_key(value);
         }
@@ -117,7 +127,7 @@ impl Keyboard {
     /// Keyboard::send_shifted_key is executed
     pub fn send_char(&self, key: &char) -> Result<(), AutoGuiError> {
         let char_string = String::from(*key);
-        let (value, shifted) = get_keymap_key(self, &char_string)?;
+        let (value, shifted) = self.get_keymap_key(&char_string)?;
 
         if *shifted {
             Keyboard::send_shifted_key(value);
@@ -129,7 +139,7 @@ impl Keyboard {
 
     /// Function used when sending commands like "return" or "escape"
     pub fn send_command(&self, key: &str) -> Result<(), AutoGuiError> {
-        let (value, _) = get_keymap_key(self, key)?;
+        let (value, _) = self.get_keymap_key(key)?;
         Keyboard::send_key(value);
         Ok(())
     }
@@ -140,14 +150,14 @@ impl Keyboard {
         key_2: &str,
         key_3: Option<String>,
     ) -> Result<(), AutoGuiError> {
-        let (value_1, _) = get_keymap_key(self, key_1)?;
-        let (value_2, _) = get_keymap_key(self, key_2)?;
+        let (value_1, _) = self.get_keymap_key(key_1)?;
+        let (value_2, _) = self.get_keymap_key(key_2)?;
 
         let mut third_key = false;
         let value_3 = match key_3 {
             Some(value) => {
                 third_key = true;
-                let (value_, _) = get_keymap_key(self, &value)?;
+                let (value_, _) = self.get_keymap_key(&value)?;
                 value_
             }
             None => &0,

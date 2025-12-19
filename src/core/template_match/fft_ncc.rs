@@ -6,17 +6,13 @@
 
 use crate::{data::FFTData, imgtools};
 use core::cmp::max;
-use image::{ImageBuffer, Luma};
+use image::{GrayImage, ImageBuffer, Luma};
 use rayon::prelude::*;
 use rustfft::{num_complex::Complex, Fft, FftPlanner};
 
 use super::{compute_integral_images, sum_region};
 
-pub fn fft_ncc(
-    image: &ImageBuffer<Luma<u8>, Vec<u8>>,
-    precision: f32,
-    prepared_data: &FFTData,
-) -> Vec<(u32, u32, f64)> {
+pub fn fft_ncc(image: &GrayImage, precision: f32, prepared_data: &FFTData) -> Vec<(u32, u32, f64)> {
     // retreive all precalculated template data, most importantly template with already fft and conjugation calculated
     // sum squared deviations will be needed for denominator
 
@@ -151,7 +147,7 @@ fn fft_correlation_calculation(
 }
 
 pub fn prepare_template_picture(
-    template: &ImageBuffer<Luma<u8>, Vec<u8>>,
+    template: &GrayImage,
     image_width: u32,
     image_height: u32,
 ) -> FFTData {

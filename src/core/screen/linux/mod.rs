@@ -1,93 +1,52 @@
-#[cfg(not(feature = "lite"))]
-extern crate image;
-extern crate x11;
-#[cfg(not(feature = "lite"))]
-use crate::errors::ImageProcessingError;
-use crate::{errors::AutoGuiError, imgtools};
-use core::error;
-#[cfg(not(feature = "lite"))]
-use image::{GrayImage, ImageBuffer, Luma, Rgba};
-#[cfg(not(feature = "lite"))]
-use rayon::prelude::*;
-use std::ptr;
-use x11::xlib::{
-    XCloseDisplay, XDefaultScreen, XDestroyImage, XDisplayHeight, XDisplayWidth, XGetImage,
-    XOpenDisplay, XRootWindow, ZPixmap, _XDisplay,
-};
+mod wayland;
+mod x11;
+use std::env;
 
 #[cfg(not(feature = "lite"))]
-const ALLPLANES: u64 = 0xFFFFFFFFFFFFFFFF;
+use image::{GrayImage, ImageBuffer, Luma, Rgba, RgbaImage};
+use wayland::WaylandScreen;
+use x11::X11Screen;
 
-#[derive(Debug, Clone)]
-pub struct Screen {
-    pub screen_width: i32,
-    pub screen_height: i32,
-    pub display: *mut _XDisplay,
-    pub root_window: u64,
-    #[cfg(not(feature = "lite"))]
-    pub screen_data: ScreenImgData,
-}
-#[derive(Debug, Clone)]
+use crate::core::CaptureableScreen;
 #[cfg(not(feature = "lite"))]
-pub struct ScreenImgData {
-    pub pixel_data: Vec<u8>,
-    pub screen_region_width: u32,
-    pub screen_region_height: u32,
+use crate::errors::AutoGuiError;
+
+pub enum Screen {
+    Wayland(WaylandScreen),
+    X11(X11Screen),
 }
 
-impl Screen {
-    pub fn new() -> Self {
-        unsafe {
-            // open the display (usually ":0"). This display pointer will be passed
-            // to mouse and keyboard structs aswell
-            let display: *mut _XDisplay = XOpenDisplay(ptr::null());
-            if display.is_null() {
-                panic!("Error grabbing display. Unable to open X display. Possible x11 issue, check if it is activated and that you're not running wayland");
-            }
-
-            // get root window
-            let screen = XDefaultScreen(display);
-            let root = XRootWindow(display, screen);
-
-            let screen_width = XDisplayWidth(display, screen);
-            let screen_height = XDisplayHeight(display, screen);
-            #[cfg(not(feature = "lite"))]
-            let img_data = ScreenImgData {
-                pixel_data: vec![0u8; (screen_width * screen_height * 4) as usize],
-                screen_region_width: 0,
-                screen_region_height: 0,
-            };
-            Screen {
-                screen_width: screen_width,
-                screen_height: screen_height,
-                display: display,
-                root_window: root,
-                #[cfg(not(feature = "lite"))]
-                screen_data: img_data,
-            }
+impl CaptureableScreen for Screen {
+    fn new() -> Result<Self, AutoGuiError>
+    where
+        Self: std::marker::Sized,
+    {
+        let session = env::var("XDG_SESSION_TYPE").map_err(|_| {
+            AutoGuiError::OSFailure(
+                "XDG_SESSION_TYPE is not set, cannot determine wayland vs x11".to_string(),
+            )
+        })?;
+        match session.as_str() {
+            "wayland" => Ok(Screen::Wayland(WaylandScreen::new()?)),
+            "x11" => Ok(Screen::X11(X11Screen::new()?)),
+            unknown => Err(AutoGuiError::OSFailure(format!(
+                "Unknown XDG_SESSION_TYPE={unknown} - should be 'x11' or 'wayland'"
+            ))),
         }
     }
 
     /// returns screen dimensions. All monitors included
-    pub fn dimension(&self) -> (i32, i32) {
-        let dimensions = (self.screen_width, self.screen_height);
-        dimensions
+    fn dimension(&self) -> (i32, i32) {
+        match self {
+            Screen::Wayland(s) => s.dimension(),
+            Screen::X11(s) => s.dimension(),
+        }
     }
 
-    #[cfg(not(feature = "lite"))]
-    #[allow(dead_code)]
-    /// return region dimension which is set up when template is precalculated
-    pub fn region_dimension(&self) -> (u32, u32) {
-        let dimensions = (
-            self.screen_data.screen_region_width,
-            self.screen_data.screen_region_height,
-        );
-        dimensions
-    }
-
-    pub fn destroy(&self) {
-        unsafe {
-            XCloseDisplay(self.display);
+    fn destroy(&mut self) {
+        match self {
+            Screen::Wayland(s) => s.destroy(),
+            Screen::X11(s) => s.destroy(),
         }
     }
 
@@ -95,115 +54,72 @@ impl Screen {
     /// executes convert_bitmap_to_rgba, meaning it converts Vector of values to RGBA and crops the image
     /// as inputted region area. Not used anywhere at the moment
     #[cfg(not(feature = "lite"))]
-    pub fn grab_screen_image(
+    fn grab_screen_image(
         &mut self,
         region: (u32, u32, u32, u32),
-    ) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
-        let (x, y, width, height) = region;
-        self.screen_data.screen_region_width = width;
-        self.screen_data.screen_region_height = height;
-        self.capture_screen()?;
-        let image = self.convert_bitmap_to_rgba()?;
-        let cropped_image: ImageBuffer<Rgba<u8>, Vec<u8>> =
-            imgtools::cut_screen_region(x, y, width, height, &image);
-        Ok(cropped_image)
+    ) -> Result<RgbaImage, AutoGuiError> {
+        match self {
+            Screen::Wayland(s) => s.grab_screen_image(region),
+            Screen::X11(s) => s.grab_screen_image(region),
+        }
     }
 
     /// executes convert_bitmap_to_grayscale, meaning it converts Vector of values to grayscale and crops the image
     /// as inputted region area
     #[cfg(not(feature = "lite"))]
-    pub fn grab_screen_image_grayscale(
+    fn grab_screen_image_grayscale(
         &mut self,
         region: &(u32, u32, u32, u32),
-    ) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
-        let (x, y, width, height) = region;
-        self.screen_data.screen_region_width = *width;
-        self.screen_data.screen_region_height = *height;
-        self.capture_screen()?;
-        let image: ImageBuffer<Luma<u8>, Vec<u8>> = self.convert_bitmap_to_grayscale()?;
-        let cropped_image: ImageBuffer<Luma<u8>, Vec<u8>> =
-            imgtools::cut_screen_region(*x, *y, *width, *height, &image);
-        Ok(cropped_image)
+    ) -> Result<GrayImage, AutoGuiError> {
+        match self {
+            Screen::Wayland(s) => s.grab_screen_image_grayscale(region),
+            Screen::X11(s) => s.grab_screen_image_grayscale(region),
+        }
     }
     #[cfg(not(feature = "lite"))]
     /// captures and saves screenshot of monitors
-    pub fn grab_screenshot(&mut self, image_path: &str) -> Result<(), AutoGuiError> {
-        self.capture_screen()?;
-        let image = self.convert_bitmap_to_rgba()?;
-        Ok(image.save(image_path)?)
+    fn grab_screenshot(&mut self, image_path: &str) -> Result<(), AutoGuiError> {
+        match self {
+            Screen::Wayland(s) => s.grab_screenshot(image_path),
+            Screen::X11(s) => s.grab_screenshot(image_path),
+        }
     }
     #[cfg(not(feature = "lite"))]
     /// first order capture screen function. it captures screen image and stores it as vector in self.pixel_data
     fn capture_screen(&mut self) -> Result<(), AutoGuiError> {
-        unsafe {
-            let ximage = XGetImage(
-                self.display,
-                self.root_window,
-                0,
-                0,
-                self.screen_width as u32,
-                self.screen_height as u32,
-                ALLPLANES,
-                ZPixmap,
-            );
-            if ximage.is_null() {
-                return Err(AutoGuiError::OSFailure("Error grabbing display image. Unable to get X image. Possible x11 error, check if you're running on x11 and not wayland".to_string()));
-            }
-
-            // get the image data
-            let data = (*ximage).data as *mut u8;
-            let data_len =
-                ((*ximage).width * (*ximage).height * ((*ximage).bits_per_pixel / 8)) as usize;
-            let slice = std::slice::from_raw_parts(data, data_len);
-            // create an image buffer from the captured data
-            let mut img = ImageBuffer::<Rgba<u8>, Vec<u8>>::new(
-                (*ximage).width as u32,
-                (*ximage).height as u32,
-            );
-            let (image_width, image_height) = img.dimensions();
-
-            let mut pixel_data: Vec<u8> =
-                Vec::with_capacity((image_width * image_height * 4) as usize);
-            for (x, y, _pixel) in img.enumerate_pixels_mut() {
-                let index = ((y * image_width + x) * 4) as usize;
-                pixel_data.push(slice[index + 2]); // R
-                pixel_data.push(slice[index + 1]); // G
-                pixel_data.push(slice[index]); // B
-                pixel_data.push(255); // A
-            }
-            self.screen_data.pixel_data = pixel_data;
-            XDestroyImage(ximage);
+        match self {
+            Screen::Wayland(s) => s.capture_screen(),
+            Screen::X11(s) => s.capture_screen(),
         }
-        return Ok(());
     }
     #[cfg(not(feature = "lite"))]
     /// convert vector to Luma Imagebuffer
-    fn convert_bitmap_to_grayscale(&self) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
-        let mut grayscale_data =
-            Vec::with_capacity((self.screen_width * self.screen_height) as usize);
-        for chunk in self.screen_data.pixel_data.chunks_exact(4) {
-            let r = chunk[2] as u32;
-            let g = chunk[1] as u32;
-            let b = chunk[0] as u32;
-            // calculate the grayscale value using the luminance formula
-            let gray_value = ((r * 30 + g * 59 + b * 11) / 100) as u8;
-            grayscale_data.push(gray_value);
+    fn convert_bitmap_to_grayscale(&self) -> Result<GrayImage, AutoGuiError> {
+        match self {
+            Screen::Wayland(s) => s.convert_bitmap_to_grayscale(),
+            Screen::X11(s) => s.convert_bitmap_to_grayscale(),
         }
-        GrayImage::from_raw(
-            self.screen_width as u32,
-            self.screen_height as u32,
-            grayscale_data,
-        )
-        .ok_or(ImageProcessingError::new("Failed conversion to grayscale").into())
     }
     #[cfg(not(feature = "lite"))]
     /// convert vector to RGBA ImageBuffer
-    fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
-        ImageBuffer::from_raw(
-            self.screen_width as u32,
-            self.screen_height as u32,
-            self.screen_data.pixel_data.clone(),
-        )
-        .ok_or(ImageProcessingError::new("Failed conversion to RGBa").into())
+    fn convert_bitmap_to_rgba(&self) -> Result<RgbaImage, AutoGuiError> {
+        match self {
+            Screen::Wayland(s) => s.convert_bitmap_to_rgba(),
+            Screen::X11(s) => s.convert_bitmap_to_rgba(),
+        }
+    }
+
+    fn create_keyboard(&mut self) -> crate::core::keyboard::Keyboard {
+        match self {
+            Screen::Wayland(s) => s.create_keyboard(),
+            Screen::X11(s) => s.create_keyboard(),
+        }
+    }
+
+    fn create_mouse(&mut self) -> crate::core::mouse::Mouse {
+        match self {
+            Screen::Wayland(s) => s.create_mouse(),
+            Screen::X11(s) => s.create_mouse(),
+        }
     }
 }

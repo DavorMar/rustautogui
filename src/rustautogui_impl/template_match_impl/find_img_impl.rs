@@ -1,41 +1,39 @@
 #![allow(clippy::type_complexity)]
+use crate::core::CaptureableScreen;
 
-#[cfg(not(feature = "lite"))]
 use crate::core::template_match;
-#[cfg(not(feature = "lite"))]
 use crate::data::*;
 #[cfg(feature = "opencl")]
 use crate::template_match::open_cl::OclVersion;
-#[cfg(not(feature = "lite"))]
 use crate::{AutoGuiError, ImageProcessingError, MatchMode};
-#[cfg(not(feature = "lite"))]
 use crate::{DEFAULT_ALIAS, DEFAULT_BCKP_ALIAS};
-#[cfg(not(feature = "lite"))]
+use image::GrayImage;
 use image::{ImageBuffer, Luma};
-#[cfg(not(feature = "lite"))]
 pub use std::{collections::HashMap, env, fmt, fs, path::Path, str::FromStr};
-#[cfg(not(feature = "lite"))]
+
 impl crate::RustAutoGui {
     /// Searches for prepared template on screen.
     /// On windows only main monitor search is supported, while on linux, all monitors work.
     /// more details in README
-    #[cfg(not(feature = "lite"))]
     #[allow(unused_variables)]
     pub fn find_image_on_screen(
         &mut self,
         precision: f32,
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
+        let template = self.get_current_template()?;
         /// searches for image on screen and returns found locations in vector format
-        let image: ImageBuffer<Luma<u8>, Vec<u8>> = self
+        let image: GrayImage = self
             .screen
-            .grab_screen_image_grayscale(&self.template_data.region)?;
+            .grab_screen_image_grayscale(&template.borrow().region)?;
 
         if self.debug {
             let debug_path = Path::new("debug");
             if !debug_path.exists() {
                 match fs::create_dir_all(debug_path) {
                     Ok(_) => {
-                        println!("Created a debug folder in your root for saving segmented template images");
+                        println!(
+                            "Created a debug folder in your root for saving segmented template images"
+                        );
                         match image.save("debug/screen_capture.png") {
                             Ok(_) => (),
                             Err(x) => println!("{}", x),
@@ -62,9 +60,9 @@ impl crate::RustAutoGui {
 
         let locations_ajusted: Vec<(u32, u32, f32)> = locations
             .iter()
-            .map(|(mut x, mut y, corr)| {
-                x = x + self.template_data.region.0 + (self.template_width / 2);
-                y = y + self.template_data.region.1 + (self.template_height / 2);
+            .map(|&(mut x, mut y, ref corr)| {
+                x = x + template.borrow().region.0 + (template.borrow().width / 2);
+                y = y + template.borrow().region.1 + (template.borrow().height / 2);
                 (x, y, *corr)
             })
             .collect();
@@ -76,18 +74,18 @@ impl crate::RustAutoGui {
     // and if not found , then second for normal sized template
     // since the function recursively calls find_stored_image_on_screen -> run_macos_xcorr_with_backup
     // covers are made to not run it for backup aswell
-    #[cfg(not(feature = "lite"))]
+
     #[cfg(target_os = "macos")]
     fn run_macos_xcorr_with_backup(
         &mut self,
-        image: ImageBuffer<Luma<u8>, Vec<u8>>,
+        image: GrayImage,
         precision: f32,
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         let first_match = self.run_x_corr(image, precision);
         // if retina and if this is not already a recursively ran backup
         if ((self.screen.screen_data.scaling_factor_x > 1.0)
             | (self.screen.screen_data.scaling_factor_y > 1.0))
-            & (!self.template_data.alias_used.contains(DEFAULT_BCKP_ALIAS))
+            & (!self.current_template.contains(DEFAULT_BCKP_ALIAS))
         {
             match first_match? {
                 Some(result) => return Ok(Some(result)),
@@ -95,8 +93,8 @@ impl crate::RustAutoGui {
                     let mut bckp_alias = String::new();
 
                     // if its not a single image search, create a alias_backup hash
-                    if self.template_data.alias_used != DEFAULT_ALIAS.to_string() {
-                        bckp_alias.push_str(self.template_data.alias_used.as_str());
+                    if self.current_template != DEFAULT_ALIAS.to_string() {
+                        bckp_alias.push_str(self.current_template.as_str());
                         bckp_alias.push('_');
                     }
                     bckp_alias.push_str(DEFAULT_BCKP_ALIAS);
@@ -107,7 +105,7 @@ impl crate::RustAutoGui {
         }
         first_match
     }
-    #[cfg(not(feature = "lite"))]
+
     /// loops until image is found and returns found values, or until it times out
     pub fn loop_find_image_on_screen(
         &mut self,
@@ -134,61 +132,24 @@ impl crate::RustAutoGui {
             }
         }
     }
-    #[cfg(not(feature = "lite"))]
+
     /// find image stored under provided alias
     pub fn find_stored_image_on_screen(
         &mut self,
         precision: f32,
-        alias: &str,
+        alias: impl ToString,
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
-        let (prepared_data, region, match_mode) = self
-            .template_data
-            .prepared_data_stored
-            .get(alias)
-            .ok_or(AutoGuiError::AliasError(
-                "No template stored with selected alias".to_string(),
-            ))?;
-        // save to reset after finished
-        let backup = BackupData {
-            starting_data: self.template_data.prepared_data.clone(),
-            starting_region: self.template_data.region,
-            starting_match_mode: self.template_data.match_mode.clone(),
-            starting_template_height: self.template_height,
-            starting_template_width: self.template_width,
-            starting_alias_used: self.template_data.alias_used.clone(),
-        };
-
-        self.template_data.alias_used = alias.into();
-        self.template_data.prepared_data = prepared_data.clone();
-        self.screen.screen_data.screen_region_width = region.2;
-        self.screen.screen_data.screen_region_height = region.3;
-        self.template_data.region = *region;
-        self.template_data.match_mode = Some(match_mode.clone());
-        match prepared_data {
-            PreparedData::FFT(data) => {
-                self.template_width = data.template_width;
-                self.template_height = data.template_height;
-            }
-            PreparedData::Segmented(data) => {
-                self.template_width = data.template_width;
-                self.template_height = data.template_height;
-            }
-            PreparedData::None => Err(ImageProcessingError::new("No prepared data loaded"))?,
-        };
+        self.current_template = alias.to_string();
         let points = self.find_image_on_screen(precision)?;
-        // reset to starting info
-        backup.update_rustautogui(self);
-
         Ok(points)
     }
 
-    #[cfg(not(feature = "lite"))]
     /// loops until stored image is found and returns found values, or until it times out
     pub fn loop_find_stored_image_on_screen(
         &mut self,
         precision: f32,
         timeout: u64,
-        alias: &str,
+        alias: impl ToString,
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         if (timeout == 0) & (!self.suppress_warnings) {
             eprintln!(
@@ -196,75 +157,40 @@ impl crate::RustAutoGui {
             )
         }
         let timeout_start = std::time::Instant::now();
+        self.current_template = alias.to_string();
         loop {
             if (timeout_start.elapsed().as_secs() > timeout) & (timeout > 0) {
                 Err(ImageProcessingError::new(
                     "loop find image timed out. Could not find image",
                 ))?;
             }
-            let result = self.find_stored_image_on_screen(precision, alias)?;
+            let result = self.find_image_on_screen(precision)?;
             match result {
                 Some(r) => return Ok(Some(r)),
                 None => continue,
             }
         }
     }
-    #[cfg(not(feature = "lite"))]
+
     /// searches for image stored under provided alias and moves mouse to position
     pub fn find_stored_image_on_screen_and_move_mouse(
         &mut self,
         precision: f32,
         moving_time: f32,
-        alias: &str,
+        alias: impl ToString,
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
-        let (prepared_data, region, match_mode) = self
-            .template_data
-            .prepared_data_stored
-            .get(alias)
-            .ok_or(AutoGuiError::AliasError(
-                "No template stored with selected alias".to_string(),
-            ))?;
-        // save to reset after finished
-        let backup = BackupData {
-            starting_data: self.template_data.prepared_data.clone(),
-            starting_region: self.template_data.region,
-            starting_match_mode: self.template_data.match_mode.clone(),
-            starting_template_height: self.template_height,
-            starting_template_width: self.template_width,
-            starting_alias_used: self.template_data.alias_used.clone(),
-        };
-        self.template_data.alias_used = alias.into();
-        self.template_data.prepared_data = prepared_data.clone();
-        self.template_data.region = *region;
-        self.screen.screen_data.screen_region_width = region.2;
-        self.screen.screen_data.screen_region_height = region.3;
-        self.template_data.match_mode = Some(match_mode.clone());
-        match prepared_data {
-            PreparedData::FFT(data) => {
-                self.template_width = data.template_width;
-                self.template_height = data.template_height;
-            }
-            PreparedData::Segmented(data) => {
-                self.template_width = data.template_width;
-                self.template_height = data.template_height;
-            }
-            PreparedData::None => Err(ImageProcessingError::new("No prepared data loaded"))?,
-        };
-        let found_points = self.find_image_on_screen_and_move_mouse(precision, moving_time);
+        self.current_template = alias.to_string();
 
-        // reset to starting info
-        backup.update_rustautogui(self);
-
-        found_points
+        self.find_image_on_screen_and_move_mouse(precision, moving_time)
     }
-    #[cfg(not(feature = "lite"))]
+
     /// loops until stored image is found and moves mouse
     pub fn loop_find_stored_image_on_screen_and_move_mouse(
         &mut self,
         precision: f32,
         moving_time: f32,
         timeout: u64,
-        alias: &str,
+        alias: impl ToString,
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
         if (timeout == 0) & (!self.suppress_warnings) {
             eprintln!(
@@ -272,21 +198,21 @@ impl crate::RustAutoGui {
             )
         }
         let timeout_start = std::time::Instant::now();
+        self.current_template = alias.to_string();
         loop {
             if (timeout_start.elapsed().as_secs() > timeout) & (timeout > 0) {
                 Err(ImageProcessingError::new(
                     "loop find image timed out. Could not find image",
                 ))?;
             }
-            let result =
-                self.find_stored_image_on_screen_and_move_mouse(precision, moving_time, alias)?;
+            let result = self.find_image_on_screen_and_move_mouse(precision, moving_time)?;
             match result {
                 Some(r) => return Ok(Some(r)),
                 None => continue,
             }
         }
     }
-    #[cfg(not(feature = "lite"))]
+
     /// executes find_image_on_screen and moves mouse to the middle of the image.
     pub fn find_image_on_screen_and_move_mouse(
         &mut self,
@@ -308,7 +234,7 @@ impl crate::RustAutoGui {
 
         Ok(Some(locations))
     }
-    #[cfg(not(feature = "lite"))]
+
     /// loops until image is found and returns found values, or until it times out
     pub fn loop_find_image_on_screen_and_move_mouse(
         &mut self,
@@ -336,19 +262,20 @@ impl crate::RustAutoGui {
         }
     }
 
-    #[cfg(not(feature = "lite"))]
     fn run_x_corr(
         &mut self,
-        image: ImageBuffer<Luma<u8>, Vec<u8>>,
+        image: GrayImage,
         precision: f32,
     ) -> Result<Option<Vec<(u32, u32, f32)>>, AutoGuiError> {
-        let match_mode = self.template_data.match_mode.clone().ok_or(ImageProcessingError::new("No template chosen and no template data prepared. Please run load_and_prepare_template before searching image on screen"))?;
+        let template = self.get_current_template()?;
+        let template = template.borrow();
+        let match_mode = template.match_mode.clone().ok_or(ImageProcessingError::new("No template chosen and no template data prepared. Please run load_and_prepare_template before searching image on screen"))?;
         let found_locations: Vec<(u32, u32, f32)> = match match_mode {
             MatchMode::FFT => {
                 if self.debug {
                     println!("Running FFT mode");
                 }
-                let data = match &self.template_data.prepared_data {
+                let data = match &template.prepared_data {
                     PreparedData::FFT(data) => data,
                     _ => Err(ImageProcessingError::new(
                         "error in prepared data type. Matchmode does not match prepare data type",
@@ -365,7 +292,7 @@ impl crate::RustAutoGui {
                 if self.debug {
                     println!("Running Segmented mode");
                 }
-                let data = match &self.template_data.prepared_data {
+                let data = match &template.prepared_data {
                     PreparedData::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(
                         "error in prepared data type. Matchmode does not match prepare data type",
@@ -380,7 +307,7 @@ impl crate::RustAutoGui {
             }
             #[cfg(feature = "opencl")]
             MatchMode::SegmentedOcl => {
-                let data = match &self.template_data.prepared_data {
+                let data = match &template.prepared_data {
                     PreparedData::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(
                         "error in prepared data type. Matchmode does not match prepare data type",
@@ -389,13 +316,13 @@ impl crate::RustAutoGui {
                 let gpu_memory_pointers = self
                     .opencl_data
                     .ocl_buffer_storage
-                    .get(&self.template_data.alias_used)
+                    .get(&self.current_template)
                     .ok_or(ImageProcessingError::new("Error , no OCL data prepared"))?;
                 template_match::open_cl::gui_opencl_ncc_template_match(
                     &self.opencl_data.ocl_queue,
                     &self.opencl_data.ocl_program,
                     self.opencl_data.ocl_workgroup_size,
-                    &self.opencl_data.ocl_kernel_storage[&self.template_data.alias_used],
+                    &self.opencl_data.ocl_kernel_storage[&self.current_template],
                     gpu_memory_pointers,
                     precision,
                     &image,
@@ -405,7 +332,7 @@ impl crate::RustAutoGui {
             }
             #[cfg(feature = "opencl")]
             MatchMode::SegmentedOclV2 => {
-                let data = match &self.template_data.prepared_data {
+                let data = match &template.prepared_data {
                     PreparedData::Segmented(data) => data,
                     _ => Err(ImageProcessingError::new(
                         "error in prepared data type. Matchmode does not match prepare data type",
@@ -414,13 +341,13 @@ impl crate::RustAutoGui {
                 let gpu_memory_pointers = self
                     .opencl_data
                     .ocl_buffer_storage
-                    .get(&self.template_data.alias_used)
+                    .get(&self.current_template)
                     .ok_or(ImageProcessingError::new("Error , no OCL data prepared"))?;
                 template_match::open_cl::gui_opencl_ncc_template_match(
                     &self.opencl_data.ocl_queue,
                     &self.opencl_data.ocl_program,
                     self.opencl_data.ocl_workgroup_size,
-                    &self.opencl_data.ocl_kernel_storage[&self.template_data.alias_used],
+                    &self.opencl_data.ocl_kernel_storage[&self.current_template],
                     gpu_memory_pointers,
                     precision,
                     &image,
@@ -431,10 +358,8 @@ impl crate::RustAutoGui {
         };
         if !found_locations.is_empty() {
             if self.debug {
-                let x =
-                    found_locations[0].0 + (self.template_width / 2) + self.template_data.region.0;
-                let y =
-                    found_locations[0].1 + (self.template_height / 2) + self.template_data.region.1;
+                let x = found_locations[0].0 + (template.width / 2) + template.region.0;
+                let y = found_locations[0].1 + (template.height / 2) + template.region.1;
                 let corr = found_locations[0].2;
                 let corrected_found_location = (x, y, corr);
 

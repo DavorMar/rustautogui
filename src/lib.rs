@@ -1,4 +1,4 @@
-#![allow(unused_doc_comments, unused_imports)]
+#![allow(unused_doc_comments, unused_imports, clippy::too_many_arguments)]
 #![doc = include_str!("../README.md")]
 
 #[cfg(all(feature = "lite", feature = "opencl"))]
@@ -7,7 +7,7 @@ compile_error!("Features `lite` and `opencl` cannot be enabled at the same time.
 // Regular private modules
 #[cfg(not(any(test, feature = "dev")))]
 mod core;
-#[cfg(not(any(test, feature = "dev")))]
+#[cfg(not(any(test, feature = "dev", feature = "lite")))]
 mod data;
 
 // Public modules during testing
@@ -18,20 +18,25 @@ pub mod core;
 pub mod data;
 
 pub mod errors;
+#[cfg(not(feature = "lite"))]
 pub mod imgtools;
 mod rustautogui_impl;
 
 #[cfg(not(feature = "lite"))]
 use data::*;
 
+#[cfg(target_os = "linux")]
+use crate::core::CaptureableScreen;
 use crate::errors::*;
+#[cfg(not(feature = "lite"))]
+use std::{cell::RefCell, rc::Rc};
 use std::{collections::HashMap, env};
 
 #[cfg(not(feature = "lite"))]
 use core::template_match;
 use core::{
     keyboard::Keyboard,
-    mouse::{mouse_position, Mouse, MouseScroll},
+    mouse::{Mouse, MouseScroll, mouse_position},
     screen::Screen,
 };
 
@@ -39,10 +44,10 @@ use core::{
 #[cfg(feature = "opencl")]
 use crate::data::{DevicesInfo, OpenClData};
 #[cfg(feature = "opencl")]
-use ocl::{enums, Buffer, Context, Kernel, Program, Queue};
+use ocl::{Buffer, Context, Kernel, Program, Queue, enums};
 
-pub use core::mouse::mouse_position::print_mouse_position;
 pub use core::mouse::MouseClick;
+pub use core::mouse::mouse_position::print_mouse_position;
 
 #[cfg(not(feature = "lite"))]
 const DEFAULT_ALIAS: &str = "default_rsgui_!#123#!";
@@ -80,14 +85,13 @@ impl Clone for MatchMode {
 #[allow(dead_code)]
 pub struct RustAutoGui {
     #[cfg(not(feature = "lite"))]
-    template_data: TemplateMatchingData,
+    template_data: HashMap<String, Rc<RefCell<Template>>>,
+    #[cfg(not(feature = "lite"))]
+    current_template: String,
     debug: bool,
-    template_height: u32,
-    template_width: u32,
     keyboard: Keyboard,
     mouse: Mouse,
     screen: Screen,
-
     suppress_warnings: bool,
 
     #[cfg(feature = "opencl")]
@@ -98,20 +102,9 @@ impl RustAutoGui {
     /// all the other struct fields are initiated as 0 or None
     pub fn new(debug: bool) -> Result<Self, AutoGuiError> {
         // initiation of screen, keyboard and mouse
-        // on windows there is no need to share display pointer accross other structs
-        #[cfg(any(target_os = "windows", target_os = "macos"))]
-        let screen = Screen::new()?;
-        #[cfg(any(target_os = "windows", target_os = "macos"))]
-        let keyboard = Keyboard::new();
-        #[cfg(any(target_os = "windows", target_os = "macos"))]
-        let mouse_struct: Mouse = Mouse::new();
-
-        #[cfg(target_os = "linux")]
-        let screen = Screen::new();
-        #[cfg(target_os = "linux")]
-        let keyboard = Keyboard::new(screen.display);
-        #[cfg(target_os = "linux")]
-        let mouse_struct: Mouse = Mouse::new(screen.display, screen.root_window);
+        let mut screen = Screen::new()?;
+        let keyboard = screen.create_keyboard();
+        let mouse_struct = screen.create_mouse();
 
         // check for env variable to suppress warnings, otherwise set default false value
         let suppress_warnings = env::var("RUSTAUTOGUI_SUPPRESS_WARNINGS")
@@ -122,29 +115,19 @@ impl RustAutoGui {
         #[cfg(feature = "opencl")]
         let opencl_data = Self::setup_opencl(None)?;
 
-        #[cfg(not(feature = "lite"))]
-        let template_match_data = TemplateMatchingData {
-            template: None,
-            prepared_data: PreparedData::None,
-            prepared_data_stored: HashMap::new(),
-            match_mode: None,
-            region: (0, 0, 0, 0),
-            alias_used: DEFAULT_ALIAS.to_string(),
-        };
-
         Ok(Self {
             #[cfg(not(feature = "lite"))]
-            template_data: template_match_data,
+            template_data: HashMap::new(),
+            #[cfg(not(feature = "lite"))]
+            current_template: DEFAULT_ALIAS.to_string(),
             debug,
-            template_width: 0,
-            template_height: 0,
             keyboard,
             mouse: mouse_struct,
             screen,
             suppress_warnings,
 
             #[cfg(feature = "opencl")]
-            opencl_data: opencl_data,
+            opencl_data,
         })
     }
 
@@ -221,13 +204,13 @@ impl RustAutoGui {
                 }
             }
         }
-        let used_device = context.devices()[best_device_index as usize];
+        let used_device = context.devices()[best_device_index];
         let queue = Queue::new(&context, used_device, None)?;
         let program_source = template_match::opencl_kernel::OCL_KERNEL;
         let program = Program::builder().src(program_source).build(&context)?;
 
         let opencl_data = OpenClData {
-            device_list: device_list,
+            device_list,
             ocl_program: program,
             ocl_context: context,
             ocl_queue: queue,
@@ -260,7 +243,7 @@ impl RustAutoGui {
     }
     #[cfg(feature = "opencl")]
     pub fn list_devices(&self) {
-        for (i, item) in (&self.opencl_data.device_list).iter().enumerate() {
+        for (i, item) in self.opencl_data.device_list.iter().enumerate() {
             println!("Device {i}:");
             println!("{}", item.print_device());
             println!("\n");
@@ -271,14 +254,8 @@ impl RustAutoGui {
         let new_opencl_data = Self::setup_opencl(Some(device_index))?;
         self.opencl_data = new_opencl_data;
 
-        self.template_data.template = None;
-        self.template_data.prepared_data = PreparedData::None;
-        self.template_data.prepared_data_stored = HashMap::new();
-        self.template_width = 0;
-        self.template_height = 0;
-        self.template_data.alias_used = DEFAULT_ALIAS.to_string();
-        self.template_data.region = (0, 0, 0, 0);
-        self.template_data.match_mode = None;
+        self.template_data = HashMap::new();
+        self.current_template = DEFAULT_ALIAS.to_string();
 
         Ok(())
     }
@@ -294,8 +271,9 @@ impl RustAutoGui {
         region_width: u32,
         region_height: u32,
     ) -> Result<(), AutoGuiError> {
-        if (region_x + region_width > self.screen.screen_width as u32)
-            | (region_y + region_height > self.screen.screen_height as u32)
+        let (screen_width, screen_height) = self.screen.dimension();
+        if (region_x + region_width > screen_width as u32)
+            | (region_y + region_height > screen_height as u32)
         {
             return Err(AutoGuiError::OutOfBoundsError(
                 "Region size larger than screen size".to_string(),
@@ -304,9 +282,7 @@ impl RustAutoGui {
 
         // this is a redundant check since this case should be covered by the
         // next region check, but leaving it
-        if (template_width > (self.screen.screen_width as u32))
-            | (template_height > (self.screen.screen_height as u32))
-        {
+        if (template_width > (screen_width as u32)) | (template_height > (screen_height as u32)) {
             return Err(AutoGuiError::OutOfBoundsError(
                 "Template size larger than screen size".to_string(),
             ));
@@ -324,6 +300,15 @@ impl RustAutoGui {
             ))?;
         }
         Ok(())
+    }
+
+    fn get_current_template(&self) -> Result<Rc<RefCell<Template>>, AutoGuiError> {
+        self.template_data
+            .get(&self.current_template)
+            .map(Rc::clone)
+            .ok_or(AutoGuiError::AliasError(
+                "No template stored with selected alias".to_string(),
+            ))
     }
 }
 

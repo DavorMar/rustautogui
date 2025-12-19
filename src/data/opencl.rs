@@ -41,7 +41,7 @@ impl KernelStorage {
         let result_height = (image_height - template_height + 1) as usize;
         let output_size = result_width * result_height;
         let kernel_v1 = ocl::Kernel::builder()
-            .program(&program)
+            .program(program)
             .name("segmented_match_integral")
             .queue(queue.clone())
             .global_work_size(output_size)
@@ -51,18 +51,18 @@ impl KernelStorage {
             .arg(&gpu_memory_pointers.segments_slow_buffer)
             .arg(&gpu_memory_pointers.segment_fast_values_buffer)
             .arg(&gpu_memory_pointers.segment_slow_values_buffer)
-            .arg(&(fast_segment_count as i32))
-            .arg(&(slow_segment_count as i32))
-            .arg(&(segments_mean_fast as f32))
-            .arg(&(segments_mean_slow as f32))
-            .arg(&(segment_sum_squared_deviation_fast as f32))
-            .arg(&(segment_sum_squared_deviation_slow as f32))
+            .arg(fast_segment_count as i32)
+            .arg(slow_segment_count as i32)
+            .arg(segments_mean_fast)
+            .arg(segments_mean_slow)
+            .arg(segment_sum_squared_deviation_fast)
+            .arg(segment_sum_squared_deviation_slow)
             .arg(&gpu_memory_pointers.results_buffer)
-            .arg(&(image_width as i32))
-            .arg(&(image_height as i32))
-            .arg(&(template_width as i32))
-            .arg(&(template_height as i32))
-            .arg(&(fast_expected_corr as f32 - 0.01))
+            .arg(image_width as i32)
+            .arg(image_height as i32)
+            .arg(template_width as i32)
+            .arg(template_height as i32)
+            .arg(fast_expected_corr - 0.01)
             .arg(&gpu_memory_pointers.buffer_precision)
             .build()?;
 
@@ -71,7 +71,6 @@ impl KernelStorage {
         let mut segments_processed_by_thread_fast = 1;
 
         let mut pixels_processed_by_workgroup = 1;
-        let max_workgroup_size = max_workgroup_size;
 
         // if we have more segments than workgroup size, then that workgroup only processes
         // that single pixel. Each thread inside workgroup processes certain amount of equally distributed segments
@@ -84,17 +83,16 @@ impl KernelStorage {
             pixels_processed_by_workgroup = max_workgroup_size / fast_segment_count as usize;
             // threads per pixel = fast_segmented_count
         }
-        let global_workgroup_count =
-            (output_size + pixels_processed_by_workgroup - 1) / pixels_processed_by_workgroup;
+        let global_workgroup_count = output_size.div_ceil(pixels_processed_by_workgroup);
         // total amount of threads that need to be spawned
-        let global_work_size = global_workgroup_count as usize * max_workgroup_size;
+        let global_work_size = global_workgroup_count * max_workgroup_size;
 
         // if the workgroup finds a succesfull correlation with fast pass, it will have to calculate it
         // with the slow pass aswell for that same x,y pos. But if we had low fast segment count
         // that workgroup will not be utilized nicely.  Will have to rework this part
 
         let v2_kernel_fast_pass = ocl::Kernel::builder()
-            .program(&program)
+            .program(program)
             .name("v2_segmented_match_integral_fast_pass")
             .queue(queue.clone())
             .global_work_size(global_work_size)
@@ -102,19 +100,19 @@ impl KernelStorage {
             .arg(&gpu_memory_pointers.buffer_image_integral_squared)
             .arg(&gpu_memory_pointers.segments_fast_buffer)
             .arg(&gpu_memory_pointers.segment_fast_values_buffer)
-            .arg(&(fast_segment_count as i32))
-            .arg(&(segments_mean_fast as f32))
-            .arg(&(segment_sum_squared_deviation_fast as f32))
+            .arg(fast_segment_count as i32)
+            .arg(segments_mean_fast)
+            .arg(segment_sum_squared_deviation_fast)
             .arg(&gpu_memory_pointers.buffer_results_fast_v2) ///////////////////////CHANGE THIS TO ONE FROM GPUMEMPOINTERS STRUCT
-            .arg(&(image_width as i32))
-            .arg(&(image_height as i32))
-            .arg(&(template_width as i32))
-            .arg(&(template_height as i32))
-            .arg(&(fast_expected_corr as f32) - 0.01)
-            .arg(&remainder_segments_fast)
-            .arg(&(segments_processed_by_thread_fast as i32))
-            .arg(&(pixels_processed_by_workgroup as i32))
-            .arg(&(max_workgroup_size as i32))
+            .arg(image_width as i32)
+            .arg(image_height as i32)
+            .arg(template_width as i32)
+            .arg(template_height as i32)
+            .arg(fast_expected_corr - 0.01)
+            .arg(remainder_segments_fast)
+            .arg(segments_processed_by_thread_fast as i32)
+            .arg(pixels_processed_by_workgroup as i32)
+            .arg(max_workgroup_size as i32)
             .arg_local::<u64>(pixels_processed_by_workgroup) // sum_template_region_buff
             .arg_local::<u64>(pixels_processed_by_workgroup) // sum_sq_template_region_buff
             .arg_local::<u64>(max_workgroup_size) // thread_segment_sum_buff

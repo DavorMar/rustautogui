@@ -5,13 +5,10 @@ use crate::core::template_match::{
 use crate::imgtools;
 use rayon::prelude::*;
 
-use image::{ImageBuffer, Luma};
+use image::{GrayImage, ImageBuffer, Luma};
 
 #[allow(dead_code)]
-pub fn slow_ncc_template_match(
-    image: &ImageBuffer<Luma<u8>, Vec<u8>>,
-    template: &ImageBuffer<Luma<u8>, Vec<u8>>,
-) -> (u32, u32, f64) {
+pub fn slow_ncc_template_match(image: &GrayImage, template: &GrayImage) -> (u32, u32, f64) {
     let (image_width, image_height) = image.dimensions();
     let (template_width, template_height) = template.dimensions();
     let mut best_match_x = 0;
@@ -84,10 +81,10 @@ pub fn slow_ncc_template_match(
 }
 
 fn calculate_corr_value(
-    image: &ImageBuffer<Luma<u8>, Vec<u8>>,
+    image: &GrayImage,
     image_integral: &[Vec<u64>],
     squared_image_integral: &[Vec<u64>],
-    template: &ImageBuffer<Luma<u8>, Vec<u8>>,
+    template: &GrayImage,
     template_width: u32,
     template_height: u32,
     sum_template: u64,

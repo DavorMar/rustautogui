@@ -1,7 +1,5 @@
 #![cfg(feature = "opencl")]
 
-use rustautogui;
-
 fn main() {
     //initiate gui
     let mut gui = rustautogui::RustAutoGui::new(false).unwrap();

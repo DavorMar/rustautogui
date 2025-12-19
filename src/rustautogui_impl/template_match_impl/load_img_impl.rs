@@ -1,27 +1,30 @@
-#[cfg(not(feature = "lite"))]
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::core::template_match;
-#[cfg(not(feature = "lite"))]
+
+use crate::core::CaptureableScreen;
 use crate::data::*;
-#[cfg(not(feature = "lite"))]
+
 use crate::imgtools;
-#[cfg(not(feature = "lite"))]
+
 use crate::{AutoGuiError, ImageProcessingError, MatchMode, DEFAULT_ALIAS, DEFAULT_BCKP_ALIAS};
-#[cfg(not(feature = "lite"))]
+
+use image::GrayImage;
 use image::{
     imageops::{resize, FilterType::Nearest},
     ImageBuffer, Luma, Pixel, Primitive,
 };
-#[cfg(not(feature = "lite"))]
+
 use rustfft::{num_complex::Complex, num_traits::ToPrimitive};
-#[cfg(not(feature = "lite"))]
+
 impl crate::RustAutoGui {
-    #[cfg(not(feature = "lite"))]
     /// main prepare template picture which takes ImageBuffer Luma u8. all the other variants
     /// of prepare/store funtions call this function
     #[allow(unused_mut)]
     fn prepare_template_picture_bw(
         &mut self,
-        mut template: ImageBuffer<Luma<u8>, Vec<u8>>,
+        mut template: GrayImage,
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
         alias: Option<&str>,
@@ -84,7 +87,7 @@ impl crate::RustAutoGui {
         // FFT pads the image, does fourier transformations,
         // calculates conjugate and inverses transformation on template
         // Segmented creates vector of picture segments with coordinates, dimensions and average pixel value
-        let (template_data, match_mode_option) = match match_mode.clone() {
+        let (template_data, _) = match match_mode.clone() {
             MatchMode::FFT => {
                 let prepared_data =
                     PreparedData::FFT(template_match::fft_ncc::prepare_template_picture(
@@ -191,31 +194,19 @@ impl crate::RustAutoGui {
         };
 
         // Alias Some -> storing the image , we just save it to Hashmap
-        // Alias None -> not storing, then we change struct attributes to fit the single loaded image search
-        match alias {
-            Some(name) => {
-                self.template_data
-                    .prepared_data_stored
-                    .insert(name.into(), (template_data, region, match_mode));
-            }
-            None => {
-                self.template_data.region = region;
-                self.template_data.prepared_data = template_data;
-                self.template_data.match_mode = match_mode_option;
-                // update screen struct
-                self.screen.screen_data.screen_region_width = region.2;
-                self.screen.screen_data.screen_region_height = region.3;
-                // update struct values
-                self.template_width = template_width;
-                self.template_height = template_height;
-                // convert to option and store in struct
-                self.template_data.template = Some(template.clone());
-            }
-        }
+        // Alias None -> store/overwrite as DEFAULT_ALIAS
+        self.template_data.insert(
+            alias.unwrap_or(DEFAULT_ALIAS).to_string(),
+            Rc::new(RefCell::new(Template::new(
+                template_data,
+                region,
+                match_mode,
+                (template_width, template_height),
+            ))),
+        );
         Ok(())
     }
 
-    #[cfg(not(feature = "lite"))]
     // prepares also unscaled variant of image if retina display is on
     // since it is recursively calling again preparation of template with another alias
     // checks are made on alias_name to not run infinitely preparations of backups of backups
@@ -223,7 +214,7 @@ impl crate::RustAutoGui {
     fn prepare_macos_backup(
         &mut self,
         match_mode: &MatchMode,
-        template: ImageBuffer<Luma<u8>, Vec<u8>>,
+        template: GrayImage,
         region: Option<(u32, u32, u32, u32)>,
         alias: Option<&str>,
     ) -> Result<(), AutoGuiError> {
@@ -262,7 +253,7 @@ impl crate::RustAutoGui {
 
         Ok(())
     }
-    #[cfg(not(feature = "lite"))]
+
     #[allow(dead_code)]
     fn check_alias_name(alias: &str) -> Result<(), ImageProcessingError> {
         if (alias.contains(DEFAULT_ALIAS)) | (alias.contains(DEFAULT_BCKP_ALIAS)) {
@@ -273,7 +264,7 @@ impl crate::RustAutoGui {
 
         Ok(())
     }
-    #[cfg(not(feature = "lite"))]
+
     /// Loads template from file on provided path
     pub fn prepare_template_from_file(
         &mut self,
@@ -281,10 +272,10 @@ impl crate::RustAutoGui {
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
     ) -> Result<(), AutoGuiError> {
-        let template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+        let template: GrayImage = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, None, None)
     }
-    #[cfg(not(feature = "lite"))]
+
     /// Loads template from file on provided path
     pub fn prepare_template_from_file_custom(
         &mut self,
@@ -293,10 +284,10 @@ impl crate::RustAutoGui {
         match_mode: MatchMode,
         threshold: f32,
     ) -> Result<(), AutoGuiError> {
-        let template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+        let template: GrayImage = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, None, Some(threshold))
     }
-    #[cfg(not(feature = "lite"))]
+
     /// prepare from imagebuffer, works only on types RGB/RGBA/Luma
     pub fn prepare_template_from_imagebuffer<P, T>(
         &mut self,
@@ -314,7 +305,6 @@ impl crate::RustAutoGui {
         Ok(())
     }
 
-    #[cfg(not(feature = "lite"))]
     pub fn prepare_template_from_imagebuffer_custom<P, T>(
         &mut self,
         image: ImageBuffer<P, Vec<T>>,
@@ -332,7 +322,6 @@ impl crate::RustAutoGui {
         Ok(())
     }
 
-    #[cfg(not(feature = "lite"))]
     /// Only works on encoded images. uses image::load_from_memory() which reads first bytes of image which contain metadata depending on format.
     pub fn prepare_template_from_raw_encoded(
         &mut self,
@@ -344,7 +333,6 @@ impl crate::RustAutoGui {
         self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, None, None)
     }
 
-    #[cfg(not(feature = "lite"))]
     /// Only works on encoded images. uses image::load_from_memory() which reads first bytes of image which contain metadata depending on format.
     pub fn prepare_template_from_raw_encoded_custom(
         &mut self,
@@ -364,7 +352,7 @@ impl crate::RustAutoGui {
     }
 
     ///////////////////////// store single template functions //////////////////////////
-    #[cfg(not(feature = "lite"))]
+
     /// Store template data for multiple image search
     pub fn store_template_from_file(
         &mut self,
@@ -374,11 +362,10 @@ impl crate::RustAutoGui {
         alias: &str,
     ) -> Result<(), AutoGuiError> {
         // RustAutoGui::check_alias_name(&alias)?;
-        let template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+        let template: GrayImage = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, Some(alias), None)
     }
 
-    #[cfg(not(feature = "lite"))]
     /// Store template data for multiple image search
     pub fn store_template_from_file_custom(
         &mut self,
@@ -389,10 +376,10 @@ impl crate::RustAutoGui {
         threshold: f32,
     ) -> Result<(), AutoGuiError> {
         // RustAutoGui::check_alias_name(&alias)?;
-        let template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+        let template: GrayImage = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, Some(alias), Some(threshold))
     }
-    #[cfg(not(feature = "lite"))]
+
     /// Load template from imagebuffer and store prepared template data for multiple image search
     pub fn store_template_from_imagebuffer<P, T>(
         &mut self,
@@ -411,7 +398,6 @@ impl crate::RustAutoGui {
         self.prepare_template_picture_bw(luma_img, region, match_mode, Some(alias), None)
     }
 
-    #[cfg(not(feature = "lite"))]
     /// Load template from imagebuffer and store prepared template data for multiple image search
     pub fn store_template_from_imagebuffer_custom<P, T>(
         &mut self,
@@ -430,7 +416,7 @@ impl crate::RustAutoGui {
         let luma_img = imgtools::convert_t_imgbuffer_to_luma(&image, color_scheme)?;
         self.prepare_template_picture_bw(luma_img, region, match_mode, Some(alias), Some(threshold))
     }
-    #[cfg(not(feature = "lite"))]
+
     /// Load template from encoded raw bytes and store prepared template data for multiple image search
     pub fn store_template_from_raw_encoded(
         &mut self,
@@ -444,7 +430,7 @@ impl crate::RustAutoGui {
         self.prepare_template_picture_bw(image.to_luma8(), region, match_mode, Some(alias), None)?;
         Ok(())
     }
-    #[cfg(not(feature = "lite"))]
+
     pub fn store_template_from_raw_encoded_custom(
         &mut self,
         img_raw: &[u8],
@@ -464,7 +450,7 @@ impl crate::RustAutoGui {
         )?;
         Ok(())
     }
-    #[cfg(not(feature = "lite"))]
+
     /// DEPRECATED
     #[deprecated(since = "2.2.0", note = "Renamed to prepare_template_from_file.")]
     pub fn load_and_prepare_template(
@@ -473,7 +459,7 @@ impl crate::RustAutoGui {
         region: Option<(u32, u32, u32, u32)>,
         match_mode: MatchMode,
     ) -> Result<(), AutoGuiError> {
-        let template: ImageBuffer<Luma<u8>, Vec<u8>> = imgtools::load_image_bw(template_path)?;
+        let template: GrayImage = imgtools::load_image_bw(template_path)?;
         self.prepare_template_picture_bw(template, region, match_mode, None, None)
     }
 }

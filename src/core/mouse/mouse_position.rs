@@ -1,13 +1,13 @@
 #[cfg(target_os = "linux")]
 use super::Mouse;
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+use crate::core::mouse::Mouse;
 use crate::errors::AutoGuiError;
+use std::env;
 #[cfg(target_os = "linux")]
 use std::ptr;
 #[cfg(target_os = "linux")]
 use x11::xlib::*;
-
-#[cfg(any(target_os = "windows", target_os = "macos"))]
-use crate::core::mouse::Mouse;
 
 use std::thread::sleep;
 use std::time::Duration;
@@ -15,8 +15,6 @@ use std::time::Duration;
 /*
 
 small helper function to open a window that shows mouse position
-
-
 
 example :
 fn main() {
@@ -53,17 +51,32 @@ impl Drop for DisplayWrapper {
 pub fn print_mouse_position() -> Result<(), AutoGuiError> {
     #[cfg(target_os = "linux")]
     {
-        let display_wrapper = DisplayWrapper::new();
+        let session = env::var("XDG_SESSION_TYPE").map_err(|_| {
+            AutoGuiError::OSFailure(
+                "XDG_SESSION_TYPE is not set, cannot determine wayland vs x11".to_string(),
+            )
+        })?;
+        match session.as_str() {
+            "wayland" => todo!(),
+            "x11" => {
+                let display_wrapper = DisplayWrapper::new();
 
-        unsafe {
-            let screen = XDefaultScreen(display_wrapper.display);
-            let root = XRootWindow(display_wrapper.display, screen);
-            let mouse = Mouse::new(display_wrapper.display, root);
-            loop {
-                let (x, y) = mouse.get_mouse_position()?;
-                println!("{x}, {y}");
-                sleep(Duration::from_millis(20));
+                unsafe {
+                    use crate::core::mouse::linux::X11Mouse;
+
+                    let screen = XDefaultScreen(display_wrapper.display);
+                    let root = XRootWindow(display_wrapper.display, screen);
+                    let mouse = X11Mouse::new(display_wrapper.display, root);
+                    loop {
+                        let (x, y) = mouse.get_mouse_position()?;
+                        println!("{x}, {y}");
+                        sleep(Duration::from_millis(20));
+                    }
+                }
             }
+            unknown => Err(AutoGuiError::OSFailure(format!(
+                "Unknown XDG_SESSION_TYPE={unknown} - should be 'x11' or 'wayland'"
+            ))),
         }
     }
     #[cfg(target_os = "windows")]

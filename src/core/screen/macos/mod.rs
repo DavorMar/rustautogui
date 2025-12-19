@@ -5,8 +5,8 @@ use crate::{errors::AutoGuiError, imgtools};
 
 #[cfg(not(feature = "lite"))]
 use image::{
-    imageops::{resize, FilterType::Nearest},
     GrayImage, ImageBuffer, Luma, Rgba,
+    imageops::{FilterType::Nearest, resize},
 };
 
 #[derive(Debug, Clone)]
@@ -23,12 +23,13 @@ pub struct ScreenImgData {
     pub pixel_data: Vec<u8>,
     pub scaling_factor_x: f32, // difference between logical and phyisical resolution
     pub scaling_factor_y: f32,
-    pub screen_region_width: u32,
-    pub screen_region_height: u32,
 }
 
-impl Screen {
-    pub fn new() -> Result<Self, AutoGuiError> {
+impl crate::core::Screen for Screen {
+    fn new() -> Result<Self, AutoGuiError>
+    where
+        Self: std::marker::Sized,
+    {
         unsafe {
             let main_display_id = display::CGMainDisplayID();
             let main_display = CGDisplay::new(main_display_id);
@@ -50,8 +51,6 @@ impl Screen {
                 pixel_data: vec![0u8; (screen_width * screen_height * 4) as usize],
                 scaling_factor_x: image.width() as f32 / screen_width as f32,
                 scaling_factor_y: image.height() as f32 / screen_height as f32,
-                screen_region_width: 0,
-                screen_region_height: 0,
             };
             Ok(Self {
                 screen_height,
@@ -64,56 +63,41 @@ impl Screen {
     }
 
     /// returns screen dimensions. All monitors included
-    pub fn dimension(&self) -> (i32, i32) {
+    fn dimension(&self) -> (i32, i32) {
         let dimensions = (self.screen_width, self.screen_height);
         dimensions
     }
-    #[cfg(not(feature = "lite"))]
-    #[allow(dead_code)]
-    /// return region dimension which is set up when template is precalculated
-    pub fn region_dimension(&self) -> (u32, u32) {
-        let dimensions = (
-            self.screen_data.screen_region_width,
-            self.screen_data.screen_region_height,
-        );
-        dimensions
-    }
+
     #[cfg(not(feature = "lite"))]
     #[allow(dead_code)]
     /// executes convert_bitmap_to_rgba, meaning it converts Vector of values to RGBA and crops the image
     /// as inputted region area. Not used anywhere at the moment
-    pub fn grab_screen_image(
+    fn grab_screen_image(
         &mut self,
         region: (u32, u32, u32, u32),
-    ) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
+    ) -> Result<RgbaImage, AutoGuiError> {
         let (x, y, width, height) = region;
-        self.screen_data.screen_region_width = width;
-        self.screen_data.screen_region_height = height;
         self.capture_screen()?;
         let image = self.convert_bitmap_to_rgba()?;
-        let cropped_image: ImageBuffer<Rgba<u8>, Vec<u8>> =
-            imgtools::cut_screen_region(x, y, width, height, &image);
+        let cropped_image: RgbaImage = imgtools::cut_screen_region(x, y, width, height, &image);
         Ok(cropped_image)
     }
     #[cfg(not(feature = "lite"))]
     /// executes convert_bitmap_to_grayscale, meaning it converts Vector of values to grayscale and crops the image
     /// as inputted region area
-    pub fn grab_screen_image_grayscale(
+    fn grab_screen_image_grayscale(
         &mut self,
         region: &(u32, u32, u32, u32),
-    ) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
+    ) -> Result<GrayImage, AutoGuiError> {
         let (x, y, width, height) = region;
-        self.screen_data.screen_region_width = *width;
-        self.screen_data.screen_region_height = *height;
         self.capture_screen()?;
-        let image: ImageBuffer<Luma<u8>, Vec<u8>> = self.convert_bitmap_to_grayscale()?;
-        let cropped_image: ImageBuffer<Luma<u8>, Vec<u8>> =
-            imgtools::cut_screen_region(*x, *y, *width, *height, &image);
+        let image: GrayImage = self.convert_bitmap_to_grayscale()?;
+        let cropped_image: GrayImage = imgtools::cut_screen_region(*x, *y, *width, *height, &image);
         Ok(cropped_image)
     }
     #[cfg(not(feature = "lite"))]
     /// captures and saves screenshot of monitors
-    pub fn grab_screenshot(&mut self, image_path: &str) -> Result<(), AutoGuiError> {
+    fn grab_screenshot(&mut self, image_path: &str) -> Result<(), AutoGuiError> {
         self.capture_screen()?;
         let image = self.convert_bitmap_to_rgba()?;
         Ok(image.save(image_path)?)
@@ -129,25 +113,14 @@ impl Screen {
                 "Failed to capture screen image".to_string(),
             ))?;
 
-        let pixel_data: Vec<u8> = image
-            .data()
-            .bytes()
-            .chunks(4)
-            .flat_map(|chunk| {
-                // reorder color components
-                if let &[b, g, r, a] = chunk {
-                    vec![r, g, b, a]
-                } else {
-                    unreachable!()
-                }
-            })
-            .collect();
+        let mut pixel_data: Vec<u8> = image.data().bytes();
+        imgtools::bgra_to_rgba_inplace(&mut pixel_data);
         self.screen_data.pixel_data = pixel_data;
         Ok(())
     }
     #[cfg(not(feature = "lite"))]
     /// convert vector to Luma Imagebuffer
-    fn convert_bitmap_to_grayscale(&self) -> Result<ImageBuffer<Luma<u8>, Vec<u8>>, AutoGuiError> {
+    fn convert_bitmap_to_grayscale(&self) -> Result<GrayImage, AutoGuiError> {
         let mut grayscale_data =
             Vec::with_capacity((self.screen_width * self.screen_height) as usize);
         for chunk in self.screen_data.pixel_data.chunks_exact(4) {
@@ -176,7 +149,7 @@ impl Screen {
     }
     #[cfg(not(feature = "lite"))]
     /// convert vector to RGBA ImageBuffer
-    fn convert_bitmap_to_rgba(&self) -> Result<ImageBuffer<Rgba<u8>, Vec<u8>>, AutoGuiError> {
+    fn convert_bitmap_to_rgba(&self) -> Result<RgbaImage, AutoGuiError> {
         ImageBuffer::from_raw(
             (self.screen_data.scaling_factor_x * self.screen_width as f32) as u32,
             (self.screen_data.scaling_factor_y * self.screen_height as f32) as u32,
@@ -185,5 +158,13 @@ impl Screen {
         .ok_or(AutoGuiError::ImgError(
             "Could not convert image to rgba".to_string(),
         ))
+    }
+
+    fn create_keyboard(&mut self) -> crate::core::keyboard::Keyboard {
+        crate::core::keyboard::Keyboard::new()
+    }
+
+    fn create_mouse(&mut self) -> crate::core::mouse::Mouse {
+        crate::core::mouse::Mouse::new()
     }
 }

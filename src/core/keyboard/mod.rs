@@ -16,27 +16,3 @@ pub use linux::Keyboard;
 pub mod macos;
 #[cfg(target_os = "macos")]
 pub use macos::Keyboard;
-
-#[cfg(any(target_os = "macos", target_os = "windows"))]
-fn get_keymap_key<'a>(target: &'a Keyboard, key: &str) -> Result<&'a (u16, bool), AutoGuiError> {
-    let values = target
-        .keymap
-        .get(key)
-        .ok_or(AutoGuiError::UnSupportedKey(format!(
-            "{} key/command is not supported",
-            key
-        )))?;
-    Ok(values)
-}
-
-#[cfg(target_os = "linux")]
-fn get_keymap_key<'a>(target: &'a Keyboard, key: &str) -> Result<&'a (String, bool), AutoGuiError> {
-    let values = target
-        .keymap
-        .get(key)
-        .ok_or(AutoGuiError::UnSupportedKey(format!(
-            "{} key/command is not supported",
-            key
-        )))?;
-    Ok(values)
-}

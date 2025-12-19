@@ -94,7 +94,7 @@ pub fn gui_opencl_ncc_v2(
     // }
 
     let v2_kernel_slow_pass = Kernel::builder()
-        .program(&program)
+        .program(program)
         .name("v2_segmented_match_integral_slow_pass")
         .queue(queue.clone())
         .global_work_size(new_global_work_size)
@@ -102,19 +102,19 @@ pub fn gui_opencl_ncc_v2(
         .arg(&gpu_memory_pointers.buffer_image_integral_squared)
         .arg(&gpu_memory_pointers.segments_slow_buffer)
         .arg(&gpu_memory_pointers.segment_slow_values_buffer)
-        .arg(&slow_segment_count)
-        .arg(&(segments_mean_slow as f32))
-        .arg(&(segments_sum_squared_deviation_slow as f32))
+        .arg(slow_segment_count)
+        .arg(segments_mean_slow)
+        .arg(segments_sum_squared_deviation_slow)
         .arg(&gpu_memory_pointers.buffer_results_slow_positions_v2)
         .arg(&gpu_memory_pointers.buffer_results_slow_corrs_v2)
-        .arg(&(image_width as i32))
-        .arg(&(image_height as i32))
-        .arg(&(template_width as i32))
-        .arg(&(template_height as i32))
-        .arg(&(slow_expected_corr as f32))
-        .arg(&remainder_segments_slow)
-        .arg(&segments_processed_by_thread_slow)
-        .arg(&workgroup_size)
+        .arg(image_width as i32)
+        .arg(image_height as i32)
+        .arg(template_width as i32)
+        .arg(template_height as i32)
+        .arg(slow_expected_corr)
+        .arg(remainder_segments_slow)
+        .arg(segments_processed_by_thread_slow)
+        .arg(workgroup_size)
         .arg_local::<u64>(1) // sum_template_region_buff
         .arg_local::<u64>(1) // sum_sq_template_region_buff
         .arg_local::<u64>(workgroup_size as usize) // thread_segment_sum_buff
@@ -164,9 +164,9 @@ pub fn gui_opencl_ncc_v2(
 
         result_vec
             .sort_unstable_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
-        return Ok(result_vec);
+        Ok(result_vec)
     } else {
         let final_results: Vec<(u32, u32, f32)> = Vec::new();
-        return Ok(final_results);
+        Ok(final_results)
     }
 }
