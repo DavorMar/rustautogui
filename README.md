@@ -402,8 +402,8 @@ rustautogui.double_click().unwrap(); // double left click
 rustautogui.middle_click().unwrap(); // double left click
 
 // mouse up and mouse down work only on Windows and Linux
-rustautogui.mouse_down(MouseClick::RIGHT).unwrap(); // args: button, click button down,  MouseClick::{LEFT, RIGHT, MIDDLE}
-rustautogui.mouse_up(MouseClick::RIGHT).unwrap(); // args: button,  click button up MouseClick::{LEFT, RIGHT, MIDDLE}
+rustautogui.click_down(MouseClick::RIGHT).unwrap(); // args: button, click button down,  MouseClick::{LEFT, RIGHT, MIDDLE}
+rustautogui.click_up(MouseClick::RIGHT).unwrap(); // args: button,  click button up MouseClick::{LEFT, RIGHT, MIDDLE}
 
 ```
 ### Mouse Scrolls
